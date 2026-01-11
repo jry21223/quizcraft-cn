@@ -40,28 +40,57 @@ def colorful_print(chapter_name, item_type, item):
     dis_t = LINE_WIDTH - cor_t - wr_t
     print("\033[42m" + ' ' * cor_t + "\033[41m" + ' ' * wr_t + "\033[47m" + ' ' * dis_t + "\033[0m")
     print(f"\033[1;36m{chapter_name}\n\033[32m{item_type}\033[0m")
-    print(item[:item.find("答案：")])
+    
+    # 解析题目、答案和解析
+    if "答案：" in item:
+        answer_idx = item.find("答案：")
+        question_part = item[:answer_idx]
+        rest = item[answer_idx + 3:].strip()
+        
+        # 检查是否有解析
+        if "解析：" in rest:
+            analysis_idx = rest.find("解析：")
+            correct_answer = rest[:analysis_idx].strip()
+            analysis = rest[analysis_idx + 3:].strip()
+        else:
+            correct_answer = rest
+            analysis = ""
+    else:
+        question_part = item
+        correct_answer = ""
+        analysis = ""
+    
+    # 显示题目
+    print(question_part)
     user_input = input().strip()
-    correct_answer = item[item.find("答案：") + 3:].strip()
 
-    # 先尝试把标准答案当作判断题的“对/错”来解析
+    # 先尝试把标准答案当作判断题的"对/错"来解析
     ans_bool = normalize_bool_answer(correct_answer)
 
     if ans_bool is not None and user_input.lower() in ("y", "n"):
-        # y 表示你认为“对”，n 表示你认为“错”
+        # y 表示你认为"对"，n 表示你认为"错"
         is_correct = (user_input.lower() == "y" and ans_bool) or (user_input.lower() == "n" and not ans_bool)
     else:
         # 其他情况：按字符串（大小写不敏感）比较
         is_correct = user_input.lower() == correct_answer.lower()
+    
     if is_correct:
         cor += 1
         dis -= 1
-        input("\033[1;36m正确！\033[0m")
+        result_msg = "\033[1;36m✓ 正确！\033[0m"
     else:
         wr += 1
         dis -= 1
         wrongs[chapter_name][item_type].append(item)
-        input(f"\033[1;31m错误！正确答案{correct_answer}\033[0m")
+        result_msg = f"\033[1;31m✗ 错误！正确答案：{correct_answer}\033[0m"
+    
+    # 显示结果和解析
+    print("\n" + result_msg)
+    if analysis:
+        print(f"\n\033[1;33m📖 解析：\033[0m")
+        print(f"\033[0;37m{analysis}\033[0m")
+    
+    input("\n\033[90m按回车继续...\033[0m")
 
 def mode1():
     global dis, wrongs, total

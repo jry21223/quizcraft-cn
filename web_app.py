@@ -21,6 +21,7 @@ class Question:
     stem: str
     raw_item: str
     answer: str
+    analysis: str = ""  # 新增：题目解析
 
 
 def normalize_bool_answer(ans: str) -> Optional[bool]:
@@ -42,13 +43,24 @@ def build_question_list(contents: Dict) -> List[Question]:
     for chapter_name, chapter_data in contents.items():
         for item_type, items in chapter_data.items():
             for idx, item in enumerate(items):
+                analysis = ""  # 默认无解析
+                
                 if "答案：" in item:
                     split_idx = item.find("答案：")
                     stem = item[:split_idx]
-                    answer = item[split_idx + 3:].strip()
+                    rest = item[split_idx + 3:].strip()
+                    
+                    # 检查是否有解析
+                    if "解析：" in rest:
+                        analysis_idx = rest.find("解析：")
+                        answer = rest[:analysis_idx].strip()
+                        analysis = rest[analysis_idx + 3:].strip()
+                    else:
+                        answer = rest
                 else:
                     stem = item
                     answer = ""
+                    
                 qid = f"{chapter_name}|{item_type}|{idx}"
                 questions.append(
                     Question(
@@ -58,6 +70,7 @@ def build_question_list(contents: Dict) -> List[Question]:
                         stem=stem,
                         raw_item=item,
                         answer=answer,
+                        analysis=analysis,
                     )
                 )
     return questions
@@ -258,6 +271,7 @@ def api_answer():
     return jsonify({
         "correct": is_correct,
         "correct_answer": correct_answer,
+        "analysis": q.analysis,  # 新增：返回题目解析
         "user_stats": {
             "user_id": user_id,
             "name": USER_STATS[user_id]["name"] if user_id else "",

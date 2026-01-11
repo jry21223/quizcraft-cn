@@ -213,6 +213,31 @@
             font-weight: 600;
         }
 
+        /* 解析样式（新增） */
+        .analysis {
+            margin-top: 15px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e8f0fe 100%);
+            border-left: 4px solid #4285f4;
+            border-radius: 8px;
+            line-height: 1.6;
+            color: #333;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .analysis strong {
+            color: #4285f4;
+            display: block;
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+
+        .analysis-content {
+            color: #555;
+            line-height: 1.8;
+            text-align: justify;
+        }
+
         .chips {
             display: inline-flex;
             align-items: center;
@@ -672,6 +697,14 @@
             resultEl.innerHTML = `<span class="correct">✅ 正确！</span>`;
         } else {
             resultEl.innerHTML = `<span class="wrong">❌ 错误！</span> 正确答案：${data.correct_answer}`;
+        }
+
+        // 显示解析（新增）
+        if (data.analysis && data.analysis.trim()) {
+            const analysisDiv = document.createElement('div');
+            analysisDiv.className = 'analysis';
+            analysisDiv.innerHTML = `<strong>📖 解析：</strong><div class="analysis-content">${data.analysis}</div>`;
+            resultEl.appendChild(analysisDiv);
         }
 
         doneIds.push(currentQuestionId);
