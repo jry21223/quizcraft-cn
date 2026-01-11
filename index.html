@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史期末刷题工具 · Web 版</title>
+    <style>
+        /* ========== CSS 变量 ========== */
+        :root {
+            --primary: #1976d2;
+            --primary-light: #e3f2fd;
+            --correct: #2e7d32;
+            --wrong: #c62828;
+            --bg: #f5f5f7;
+            --card-bg: #ffffff;
+            --border: #e0e0e0;
+            --text-main: #222;
+            --text-sub: #666;
+        }
+
+        /* ========== 基础样式 ========== */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: radial-gradient(circle at top left, #e3f2fd 0, #f5f5f7 45%, #ffffff 100%);
+            color: var(--text-main);
+        }
+
+        .page {
+            max-width: 960px;
+            margin: 0 auto;
+        }
+
+        /* ========== 页头样式 ========== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: rgba(25, 118, 210, 0.08);
+            color: var(--primary);
+            margin-left: 8px;
+        }
+
+        /* ========== 卡片样式 ========== */
+        .card {
+            background: var(--card-bg);
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+            padding: 20px 22px 18px;
+        }
+
+        .meta-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: var(--text-sub);
+        }
+
+        .meta-left > div {
+            margin-bottom: 4px;
+        }
+
+        .select {
+            padding: 4px 8px;
+            font-size: 13px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #fafafa;
+            outline: none;
+        }
+
+        /* ========== 题目面板 ========== */
+        .question-panel {
+            border-radius: 10px;
+            background: #fafafa;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            border: 1px solid var(--border);
+            min-height: 80px;
+        }
+
+        #chapter {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        #itemType {
+            font-size: 13px;
+            color: var(--text-sub);
+            margin-bottom: 6px;
+        }
+
+        #stem {
+            margin: 0;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        /* ========== 选项按钮（桌面端默认样式）========== */
+        .options-wrapper {
+            margin-top: 8px;
+        }
+
+        .options-label {
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: var(--text-sub);
+        }
+
+        #optionButtons button {
+            padding: 6px 14px;
+            margin: 4px 6px 4px 0;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            color: #222;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.15s ease-out;
+        }
+
+        #optionButtons button:hover {
+            border-color: var(--primary);
+            background: #e8f1ff;
+            color: #111;
+        }
+
+        #optionButtons button.active {
+            background: var(--primary);
+            color: #ffffff;
+            border-color: var(--primary);
+        }
+
+        /* ========== 操作按钮 ========== */
+        .actions {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+        }
+
+        .actions button {
+            padding: 8px 18px;
+            border-radius: 999px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s ease-out;
+        }
+
+        #submitBtn {
+            background: var(--primary);
+            color: #fff;
+            margin-right: 10px;
+        }
+
+        #submitBtn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        #nextBtn {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        #nextBtn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        /* ========== 结果显示 ========== */
+        #result {
+            margin-top: 10px;
+            min-height: 20px;
+            font-size: 14px;
+        }
+
+        .correct {
+            color: var(--correct);
+            font-weight: 600;
+        }
+
+        .wrong {
+            color: var(--wrong);
+            font-weight: 600;
+        }
+
+        .chips {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: var(--text-sub);
+        }
+
+        /* ========== 排行榜模态框 ========== */
+        #rankModal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .rank-dialog {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px 18px;
+            width: 360px;
+            max-width: 90%;
+            max-height: 80vh;
+            box-shadow: 0 16px 32px rgba(15, 23, 42, 0.25);
+            font-size: 13px;
+            overflow: hidden;
+        }
+
+        .rank-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .rank-header span {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .close-btn {
+            border: none;
+            background: transparent;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0 6px;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: #f56c6c;
+        }
+
+        #rankContent {
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid #eee;
+            margin-top: 4px;
+            padding-top: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        /* ========== 移动端适配（JS 检测 + CSS 配合）========== */
+        body.mobile #optionButtons {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        body.mobile #optionButtons button {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 16px;
+            margin: 0;
+        }
+
+        /* ========== 响应式布局（按屏幕宽度）========== */
+        @media (max-width: 768px) {
+            body {
+                padding: 12px;
+            }
+
+            .page {
+                max-width: 100%;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .card {
+                padding: 14px 12px 12px;
+            }
+
+            .question-panel {
+                padding: 10px;
+            }
+
+            .title {
+                font-size: 20px;
+            }
+
+            .meta-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 6px;
+            }
+
+            .actions button {
+                flex: 1;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .rank-dialog {
+                width: 94%;
+                padding: 12px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <div class="header">
+        <div>
+            <div class="title">
+                历史期末刷题工具 · Web 版
+                <span class="badge" id="currentSubjectBadge">近代史</span>
+                <span class="badge">@Author: sawd,Jerry</span>
+            </div>
+            <div class="subtitle">
+                <label style="margin-right: 12px;">
+                    科目：
+                    <select id="subjectSelect" class="select">
+                        <option value="history">近代史</option>
+                        <option value="sixiu">思想道德与法治</option>
+                        <option value="xigai">习概</option>
+                    </select>
+                </label>
+                <span>支持客观题、多选题、判断题（y/n 快捷）</span>
+            </div>
+        </div>
+        <div style="text-align: right; font-size: 12px; color: #555;">
+            <div style="margin-bottom: 4px;">
+                用户名：
+                <input id="usernameInput" style="width: 120px; padding: 2px 6px; font-size: 12px;" placeholder="留空自动编号">
+                <button id="setUserBtn" style="padding: 2px 10px; font-size: 12px; margin-left: 4px;">确定</button>
+                <button id="showRankBtn" style="padding: 2px 10px; font-size: 12px; margin-left: 8px;">排行榜</button>
+            </div>
+            <div id="userInfo" style="color: #666;">
+                当前用户：<span id="userNameLabel">未设置</span> · 正确：<span id="userCorrect">0</span> / <span id="userTotal">0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="meta-row">
+            <div class="meta-left">
+                <div id="chapter"></div>
+                <div class="chips">
+                    <span id="itemType"></span>
+                    <span id="typeTag"></span>
+                </div>
+            </div>
+            <div>
+                模式：
+                <select id="modeSelect" class="select">
+                    <option value="random">随机出题</option>
+                    <option value="sequential">顺序出题</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="question-panel">
+            <pre id="stem" style="white-space: pre-wrap;"></pre>
+        </div>
+
+        <div class="options-wrapper">
+            <div class="options-label">选择答案：</div>
+            <div id="optionButtons"></div>
+            <!-- 隐藏输入框，用于提交给后端 -->
+            <input id="answerInput" type="hidden">
+        </div>
+
+        <div class="actions">
+            <button id="submitBtn">提交答案</button>
+            <button id="nextBtn" disabled>下一题</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <!-- 排行榜模态框 -->
+    <div id="rankModal" style="display:none;">
+        <div class="rank-dialog">
+            <div class="rank-header">
+                <span>排行榜</span>
+                <button id="closeRankBtn" class="close-btn">×</button>
+            </div>
+            <div id="rankContent"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 简单的移动端检测：看 UserAgent + 触摸能力
+    (function () {
+        const ua = navigator.userAgent || navigator.vendor || window.opera;
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const isMobileUA = /android|iphone|ipad|ipod|mobile/i.test(ua);
+        if (isTouch && isMobileUA) {
+            document.body.classList.add('mobile');
+        }
+    })();
+
+    let currentQuestionId = null;
+    let doneIds = [];
+    let currentMode = "random";
+    let currentAnswerType = "text";
+    let currentUserId = null;
+    let currentSubject = "history";  // 当前选中的科目
+
+    function renderOptions(answerType) {
+        const container = document.getElementById("optionButtons");
+        container.innerHTML = "";
+        document.getElementById("answerInput").value = "";
+
+        const typeTag = document.getElementById("typeTag");
+        let typeText = "";
+        if (answerType === "single") typeText = "单选题";
+        else if (answerType === "multi") typeText = "多选题";
+        else if (answerType === "judge") typeText = "判断题（Y=对 / N=错）";
+        else typeText = "主观题";
+
+        typeTag.textContent = typeText ? `· ${typeText}` : "";
+
+        if (answerType === "single" || answerType === "multi") {
+            const labels = ["A", "B", "C", "D"];
+            labels.forEach(label => {
+                const btn = document.createElement("button");
+                btn.textContent = label;
+                btn.type = "button";
+
+                btn.addEventListener("click", () => {
+                    const input = document.getElementById("answerInput");
+                    const buttons = container.querySelectorAll("button");
+
+                    if (answerType === "single") {
+                        input.value = label;
+                        buttons.forEach(b => b.classList.toggle("active", b === btn));
+                    } else {
+                        let current = input.value.toUpperCase();
+                        if (current.includes(label)) {
+                            current = current.split("").filter(ch => ch !== label).join("");
+                            btn.classList.remove("active");
+                        } else {
+                            current += label;
+                            btn.classList.add("active");
+                        }
+                        input.value = current;
+                    }
+                });
+
+                container.appendChild(btn);
+            });
+        } else if (answerType === "judge") {
+            const yesBtn = document.createElement("button");
+            yesBtn.textContent = "对 (Y)";
+            yesBtn.type = "button";
+
+            const noBtn = document.createElement("button");
+            noBtn.textContent = "错 (N)";
+            noBtn.type = "button";
+
+            yesBtn.addEventListener("click", () => {
+                document.getElementById("answerInput").value = "y";
+                yesBtn.classList.add("active");
+                noBtn.classList.remove("active");
+            });
+
+            noBtn.addEventListener("click", () => {
+                document.getElementById("answerInput").value = "n";
+                noBtn.classList.add("active");
+                yesBtn.classList.remove("active");
+            });
+
+            container.appendChild(yesBtn);
+            container.appendChild(noBtn);
+        } else {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.placeholder = "请输入答案";
+            input.style.width = "100%";
+            input.addEventListener("input", () => {
+                document.getElementById("answerInput").value = input.value;
+            });
+            container.appendChild(input);
+        }
+    }
+
+    async function initUser() {
+        const name = document.getElementById("usernameInput").value.trim();
+        const res = await fetch("/api/user", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({name})
+        });
+        const data = await res.json();
+        currentUserId = data.user_id;
+        updateUserInfo(data);
+    }
+
+    function updateUserInfo(userData) {
+        if (!userData) return;
+        const nameLabel = document.getElementById("userNameLabel");
+        const correctEl = document.getElementById("userCorrect");
+        const totalEl = document.getElementById("userTotal");
+
+        nameLabel.textContent = userData.name || userData.user_id || "未设置";
+        correctEl.textContent = userData.correct ?? 0;
+        totalEl.textContent = userData.total ?? 0;
+    }
+
+    // 新增：加载科目列表
+    async function loadSubjects() {
+        const res = await fetch("/api/subjects");
+        const data = await res.json();
+        
+        const select = document.getElementById("subjectSelect");
+        select.innerHTML = "";
+        
+        data.subjects.forEach(sub => {
+            const opt = document.createElement("option");
+            opt.value = sub.key;
+            opt.textContent = sub.name;
+            select.appendChild(opt);
+        });
+        
+        select.value = data.current;
+    }
+
+    // 新增：切换科目
+    async function switchSubject(subjectKey) {
+        currentSubject = subjectKey;  // 更新全局变量
+        const res = await fetch("/api/init", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({subject: subjectKey})
+        });
+        const data = await res.json();
+        
+        document.getElementById("currentSubjectBadge").textContent = data.subject_name || subjectKey;
+        
+        doneIds = [];
+        await loadNextQuestion();
+    }
+
+    async function init() {
+        await initUser();
+        await loadSubjects();
+        await switchSubject(document.getElementById("subjectSelect").value);
+    }
+
+    async function loadNextQuestion() {
+        currentMode = document.getElementById("modeSelect").value;
+        document.getElementById("result").innerHTML = "";
+        document.getElementById("submitBtn").disabled = false;
+        document.getElementById("nextBtn").disabled = true;
+
+        const res = await fetch("/api/next", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                mode: currentMode, 
+                done_ids: doneIds,
+                subject: currentSubject  // 传递当前科目
+            })
+        });
+        const data = await res.json();
+        if (data.finished) {
+            document.getElementById("chapter").innerText = "";
+            document.getElementById("itemType").innerText = "";
+            document.getElementById("stem").innerText = "题目已经全部刷完啦！";
+            document.getElementById("typeTag").textContent = "";
+            document.getElementById("optionButtons").innerHTML = "";
+            document.getElementById("submitBtn").disabled = true;
+            document.getElementById("nextBtn").disabled = true;
+            return;
+        }
+        currentQuestionId = data.id;
+        currentAnswerType = data.answer_type || "text";
+        document.getElementById("chapter").innerText = data.chapter_name;
+        document.getElementById("itemType").innerText = data.item_type;
+        document.getElementById("stem").innerText = data.stem;
+
+        renderOptions(currentAnswerType);
+    }
+
+    async function submitAnswer() {
+        if (!currentQuestionId) return;
+        const userInput = document.getElementById("answerInput").value.trim();
+        if (!userInput) {
+            alert("先选一个答案吧~");
+            return;
+        }
+
+        const res = await fetch("/api/answer", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                id: currentQuestionId, 
+                user_input: userInput,
+                subject: currentSubject  // 传递当前科目
+            })
+        });
+        const data = await res.json();
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        if (data.user_stats) {
+            updateUserInfo(data.user_stats);
+        }
+
+        const resultEl = document.getElementById("result");
+        if (data.correct) {
+            resultEl.innerHTML = `<span class="correct">✅ 正确！</span>`;
+        } else {
+            resultEl.innerHTML = `<span class="wrong">❌ 错误！</span> 正确答案：${data.correct_answer}`;
+        }
+
+        doneIds.push(currentQuestionId);
+        document.getElementById("submitBtn").disabled = true;
+        document.getElementById("nextBtn").disabled = false;
+    }
+
+    async function showRanking() {
+        const res = await fetch("/api/rank");
+        const data = await res.json();
+        const list = data.ranking || [];
+
+        const rankContent = document.getElementById("rankContent");
+        if (!list.length) {
+            rankContent.innerHTML = "<div style='padding: 6px 0;'>暂无数据</div>";
+        } else {
+            let html = "<table style='width: 100%; border-collapse: collapse;'>";
+            html += "<thead><tr style='text-align:left; font-weight:600;'><th style='padding:4px 0;'>名次</th><th>用户</th><th>正确/总数</th><th>正确率</th></tr></thead><tbody>";
+            list.forEach((u, idx) => {
+                html += `<tr>
+                    <td style="padding: 3px 0;">${idx + 1}</td>
+                    <td>${u.name}</td>
+                    <td>${u.correct} / ${u.total}</td>
+                    <td>${u.accuracy}%</td>
+                </tr>`;
+            });
+            html += "</tbody></table>";
+            rankContent.innerHTML = html;
+        }
+
+        document.getElementById("rankModal").style.display = "flex";
+    }
+
+    function hideRanking() {
+        document.getElementById("rankModal").style.display = "none";
+    }
+
+    document.getElementById("submitBtn").addEventListener("click", submitAnswer);
+    document.getElementById("nextBtn").addEventListener("click", loadNextQuestion);
+    document.getElementById("modeSelect").addEventListener("change", () => {
+        doneIds = [];
+        loadNextQuestion();
+    });
+    document.getElementById("setUserBtn").addEventListener("click", async () => {
+        await initUser();
+        doneIds = [];
+        await loadNextQuestion();
+    });
+    document.getElementById("showRankBtn").addEventListener("click", showRanking);
+    document.getElementById("closeRankBtn").addEventListener("click", hideRanking);
+    
+    // 新增：科目切换事件
+    document.getElementById("subjectSelect").addEventListener("change", (e) => {
+        switchSubject(e.target.value);
+    });
+
+    // 点击灰色遮罩关闭
+    document.getElementById("rankModal").addEventListener("click", (e) => {
+        if (e.target.id === "rankModal") hideRanking();
+    });
+
+    init();
+</script>
+</body>
+</html>
