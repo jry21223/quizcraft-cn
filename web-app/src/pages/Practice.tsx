@@ -19,6 +19,7 @@ export default function Practice() {
   
   const [mode, setMode] = useState<PracticeMode>('random');
   const [count, setCount] = useState(20);
+  const [unlimitedCount, setUnlimitedCount] = useState(false);
   const [chapterId, setChapterId] = useState('');
   const [threshold, setThreshold] = useState(50);
   const [loading, setLoading] = useState(false);
@@ -45,6 +46,7 @@ export default function Practice() {
   }, []);
   
   const currentBankData = banks.find((b) => b.key === currentBank);
+  const countLabel = mode === 'random' && unlimitedCount ? '不限（全部）' : `${count} 道`;
   
   const modes = [
     {
@@ -87,9 +89,10 @@ export default function Practice() {
     
     setLoading(true);
     try {
+      const requestCount = mode === 'random' && unlimitedCount ? 0 : count;
       const result = await practiceApi.start(currentBank, {
         mode,
-        count,
+        count: requestCount,
         chapterId: mode === 'chapter' ? chapterId : undefined,
         threshold: mode === 'hard' ? threshold : undefined,
       });
@@ -209,15 +212,29 @@ export default function Practice() {
         <div className="mb-4">
           <div className="flex justify-between text-sm mb-2">
             <span className="text-gray-600">题目数量</span>
-            <span className="font-medium text-gray-800">{count} 道</span>
+            <span className="font-medium text-gray-800">{countLabel}</span>
           </div>
+          {mode === 'random' && (
+            <button
+              type="button"
+              onClick={() => setUnlimitedCount((prev) => !prev)}
+              className={`mb-3 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                unlimitedCount
+                  ? 'bg-primary-50 border-primary-500 text-primary-700'
+                  : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+              }`}
+            >
+              {unlimitedCount ? '已启用不限（抽取全部）' : '启用不限（抽取全部）'}
+            </button>
+          )}
           <input
             type="range"
             min={5}
-            max={50}
-            step={5}
+            max={mode === 'random' ? Math.max(5, currentBankData?.total || 100) : 50}
+            step={mode === 'random' ? 1 : 5}
             value={count}
             onChange={(e) => setCount(Number(e.target.value))}
+            disabled={mode === 'random' && unlimitedCount}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
           />
         </div>

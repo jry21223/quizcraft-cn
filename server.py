@@ -490,19 +490,31 @@ async def start_practice(request: StartPracticeRequest):
     
     mode = request.mode
     params = request.params
-    count = params.get("count", 20)
+    raw_count = params.get("count", 20)
+    try:
+        count = int(raw_count)
+    except (TypeError, ValueError):
+        count = 20
+    unlimited = count <= 0
     
     import random
+
+    def _sample(pool: List[Dict]) -> List[Dict]:
+        if not pool:
+            return []
+        if unlimited:
+            return random.sample(pool, len(pool))
+        return random.sample(pool, min(count, len(pool)))
     
     if mode == "random":
         # 随机模式
-        selected = random.sample(questions, min(count, len(questions)))
+        selected = _sample(questions)
     
     elif mode == "chapter":
         # 章节模式
         chapter_id = params.get("chapter_id")
         chapter_q = [q for q in questions if q.get("chapter_id") == chapter_id or q.get("chapter") == chapter_id]
-        selected = random.sample(chapter_q, min(count, len(chapter_q)))
+        selected = _sample(chapter_q)
     
     elif mode == "hard":
         # 难题模式
@@ -512,10 +524,10 @@ async def start_practice(request: StartPracticeRequest):
             # 如果没有统计，随机选
             hard_q = questions
         hard_q.sort(key=lambda x: x.get("stats", {}).get("rate", 100))
-        selected = hard_q[:count]
+        selected = hard_q if unlimited else hard_q[:count]
     
     else:
-        selected = random.sample(questions, min(count, len(questions)))
+        selected = _sample(questions)
     
     # 计算平均正确率
     avg_rate = sum(q.get("stats", {}).get("rate", 0) for q in selected) / len(selected) if selected else 0
