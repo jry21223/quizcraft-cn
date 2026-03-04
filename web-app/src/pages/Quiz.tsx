@@ -1,0 +1,430 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Flag, 
+  CheckCircle2, 
+  XCircle,
+  BookOpen,
+  Timer
+} from 'lucide-react';
+import { useQuizStore } from '@/stores/quizStore';
+import { practiceApi } from '@/api/client';
+import { formatQuestionType, formatAnswer, getTypeColor, getDifficultyLabel } from '@/utils/format';
+
+// 选项组件
+function OptionButton({
+  label,
+  text,
+  selected,
+  correct,
+  showResult,
+  onClick,
+}: {
+  label: string;
+  text: string;
+  selected: boolean;
+  correct?: boolean;
+  showResult: boolean;
+  onClick: () => void;
+}) {
+  let bgClass = 'bg-white border-gray-200 hover:border-primary-300';
+  
+  if (showResult) {
+    if (correct) {
+      bgClass = 'bg-green-50 border-green-500 text-green-800';
+    } else if (selected) {
+      bgClass = 'bg-red-50 border-red-500 text-red-800';
+    } else {
+      bgClass = 'bg-gray-50 border-gray-200 text-gray-400';
+    }
+  } else if (selected) {
+    bgClass = 'bg-primary-50 border-primary-500 text-primary-700';
+  }
+  
+  return (
+    <button
+      onClick={onClick}
+      disabled={showResult}
+      className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-all ${bgClass}`}
+    >
+      <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+        showResult 
+          ? correct 
+            ? 'bg-green-500 text-white'
+            : selected 
+              ? 'bg-red-500 text-white'
+              : 'bg-gray-200 text-gray-500'
+          : selected 
+            ? 'bg-primary-500 text-white'
+            : 'bg-gray-100 text-gray-600'
+      }`}>
+        {label}
+      </span>
+      <span className="flex-1 pt-1">{text}</span>
+      {showResult && correct && <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-1" />}
+      {showResult && selected && !correct && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-1" />}
+    </button>
+  );
+}
+
+// 判断题选项
+function JudgeButtons({
+  selected,
+  correct,
+  showResult,
+  onSelect,
+}: {
+  selected: boolean | null;
+  correct?: boolean;
+  showResult: boolean;
+  onSelect: (value: boolean) => void;
+}) {
+  const options = [
+    { value: true, label: '对', icon: CheckCircle2 },
+    { value: false, label: '错', icon: XCircle },
+  ];
+  
+  return (
+    <div className="flex gap-4">
+      {options.map((opt) => {
+        const isSelected = selected === opt.value;
+        const isCorrect = showResult && correct === opt.value;
+        
+        let btnClass = 'bg-white border-gray-200 hover:border-primary-300';
+        if (showResult) {
+          if (correct === opt.value) {
+            btnClass = 'bg-green-50 border-green-500 text-green-800';
+          } else if (isSelected) {
+            btnClass = 'bg-red-50 border-red-500 text-red-800';
+          }
+        } else if (isSelected) {
+          btnClass = 'bg-primary-50 border-primary-500 text-primary-700';
+        }
+        
+        return (
+          <button
+            key={opt.label}
+            onClick={() => onSelect(opt.value)}
+            disabled={showResult}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border-2 font-medium transition-all ${btnClass}`}
+          >
+            <opt.icon className={`w-5 h-5 ${isCorrect ? 'text-green-500' : isSelected && showResult ? 'text-red-500' : ''}`} />
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function Quiz() {
+  const navigate = useNavigate();
+  const { 
+    practice, 
+    currentBank,
+    answerQuestion, 
+    nextQuestion, 
+    prevQuestion,
+    jumpToQuestion,
+    finishPractice,
+    toggleStar,
+    isStarred,
+  } = useQuizStore();
+  
+  const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
+  const [showResult, setShowResult] = useState(false);
+  const [result, setResult] = useState<{correct: boolean; analysis?: string; correctAnswer?: any} | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [elapsedTime, setElapsedTime] = useState(0);
+  
+  useEffect(() => {
+    if (!practice) {
+      navigate('/practice');
+      return;
+    }
+    
+    // 恢复当前题目的状态
+    const currentQ = practice.questions[practice.currentIndex];
+    if (currentQ && practice.answers[currentQ.id] !== undefined) {
+      setSelectedAnswer(practice.answers[currentQ.id]);
+      setShowResult(true);
+    } else {
+      setSelectedAnswer(null);
+      setShowResult(false);
+      setResult(null);
+    }
+  }, [practice, navigate]);
+  
+  // 计时器
+  useEffect(() => {
+    if (!practice || practice.isFinished) return;
+    
+    const timer = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - practice.startTime) / 1000));
+    }, 1000);
+    
+    return () => clearInterval(timer);
+  }, [practice]);
+  
+  if (!practice) return null;
+  
+  const currentQuestion = practice.questions[practice.currentIndex];
+  const progress = ((practice.currentIndex + 1) / practice.questions.length) * 100;
+  
+  const handleOptionSelect = async (index: number) => {
+    if (showResult || loading) return;
+    
+    if (currentQuestion.type === 'multi') {
+      // 多选题：切换选择
+      const current = (selectedAnswer as number[]) || [];
+      const newAnswer = current.includes(index)
+        ? current.filter((i) => i !== index)
+        : [...current, index].sort();
+      setSelectedAnswer(newAnswer);
+    } else {
+      // 单选题：直接提交
+      setSelectedAnswer(index);
+      await submitAnswer(index);
+    }
+  };
+  
+  const handleJudgeSelect = async (value: boolean) => {
+    if (showResult || loading) return;
+    setSelectedAnswer(value);
+    await submitAnswer(value);
+  };
+  
+  const submitAnswer = async (answer: any) => {
+    if (!currentBank || !currentQuestion) return;
+    
+    setLoading(true);
+    try {
+      const res = await practiceApi.submitAnswer(currentBank, currentQuestion.id, answer);
+      
+      setResult({
+        correct: res.correct,
+        analysis: res.analysis,
+        correctAnswer: res.correct_answer,
+      });
+      setShowResult(true);
+      
+      answerQuestion(currentQuestion.id, answer, res.correct);
+    } catch (error) {
+      console.error('提交答案失败:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const handleNext = () => {
+    if (practice.currentIndex < practice.questions.length - 1) {
+      nextQuestion();
+      setSelectedAnswer(null);
+      setShowResult(false);
+      setResult(null);
+    } else {
+      finishPractice();
+      navigate('/result');
+    }
+  };
+  
+  const handlePrev = () => {
+    prevQuestion();
+  };
+  
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+  
+  const starred = isStarred(currentQuestion.id);
+  const difficulty = currentQuestion.stats 
+    ? getDifficultyLabel(currentQuestion.stats.rate)
+    : null;
+  
+  return (
+    <div className="max-w-3xl mx-auto">
+      {/* 顶部进度条 */}
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-4 px-4 py-3 mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <BookOpen className="w-4 h-4" />
+            <span>题目 {practice.currentIndex + 1} / {practice.questions.length}</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              <Timer className="w-4 h-4" />
+              <span>{formatTime(elapsedTime)}</span>
+            </div>
+            <button
+              onClick={() => toggleStar(currentQuestion.id)}
+              className={`p-1.5 rounded-lg transition-colors ${starred ? 'text-yellow-500 bg-yellow-50' : 'text-gray-400 hover:bg-gray-100'}`}
+            >
+              <Flag className={`w-4 h-4 ${starred ? 'fill-current' : ''}`} />
+            </button>
+          </div>
+        </div>
+        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-primary-500 transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      </div>
+      
+      {/* 题目卡片 */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentQuestion.id}
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
+        >
+          {/* 题目信息 */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(currentQuestion.type)}`}>
+              {formatQuestionType(currentQuestion.type)}
+            </span>
+            {difficulty && (
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}>
+                {difficulty.label} · 正确率 {currentQuestion.stats?.rate}%
+              </span>
+            )}
+            <span className="text-xs text-gray-400">{currentQuestion.chapter}</span>
+          </div>
+          
+          {/* 题目内容 */}
+          <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
+            {currentQuestion.content}
+          </h2>
+          
+          {/* 选项区域 */}
+          <div className="space-y-3 mb-6">
+            {currentQuestion.type === 'judge' ? (
+              <JudgeButtons
+                selected={selectedAnswer}
+                correct={result?.correctAnswer}
+                showResult={showResult}
+                onSelect={handleJudgeSelect}
+              />
+            ) : (
+              currentQuestion.options?.map((option, index) => (
+                <OptionButton
+                  key={index}
+                  label={String.fromCharCode(65 + index)}
+                  text={option}
+                  selected={
+                    currentQuestion.type === 'multi'
+                      ? (selectedAnswer as number[])?.includes(index)
+                      : selectedAnswer === index
+                  }
+                  correct={
+                    showResult
+                      ? currentQuestion.type === 'multi'
+                        ? (result?.correctAnswer as number[])?.includes(index)
+                        : result?.correctAnswer === index
+                      : undefined
+                  }
+                  showResult={showResult}
+                  onClick={() => handleOptionSelect(index)}
+                />
+              ))
+            )}
+          </div>
+          
+          {/* 多选题提交按钮 */}
+          {currentQuestion.type === 'multi' && !showResult && (
+            <button
+              onClick={() => submitAnswer(selectedAnswer)}
+              disabled={!selectedAnswer || (selectedAnswer as number[]).length === 0 || loading}
+              className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
+            >
+              {loading ? '提交中...' : '提交答案'}
+            </button>
+          )}
+          
+          {/* 结果展示 */}
+          {showResult && result && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-xl p-4 mb-4 ${result.correct ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'}`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {result.correct ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <span className="font-medium text-green-800">回答正确！</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-5 h-5 text-red-500" />
+                    <span className="font-medium text-red-800">回答错误</span>
+                  </>
+                )}
+              </div>
+              
+              {!result.correct && (
+                <div className="text-sm text-gray-700 mb-2">
+                  正确答案：<span className="font-medium text-green-700">
+                    {formatAnswer(result.correctAnswer, currentQuestion.type)}
+                  </span>
+                </div>
+              )}
+              
+              {result.analysis && (
+                <div className="mt-3 pt-3 border-t border-gray-200/50">
+                  <div className="text-sm font-medium text-gray-700 mb-1">解析</div>
+                  <div className="text-sm text-gray-600 leading-relaxed">{result.analysis}</div>
+                </div>
+              )}
+            </motion.div>
+          )}
+          
+          {/* 导航按钮 */}
+          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+            <button
+              onClick={handlePrev}
+              disabled={practice.currentIndex === 0}
+              className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            >
+              <ChevronLeft className="w-5 h-5" />
+              上一题
+            </button>
+            
+            <div className="flex gap-1">
+              {practice.questions.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => jumpToQuestion(idx)}
+                  className={`w-2 h-2 rounded-full transition-all ${
+                    idx === practice.currentIndex
+                      ? 'bg-primary-500 w-4'
+                      : practice.answers[practice.questions[idx].id] !== undefined
+                        ? practice.results[practice.questions[idx].id]
+                          ? 'bg-green-400'
+                          : 'bg-red-400'
+                        : 'bg-gray-200'
+                  }`}
+                />
+              ))}
+            </div>
+            
+            <button
+              onClick={handleNext}
+              className="flex items-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+            >
+              {practice.currentIndex === practice.questions.length - 1 ? '查看结果' : '下一题'}
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}

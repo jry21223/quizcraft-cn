@@ -1,0 +1,66 @@
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { BookOpen, Trophy, FileText, Home } from 'lucide-react';
+import clsx from 'clsx';
+import { IS_OPS_MODE } from '@/config/appMode';
+
+const navItems = IS_OPS_MODE
+  ? [
+      { path: '/practice', icon: BookOpen, label: '刷题' },
+      { path: '/ranking', icon: Trophy, label: '排行榜' },
+    ]
+  : [
+      { path: '/', icon: Home, label: '首页' },
+      { path: '/practice', icon: BookOpen, label: '刷题' },
+      { path: '/extract', icon: FileText, label: '提取题库' },
+      { path: '/ranking', icon: Trophy, label: '排行榜' },
+    ];
+
+export default function Layout() {
+  const location = useLocation();
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-gray-50 to-white">
+      {/* 顶部导航 */}
+      <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+          <Link to={IS_OPS_MODE ? "/practice" : "/"} className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
+              <BookOpen className="w-5 h-5 text-white" />
+            </div>
+            <span className="font-bold text-lg text-gray-800">
+              {IS_OPS_MODE ? '在线刷题' : '刷题助手'}
+            </span>
+          </Link>
+          
+          <nav className="flex items-center gap-1">
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors',
+                  location.pathname === item.path
+                    ? 'bg-primary-50 text-primary-600'
+                    : 'text-gray-600 hover:bg-gray-100'
+                )}
+              >
+                <item.icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{item.label}</span>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </header>
+      
+      {/* 主内容区 */}
+      <main className="max-w-5xl mx-auto px-4 py-6">
+        <Outlet />
+      </main>
+      
+      {/* 页脚 */}
+      <footer className="mt-auto py-6 text-center text-sm text-gray-400">
+        <p>刷题助手 · React + TypeScript 重构版</p>
+      </footer>
+    </div>
+  );
+}

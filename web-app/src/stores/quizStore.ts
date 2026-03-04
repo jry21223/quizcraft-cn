@@ -1,0 +1,194 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import type { 
+  Question, 
+  QuestionBank, 
+  PracticeState, 
+  UserStats,
+  AnswerRecord 
+} from '@/types';
+
+interface QuizState {
+  // 题库
+  currentBank: string;
+  banks: QuestionBank[];
+  setBanks: (banks: QuestionBank[]) => void;
+  setCurrentBank: (bank: string) => void;
+  
+  // 用户
+  user: UserStats | null;
+  setUser: (user: UserStats) => void;
+  updateUserStats: (correct: number, total: number) => void;
+  
+  // 练习状态
+  practice: PracticeState | null;
+  startPractice: (questions: Question[]) => void;
+  answerQuestion: (questionId: string, answer: any, isCorrect: boolean) => void;
+  nextQuestion: () => void;
+  prevQuestion: () => void;
+  finishPractice: () => void;
+  resetPractice: () => void;
+  jumpToQuestion: (index: number) => void;
+  
+  // 历史记录
+  history: AnswerRecord[];
+  addToHistory: (record: AnswerRecord) => void;
+  
+  // 错题本
+  wrongQuestions: string[];
+  addWrongQuestion: (questionId: string) => void;
+  removeWrongQuestion: (questionId: string) => void;
+  
+  // 收藏
+  starredQuestions: string[];
+  toggleStar: (questionId: string) => void;
+  isStarred: (questionId: string) => boolean;
+}
+
+export const useQuizStore = create<QuizState>()(
+  persist(
+    (set, get) => ({
+      // 初始状态
+      currentBank: 'sixiu',
+      banks: [],
+      user: null,
+      practice: null,
+      history: [],
+      wrongQuestions: [],
+      starredQuestions: [],
+      
+      // 题库操作
+      setBanks: (banks) => set({ banks }),
+      setCurrentBank: (bank) => set({ currentBank: bank }),
+      
+      // 用户操作
+      setUser: (user) => set({ user }),
+      updateUserStats: (correct, total) => {
+        const { user } = get();
+        if (user) {
+          set({
+            user: {
+              ...user,
+              correct: user.correct + correct,
+              total: user.total + total,
+              rate: Math.round((user.correct + correct) / (user.total + total) * 100),
+            },
+          });
+        }
+      },
+      
+      // 练习操作
+      startPractice: (questions) => set({
+        practice: {
+          questions,
+          currentIndex: 0,
+          answers: {},
+          results: {},
+          startTime: Date.now(),
+          isFinished: false,
+        },
+      }),
+      
+      answerQuestion: (questionId, answer, isCorrect) => {
+        const { practice } = get();
+        if (!practice) return;
+        
+        set({
+          practice: {
+            ...practice,
+            answers: { ...practice.answers, [questionId]: answer },
+            results: { ...practice.results, [questionId]: isCorrect },
+          },
+        });
+        
+        // 如果答错，加入错题本
+        if (!isCorrect) {
+          get().addWrongQuestion(questionId);
+        }
+      },
+      
+      nextQuestion: () => {
+        const { practice } = get();
+        if (!practice) return;
+        
+        const nextIndex = Math.min(practice.currentIndex + 1, practice.questions.length - 1);
+        set({
+          practice: { ...practice, currentIndex: nextIndex },
+        });
+      },
+      
+      prevQuestion: () => {
+        const { practice } = get();
+        if (!practice) return;
+        
+        const prevIndex = Math.max(practice.currentIndex - 1, 0);
+        set({
+          practice: { ...practice, currentIndex: prevIndex },
+        });
+      },
+      
+      jumpToQuestion: (index) => {
+        const { practice } = get();
+        if (!practice) return;
+        
+        set({
+          practice: { ...practice, currentIndex: index },
+        });
+      },
+      
+      finishPractice: () => {
+        const { practice } = get();
+        if (!practice) return;
+        
+        set({
+          practice: { ...practice, isFinished: true },
+        });
+      },
+      
+      resetPractice: () => set({ practice: null }),
+      
+      // 历史记录
+      addToHistory: (record) => {
+        const { history } = get();
+        set({ history: [record, ...history].slice(0, 1000) });  // 最多保留1000条
+      },
+      
+      // 错题本
+      addWrongQuestion: (questionId) => {
+        const { wrongQuestions } = get();
+        if (!wrongQuestions.includes(questionId)) {
+          set({ wrongQuestions: [...wrongQuestions, questionId] });
+        }
+      },
+      
+      removeWrongQuestion: (questionId) => {
+        const { wrongQuestions } = get();
+        set({ wrongQuestions: wrongQuestions.filter((id) => id !== questionId) });
+      },
+      
+      // 收藏
+      toggleStar: (questionId) => {
+        const { starredQuestions } = get();
+        if (starredQuestions.includes(questionId)) {
+          set({ starredQuestions: starredQuestions.filter((id) => id !== questionId) });
+        } else {
+          set({ starredQuestions: [...starredQuestions, questionId] });
+        }
+      },
+      
+      isStarred: (questionId) => {
+        return get().starredQuestions.includes(questionId);
+      },
+    }),
+    {
+      name: 'quiz-storage',
+      partialize: (state) => ({
+        currentBank: state.currentBank,
+        user: state.user,
+        history: state.history,
+        wrongQuestions: state.wrongQuestions,
+        starredQuestions: state.starredQuestions,
+      }),
+    }
+  )
+);

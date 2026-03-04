@@ -1,0 +1,12 @@
+# 刷题系统后端依赖
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+python-multipart>=0.0.6
+pydantic>=2.5.0
+
+# 文件解析依赖（可选）
+PyPDF2>=3.0.0
+python-docx>=1.1.0
+
+# AI 解析依赖（可选）
+httpx>=0.25.0
