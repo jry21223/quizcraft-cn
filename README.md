@@ -1,4 +1,6 @@
-# 刷题助手 v2.0
+# QuizCraft CN（刷题助手 v2.0）
+
+GitHub 仓库：<https://github.com/jry21223/quizcraft-cn>
 
 基于 React + TypeScript + FastAPI 重构的刷题系统，支持智能题库提取和 AI 解析生成。
 
