@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+
+# Node
+node_modules/
+web-app/dist/
