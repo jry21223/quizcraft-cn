@@ -83,7 +83,7 @@ npm run dev
 │   ├── package.json
 │   └── vite.config.ts
 │
-└── [旧文件保留]/          # 原 Python CLI 工具
+└── tiku/                 # 题库数据
 ```
 
 ## 🎯 使用指南
@@ -155,18 +155,6 @@ npm run dev
 - [ ] 错题导出 PDF
 - [ ] 模拟考试模式
 - [ ] 学习进度图表
-
-## 📝 原项目文件
-
-原 Python CLI 工具仍保留，可在命令行使用：
-
-```bash
-# 命令行刷题
-python 近代史刷题.py
-
-# 智能练习
-python practice.py sixiu_with_stats.json random -n 20
-```
 
 ## 📄 License
 
