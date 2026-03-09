@@ -1,48 +1,92 @@
 #!/bin/bash
 
-# 刷题系统启动脚本
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+BACKEND_PORT=10086
+FRONTEND_PORT=5173
+SERVER_PID=""
+CLIENT_PID=""
+
+stop_port() {
+  local port="$1"
+  local pid
+  pid=$(lsof -tiTCP:"${port}" -sTCP:LISTEN | head -n1 || true)
+  if [ -n "${pid}" ]; then
+    echo "⚠️ 端口 ${port} 已被占用，停止进程 ${pid}"
+    kill "${pid}" || true
+    sleep 1
+  fi
+}
+
+wait_for_url() {
+  local name="$1"
+  local url="$2"
+  local retries="${3:-30}"
+  local i
+  for ((i=1; i<=retries; i++)); do
+    if curl -fsS "${url}" >/dev/null 2>&1; then
+      echo "✓ ${name}已就绪: ${url}"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "❌ ${name}启动失败: ${url}"
+  return 1
+}
+
+cleanup() {
+  if [ -n "${SERVER_PID}" ]; then
+    kill "${SERVER_PID}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "${CLIENT_PID}" ]; then
+    kill "${CLIENT_PID}" >/dev/null 2>&1 || true
+  fi
+}
 
 echo "🚀 启动刷题系统..."
 
-# 检查 Python
-if ! command -v python3 &> /dev/null; then
-    echo "❌ 需要安装 Python 3"
-    exit 1
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "❌ 需要安装 Python 3"
+  exit 1
 fi
 
-# 安装依赖
-echo "📦 检查依赖..."
+if ! command -v npm >/dev/null 2>&1; then
+  echo "❌ 需要安装 Node.js 和 npm"
+  exit 1
+fi
+
+echo "📦 检查后端依赖..."
 pip install -q -r requirements.txt
 
-# 启动后端
+stop_port "${BACKEND_PORT}"
+stop_port "${FRONTEND_PORT}"
+
 echo "🔧 启动后端服务..."
-python3 server.py &
+python3 server.py > server.log 2>&1 &
 SERVER_PID=$!
+wait_for_url "后端" "http://127.0.0.1:${BACKEND_PORT}/api/banks"
 
-# 等待后端启动
-sleep 2
-
-# 启动前端
 echo "🌐 启动前端..."
 cd web-app
-
-# 检查 node_modules
 if [ ! -d "node_modules" ]; then
-    echo "📦 安装前端依赖..."
-    npm install
+  echo "📦 安装前端依赖..."
+  npm install
 fi
 
-npm run dev &
+npm run dev -- --host 0.0.0.0 --port "${FRONTEND_PORT}" > dev.log 2>&1 &
 CLIENT_PID=$!
+wait_for_url "前端" "http://127.0.0.1:${FRONTEND_PORT}/"
 
 echo ""
 echo "✅ 刷题系统已启动！"
-echo "   前端: http://localhost:5173"
-echo "   后端: http://localhost:10086"
-echo "   API文档: http://localhost:10086/docs"
+echo "   前端: http://localhost:${FRONTEND_PORT}"
+echo "   后端: http://localhost:${BACKEND_PORT}"
+echo "   API文档: http://localhost:${BACKEND_PORT}/docs"
 echo ""
 echo "按 Ctrl+C 停止服务"
 
-# 等待中断
-trap "kill $SERVER_PID $CLIENT_PID; exit" INT
+trap cleanup INT TERM
 wait
