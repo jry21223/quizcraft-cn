@@ -7,9 +7,28 @@ import type {
   UserStats 
 } from '@/types';
 
+const isElectron =
+  typeof navigator !== 'undefined' &&
+  navigator.userAgent.toLowerCase().includes('electron');
+
+const isFileProtocol =
+  typeof window !== 'undefined' &&
+  window.location.protocol === 'file:';
+
+const isDev = Boolean(import.meta.env.DEV);
+
+const defaultApiBaseURL =
+  isDev && !isElectron && !isFileProtocol
+    ? '/api'
+    : 'http://127.0.0.1:10086/api';
+
+const apiBaseURL =
+  import.meta.env.VITE_API_BASE_URL ||
+  defaultApiBaseURL;
+
 // 创建 axios 实例
 const api: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseURL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -32,8 +51,15 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error: AxiosError) => {
-    const responseData = error.response?.data as { message?: string } | undefined;
-    const message = responseData?.message || error.message || '请求失败';
+    const responseData = error.response?.data as {
+      message?: string;
+      detail?: string;
+    } | undefined;
+    const message =
+      responseData?.message ||
+      responseData?.detail ||
+      error.message ||
+      '请求失败';
     console.error('API Error:', message);
     return Promise.reject(new Error(message));
   }
