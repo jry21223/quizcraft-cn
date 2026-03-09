@@ -20,6 +20,7 @@ function OptionButton({
   text,
   selected,
   correct,
+  missed = false,
   showResult,
   onClick,
 }: {
@@ -27,14 +28,17 @@ function OptionButton({
   text: string;
   selected: boolean;
   correct?: boolean;
+  missed?: boolean;
   showResult: boolean;
   onClick: () => void;
 }) {
   let bgClass = 'bg-white border-gray-200 hover:border-primary-300';
   
   if (showResult) {
-    if (correct) {
+    if (correct && selected) {
       bgClass = 'bg-green-50 border-green-500 text-green-800';
+    } else if (missed) {
+      bgClass = 'bg-green-50 border-green-200 text-green-700';
     } else if (selected) {
       bgClass = 'bg-red-50 border-red-500 text-red-800';
     } else {
@@ -52,8 +56,10 @@ function OptionButton({
     >
       <span className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
         showResult 
-          ? correct 
+          ? correct && selected
             ? 'bg-green-500 text-white'
+            : missed
+              ? 'bg-green-200 text-green-700'
             : selected 
               ? 'bg-red-500 text-white'
               : 'bg-gray-200 text-gray-500'
@@ -64,7 +70,8 @@ function OptionButton({
         {label}
       </span>
       <span className="flex-1 pt-1">{text}</span>
-      {showResult && correct && <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-1" />}
+      {showResult && correct && selected && <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-1" />}
+      {showResult && missed && <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />}
       {showResult && selected && !correct && <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-1" />}
     </button>
   );
@@ -313,27 +320,37 @@ export default function Quiz() {
                 onSelect={handleJudgeSelect}
               />
             ) : (
-              currentQuestion.options?.map((option, index) => (
-                <OptionButton
-                  key={index}
-                  label={String.fromCharCode(65 + index)}
-                  text={option}
-                  selected={
-                    currentQuestion.type === 'multi'
-                      ? (selectedAnswer as number[])?.includes(index)
-                      : selectedAnswer === index
-                  }
-                  correct={
-                    showResult
-                      ? currentQuestion.type === 'multi'
-                        ? (result?.correctAnswer as number[])?.includes(index)
-                        : result?.correctAnswer === index
-                      : undefined
-                  }
-                  showResult={showResult}
-                  onClick={() => handleOptionSelect(index)}
-                />
-              ))
+              currentQuestion.options?.map((option, index) => {
+                const isSelected = currentQuestion.type === 'multi'
+                  ? (selectedAnswer as number[])?.includes(index)
+                  : selectedAnswer === index;
+
+                const isCorrect = showResult
+                  ? currentQuestion.type === 'multi'
+                    ? (result?.correctAnswer as number[])?.includes(index)
+                    : result?.correctAnswer === index
+                  : undefined;
+
+                const isMissed = Boolean(
+                  showResult &&
+                  currentQuestion.type === 'multi' &&
+                  isCorrect &&
+                  !isSelected
+                );
+
+                return (
+                  <OptionButton
+                    key={index}
+                    label={String.fromCharCode(65 + index)}
+                    text={option}
+                    selected={Boolean(isSelected)}
+                    correct={isCorrect}
+                    missed={isMissed}
+                    showResult={showResult}
+                    onClick={() => handleOptionSelect(index)}
+                  />
+                );
+              })
             )}
           </div>
           
@@ -387,41 +404,45 @@ export default function Quiz() {
           )}
           
           {/* 导航按钮 */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-            <button
-              onClick={handlePrev}
-              disabled={practice.currentIndex === 0}
-              className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-              上一题
-            </button>
-            
-            <div className="flex gap-1">
-              {practice.questions.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => jumpToQuestion(idx)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    idx === practice.currentIndex
-                      ? 'bg-primary-500 w-4'
-                      : practice.answers[practice.questions[idx].id] !== undefined
-                        ? practice.results[practice.questions[idx].id]
-                          ? 'bg-green-400'
-                          : 'bg-red-400'
-                        : 'bg-gray-200'
-                  }`}
-                />
-              ))}
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={handlePrev}
+                disabled={practice.currentIndex === 0}
+                className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                上一题
+              </button>
+              
+              <button
+                onClick={handleNext}
+                className="flex items-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex-shrink-0"
+              >
+                {practice.currentIndex === practice.questions.length - 1 ? '查看结果' : '下一题'}
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
             
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-            >
-              {practice.currentIndex === practice.questions.length - 1 ? '查看结果' : '下一题'}
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            <div className="mt-3 overflow-x-auto pb-1">
+              <div className="flex gap-1 min-w-max px-0.5">
+                {practice.questions.map((_, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => jumpToQuestion(idx)}
+                    className={`w-2 h-2 rounded-full transition-all ${
+                      idx === practice.currentIndex
+                        ? 'bg-primary-500 w-4'
+                        : practice.answers[practice.questions[idx].id] !== undefined
+                          ? practice.results[practice.questions[idx].id]
+                            ? 'bg-green-400'
+                            : 'bg-red-400'
+                          : 'bg-gray-200'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>

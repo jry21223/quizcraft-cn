@@ -1,5 +1,28 @@
 import type { QuestionType } from '@/types';
 
+const JUDGE_TRUE_VALUES = new Set([
+  'true', 't', '1', 'yes', 'y', 'right',
+  '对', '正确', '是', '√',
+]);
+const JUDGE_FALSE_VALUES = new Set([
+  'false', 'f', '0', 'no', 'n', 'wrong',
+  '错', '错误', '否', '×',
+]);
+
+const normalizeJudgeAnswer = (value: any): boolean | null => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === 'string') {
+    const text = value.trim().toLowerCase();
+    if (JUDGE_TRUE_VALUES.has(text)) return true;
+    if (JUDGE_FALSE_VALUES.has(text)) return false;
+  }
+  return null;
+};
+
 // 格式化正确率
 export const formatRate = (rate: number): string => {
   return `${rate.toFixed(1)}%`;
@@ -63,7 +86,10 @@ export const optionToIndex = (option: string): number => {
 // 将答案数组转为字符串
 export const formatAnswer = (answer: any, type: QuestionType): string => {
   if (type === 'judge') {
-    return answer === true || answer === '对' ? '对' : '错';
+    const normalized = normalizeJudgeAnswer(answer);
+    if (normalized === true) return '对';
+    if (normalized === false) return '错';
+    return String(answer);
   }
   if (type === 'multi' && Array.isArray(answer)) {
     return answer.map(indexToOption).join('');

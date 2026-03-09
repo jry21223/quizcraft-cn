@@ -131,6 +131,15 @@ API_CONFIG_CACHE: Dict[str, Tuple[float, List["LLMConfig"]]] = {}
 API_CONFIG_CACHE_TTL = 30 * 60  # 30 分钟
 QUESTION_GLOBAL_STATS: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
 
+JUDGE_TRUE_VALUES = {
+    "true", "t", "1", "yes", "y", "right",
+    "对", "正确", "是", "√",
+}
+JUDGE_FALSE_VALUES = {
+    "false", "f", "0", "no", "n", "wrong",
+    "错", "错误", "否", "×",
+}
+
 
 # ============== 题库加载 ==============
 
@@ -275,6 +284,189 @@ def update_global_question_stats(bank_key: str, question_id: str, is_correct: bo
 
 # ============== 工具函数 ==============
 
+def normalize_judge_answer(value: Any) -> Optional[bool]:
+    """将判断题答案统一转换为布尔值。无法识别时返回 None。"""
+    if isinstance(value, bool):
+        return value
+
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        if value == 1:
+            return True
+        if value == 0:
+            return False
+
+    if isinstance(value, str):
+        text = value.strip().lower()
+        if text in JUDGE_TRUE_VALUES:
+            return True
+        if text in JUDGE_FALSE_VALUES:
+            return False
+
+    return None
+
+
+def infer_judge_answer_from_analysis(analysis: Any, allow_positive_fallback: bool = False) -> Optional[bool]:
+    """从解析文本中推断判断题答案。"""
+    if not isinstance(analysis, str):
+        return None
+
+    text = analysis.strip()
+    if not text:
+        return None
+
+    head = text[:64]
+    false_markers = [
+        "错误", "不正确", "有误", "不准确", "不成立", "不符合", "并非",
+        "不是", "不属于", "不能", "不存在", "不对",
+    ]
+    true_markers = ["正确", "无误", "成立", "准确", "符合", "确实", "属实"]
+
+    if any(marker in head for marker in false_markers):
+        return False
+    if any(marker in head for marker in true_markers):
+        return True
+
+    if re.search(r"(因此|所以|由此可见|综上).{0,12}(错误|不正确|不准确)", text):
+        return False
+    if re.search(r"(因此|所以|由此可见|综上).{0,12}(正确|成立|准确)", text):
+        return True
+
+    if allow_positive_fallback and not any(marker in text for marker in false_markers):
+        return True
+
+    return None
+
+
+def normalize_text_for_match(text: Any) -> str:
+    if not isinstance(text, str):
+        return ""
+    return re.sub(r"[^0-9A-Za-z一-鿿]+", "", text).lower()
+
+
+def extract_choice_letters(text: Any) -> Optional[List[str]]:
+    if not isinstance(text, str):
+        return None
+    letters = re.findall(r"[A-F]", text.upper())
+    if not letters:
+        return None
+    deduped: List[str] = []
+    for letter in letters:
+        if letter not in deduped:
+            deduped.append(letter)
+    return deduped or None
+
+
+def choice_letters_to_answer(letters: List[str], q_type: str) -> Tuple[str, Any]:
+    indices = [ord(letter) - 65 for letter in letters if 'A' <= letter <= 'F']
+    if not indices:
+        return q_type, None
+    if q_type == "multi" or len(indices) > 1:
+        return "multi", indices
+    return "single", indices[0]
+
+
+def infer_choice_answer_from_analysis(
+    analysis: Any,
+    options: Optional[List[str]],
+    q_type: str,
+    stem: str = "",
+) -> Tuple[str, Any]:
+    if not isinstance(analysis, str):
+        return q_type, None
+
+    text = analysis.strip()
+    if not text:
+        return q_type, None
+
+    explicit_patterns = [
+        r"正确答案(?:是|为|应为|应是)?[:：]?\s*([A-F](?:\s*[、,，和及]\s*[A-F])*)",
+        r"答案(?:是|为|应为|应是)?[:：]?\s*([A-F](?:\s*[、,，和及]\s*[A-F])*)",
+        r"([A-F](?:\s*[、,，和及]\s*[A-F])+)项均正确",
+        r"([A-F](?:\s*[、,，和及]\s*[A-F])+)选项均正确",
+        r"选项\s*([A-F](?:\s*[、,，和及]\s*[A-F])*)\s*(?:正确|符合|准确)",
+    ]
+    for pattern in explicit_patterns:
+        match = re.search(pattern, text, re.I)
+        if match:
+            letters = extract_choice_letters(match.group(1))
+            if letters:
+                return choice_letters_to_answer(letters, q_type)
+
+    normalized_stem = normalize_text_for_match(stem)
+    if any(marker in normalized_stem for marker in ["错误", "不正确", "不准确", "不属于", "不恰当"]):
+        match = re.search(r"([A-F])项(?:错误|不正确|不准确|不符合|不属于)", text, re.I)
+        if match:
+            letters = extract_choice_letters(match.group(1))
+            if letters:
+                return choice_letters_to_answer(letters, "single")
+    else:
+        match = re.search(r"([A-F])项(?:正确|符合|准确)", text, re.I)
+        if match:
+            letters = extract_choice_letters(match.group(1))
+            if letters:
+                return choice_letters_to_answer(letters, q_type)
+
+    if not options:
+        return q_type, None
+
+    normalized_analysis = normalize_text_for_match(text)
+    if not normalized_analysis:
+        return q_type, None
+
+    negative_markers = [
+        "其他选项", "其余选项", "均不", "错误", "不正确", "不准确",
+        "不符合", "不选", "均非", "表述错误",
+    ]
+    negative_positions = [
+        pos for pos in (normalized_analysis.find(normalize_text_for_match(marker)) for marker in negative_markers)
+        if pos >= 0
+    ]
+    cutoff = min(negative_positions) if negative_positions else len(normalized_analysis)
+
+    positions: List[Tuple[int, int]] = []
+    for index, option in enumerate(options):
+        normalized_option = normalize_text_for_match(option)
+        if not normalized_option:
+            continue
+        pos = normalized_analysis.find(normalized_option)
+        if pos >= 0:
+            positions.append((index, pos))
+
+    early_indices = [index for index, pos in positions if pos < cutoff and pos < 50]
+    if early_indices:
+        return choice_letters_to_answer([chr(index + 65) for index in early_indices], q_type)
+
+    if len(positions) == 1:
+        only_index = positions[0][0]
+        return choice_letters_to_answer([chr(only_index + 65)], q_type)
+
+    return q_type, None
+
+
+def normalize_choice_answer(
+    answer: Any,
+    q_type: str,
+    options: Optional[List[str]],
+    analysis: Any,
+    stem: str = "",
+) -> Tuple[str, Any]:
+    if isinstance(answer, list):
+        normalized_indices = [int(item) for item in answer if isinstance(item, (int, float, str)) and str(item).isdigit()]
+        if normalized_indices:
+            if q_type == "multi" or len(normalized_indices) > 1:
+                return "multi", normalized_indices
+            return "single", normalized_indices[0]
+
+    if isinstance(answer, (int, float)) and not isinstance(answer, bool):
+        return ("multi", [int(answer)]) if q_type == "multi" else ("single", int(answer))
+
+    letters = extract_choice_letters(answer)
+    if letters:
+        return choice_letters_to_answer(letters, q_type)
+
+    return infer_choice_answer_from_analysis(analysis, options, q_type, stem)
+
+
 def parse_question_bank(data: Dict, bank_key: str) -> List[Dict]:
     """解析题库为统一格式"""
     questions = []
@@ -289,6 +481,8 @@ def parse_question_bank(data: Dict, bank_key: str) -> List[Dict]:
             if not isinstance(raw_q, dict):
                 continue
             q = dict(raw_q)
+            q_type = str(q.get("type", "single")).lower()
+            q["type"] = q_type
             chapter_name = (
                 q.get("chapter")
                 or q.get("chapterName")
@@ -310,6 +504,61 @@ def parse_question_bank(data: Dict, bank_key: str) -> List[Dict]:
             # 保底 id
             if not q.get("id"):
                 q["id"] = f"q{i+1:04d}"
+
+            options = q.get("options")
+            answer = q.get("answer")
+
+            if isinstance(options, list) and len(options) > 0:
+                q["options"] = options
+            else:
+                q["options"] = None
+
+            answer_is_blank = answer is None or (isinstance(answer, str) and not answer.strip())
+
+            if q_type in ("single", "multi") and q.get("options"):
+                normalized_type, normalized_answer = normalize_choice_answer(
+                    answer,
+                    q_type,
+                    q.get("options"),
+                    q.get("analysis"),
+                    q.get("content", ""),
+                )
+                q["type"] = normalized_type
+                if normalized_answer is not None:
+                    q["answer"] = normalized_answer
+
+            # 仅兼容“被错误标成 single 的判断题”；multi 一律不转判断题
+            if q_type == "single" and not q.get("options"):
+                inferred_answer = normalize_judge_answer(answer)
+                if inferred_answer is None and answer_is_blank:
+                    inferred_answer = infer_judge_answer_from_analysis(
+                        q.get("analysis"),
+                        allow_positive_fallback=True,
+                    )
+                if inferred_answer is not None:
+                    q["type"] = "judge"
+                    q["answer"] = inferred_answer
+                    q["options"] = None
+
+            if q.get("type") == "judge":
+                normalized_answer = normalize_judge_answer(q.get("answer"))
+                if normalized_answer is None and answer_is_blank:
+                    normalized_answer = infer_judge_answer_from_analysis(
+                        q.get("analysis"),
+                        allow_positive_fallback=True,
+                    )
+                if normalized_answer is not None:
+                    q["answer"] = normalized_answer
+                q["options"] = None
+
+            # 题目数据异常：选择题缺失选项或答案未能规范化时，直接跳过
+            if q.get("type") in ("single", "multi") and not q.get("options"):
+                continue
+            if q.get("type") == "single" and not isinstance(q.get("answer"), int):
+                continue
+            if q.get("type") == "multi" and not isinstance(q.get("answer"), list):
+                continue
+
             normalized.append(q)
         return apply_global_question_stats(bank_key, normalized)
     
@@ -558,8 +807,17 @@ async def submit_answer(request: SubmitAnswerRequest):
     q_type = question["type"]
     
     is_correct = False
+    response_correct_answer = correct_answer
     if q_type == "judge":
-        is_correct = bool(user_answer) == bool(correct_answer)
+        normalized_user_answer = normalize_judge_answer(user_answer)
+        normalized_correct_answer = normalize_judge_answer(correct_answer)
+        if normalized_correct_answer is not None:
+            response_correct_answer = normalized_correct_answer
+        is_correct = (
+            normalized_user_answer is not None
+            and normalized_correct_answer is not None
+            and normalized_user_answer == normalized_correct_answer
+        )
     elif q_type == "multi":
         user_sorted = sorted(user_answer) if isinstance(user_answer, list) else []
         correct_sorted = sorted(correct_answer) if isinstance(correct_answer, list) else []
@@ -580,7 +838,7 @@ async def submit_answer(request: SubmitAnswerRequest):
     
     return {
         "correct": is_correct,
-        "correct_answer": correct_answer,
+        "correct_answer": response_correct_answer,
         "analysis": question.get("analysis", ""),
         "stats": question.get("stats", {}),
         "user_stats": {

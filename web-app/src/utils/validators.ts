@@ -1,5 +1,28 @@
 import type { QuestionType } from '@/types';
 
+const JUDGE_TRUE_VALUES = new Set([
+  'true', 't', '1', 'yes', 'y', 'right',
+  '对', '正确', '是', '√',
+]);
+const JUDGE_FALSE_VALUES = new Set([
+  'false', 'f', '0', 'no', 'n', 'wrong',
+  '错', '错误', '否', '×',
+]);
+
+const normalizeJudgeAnswer = (value: any): boolean | null => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (value === 1) return true;
+    if (value === 0) return false;
+  }
+  if (typeof value === 'string') {
+    const text = value.trim().toLowerCase();
+    if (JUDGE_TRUE_VALUES.has(text)) return true;
+    if (JUDGE_FALSE_VALUES.has(text)) return false;
+  }
+  return null;
+};
+
 // 验证答案是否正确
 export const validateAnswer = (
   userAnswer: any,
@@ -7,7 +30,9 @@ export const validateAnswer = (
   type: QuestionType
 ): boolean => {
   if (type === 'judge') {
-    return Boolean(userAnswer) === Boolean(correctAnswer);
+    const user = normalizeJudgeAnswer(userAnswer);
+    const correct = normalizeJudgeAnswer(correctAnswer);
+    return user !== null && correct !== null && user === correct;
   }
   
   if (type === 'multi') {
