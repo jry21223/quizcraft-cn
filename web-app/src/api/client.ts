@@ -15,16 +15,60 @@ const isFileProtocol =
   typeof window !== 'undefined' &&
   window.location.protocol === 'file:';
 
-const isDev = Boolean(import.meta.env.DEV);
+const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
+
+const rawApiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
 
 const defaultApiBaseURL =
-  isDev && !isElectron && !isFileProtocol
-    ? '/api'
-    : 'http://127.0.0.1:10086/api';
+  isElectron || isFileProtocol
+    ? 'http://127.0.0.1:10086/api'
+    : '/api';
 
-const apiBaseURL =
-  import.meta.env.VITE_API_BASE_URL ||
-  defaultApiBaseURL;
+const apiBaseURL = trimTrailingSlash(rawApiBaseURL || defaultApiBaseURL);
+
+const getAbsoluteApiOrigin = () => {
+  if (/^https?:\/\//.test(apiBaseURL)) {
+    return new URL(apiBaseURL).origin;
+  }
+
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+
+  return 'http://127.0.0.1:10086';
+};
+
+export const buildBrowserURL = (path: string) => {
+  if (/^https?:\/\//.test(path)) {
+    return path;
+  }
+
+  if (path.startsWith('/')) {
+    return /^https?:\/\//.test(apiBaseURL)
+      ? `${getAbsoluteApiOrigin()}${path}`
+      : path;
+  }
+
+  return `${apiBaseURL}/${path.replace(/^\/+/, '')}`;
+};
+
+export const buildWebSocketURL = (path: string) => {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  const rawWsBaseURL = import.meta.env.VITE_WS_BASE_URL?.trim();
+
+  if (rawWsBaseURL) {
+    return `${trimTrailingSlash(rawWsBaseURL)}${normalizedPath}`;
+  }
+
+  if (isElectron || isFileProtocol) {
+    return `ws://127.0.0.1:10086${normalizedPath}`;
+  }
+
+  const apiOrigin = getAbsoluteApiOrigin();
+  const apiUrl = new URL(apiOrigin);
+  const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${wsProtocol}//${apiUrl.host}${normalizedPath}`;
+};
 
 // 创建 axios 实例
 const api: AxiosInstance = axios.create({

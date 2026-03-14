@@ -9,7 +9,7 @@
     "build": "tsc && vite build",
     "build:ops": "tsc && vite build --mode ops",
     "preview": "vite preview",
-    "preview:ops": "vite preview --mode ops --host 0.0.0.0 --port 5173",
+    "preview:ops": "vite preview --mode ops",
     "lint": "eslint . --ext ts,tsx"
   },
   "dependencies": {

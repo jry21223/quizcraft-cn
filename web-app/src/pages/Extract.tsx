@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
+import {
   Upload, 
   FileText, 
   Loader2, 
@@ -15,7 +15,7 @@ import {
   Key,
   Save
 } from 'lucide-react';
-import { analysisApi } from '@/api/client';
+import { analysisApi, buildBrowserURL, buildWebSocketURL } from '@/api/client';
 import { useCachedConfig } from '@/hooks/useCachedConfig';
 import type { ParsedQuestion } from '@/types';
 
@@ -110,7 +110,7 @@ export default function Extract() {
     // 生成 client_id
     const clientId = 'extract_' + Date.now();
     // WebSocket 直接连接后端（避免代理问题）
-    const wsUrl = `ws://127.0.0.1:10086/ws/analyze/${clientId}`;
+    const wsUrl = buildWebSocketURL(`/ws/analyze/${clientId}`);
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
@@ -194,7 +194,7 @@ export default function Extract() {
   const handleExport = async () => {
     try {
       const result = await analysisApi.exportBank(questions, bankName);
-      window.open(result.download_url, '_blank');
+      window.open(buildBrowserURL(result.download_url), '_blank');
     } catch (err) {
       setError('导出失败: ' + (err as Error).message);
     }

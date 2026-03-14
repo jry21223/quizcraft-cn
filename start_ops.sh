@@ -5,8 +5,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-BACKEND_PORT=10086
-FRONTEND_PORT=5173
+BACKEND_HOST="${BACKEND_HOST:-0.0.0.0}"
+BACKEND_PORT="${BACKEND_PORT:-10086}"
+FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
+FRONTEND_PORT="${FRONTEND_PORT:-5173}"
+WAIT_HOST="${WAIT_HOST:-127.0.0.1}"
 SERVER_PID=""
 CLIENT_PID=""
 
@@ -46,6 +49,8 @@ cleanup() {
   fi
 }
 
+trap cleanup EXIT INT TERM
+
 echo "🚀 启动运营环境（仅刷题 + 排行榜）..."
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -58,39 +63,52 @@ if ! command -v npm >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v lsof >/dev/null 2>&1; then
+  echo "❌ 需要安装 lsof"
+  exit 1
+fi
+
+if ! command -v curl >/dev/null 2>&1; then
+  echo "❌ 需要安装 curl"
+  exit 1
+fi
+
+if ! python3 -m pip --version >/dev/null 2>&1; then
+  echo "❌ 当前 Python 3 环境缺少 pip"
+  exit 1
+fi
+
 echo "📦 检查后端依赖..."
-pip install -q -r requirements.txt
+python3 -m pip install -q -r requirements.txt
 
 stop_port "${BACKEND_PORT}"
 stop_port "${FRONTEND_PORT}"
 
 echo "🔧 启动后端服务..."
-python3 server.py > server.log 2>&1 &
+APP_HOST="${BACKEND_HOST}" APP_PORT="${BACKEND_PORT}" python3 server.py > server.log 2>&1 &
 SERVER_PID=$!
-wait_for_url "后端" "http://127.0.0.1:${BACKEND_PORT}/api/banks"
+wait_for_url "后端" "http://${WAIT_HOST}:${BACKEND_PORT}/api/banks"
 
 echo "🌐 构建运营版前端..."
 cd web-app
-if [ ! -d "node_modules" ]; then
+if [ ! -x "node_modules/.bin/vite" ]; then
   echo "📦 安装前端依赖..."
-  npm install
+  npm install --include=dev
 fi
 
 npm run build:ops
 
 echo "🌍 启动运营版前端服务..."
-npm run preview:ops > dev.log 2>&1 &
+npm run preview:ops -- --host "${FRONTEND_HOST}" --port "${FRONTEND_PORT}" > dev.log 2>&1 &
 CLIENT_PID=$!
-wait_for_url "前端" "http://127.0.0.1:${FRONTEND_PORT}/"
+wait_for_url "前端" "http://${WAIT_HOST}:${FRONTEND_PORT}/"
 
 echo ""
 echo "✅ 运营环境已启动！"
-echo "   前端: http://localhost:${FRONTEND_PORT}"
-echo "   后端: http://localhost:${BACKEND_PORT}"
-echo "   API文档: http://localhost:${BACKEND_PORT}/docs"
+echo "   前端: http://${WAIT_HOST}:${FRONTEND_PORT}"
+echo "   后端: http://${WAIT_HOST}:${BACKEND_PORT}"
+echo "   API文档: http://${WAIT_HOST}:${BACKEND_PORT}/docs"
 echo ""
 echo "界面已简化为：刷题、排行榜"
 echo "按 Ctrl+C 停止服务"
-
-trap cleanup INT TERM
 wait

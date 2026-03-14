@@ -125,8 +125,11 @@ USER_STATS: Dict[str, Dict] = defaultdict(lambda: {
 })
 NAME_TO_ID: Dict[str, str] = {}
 NEXT_USER_ID = 1
-RANK_FILE = "rankings_v2.json"
-QUESTION_STATS_FILE = "question_stats.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TIKU_DIR = os.path.join(BASE_DIR, "tiku")
+EXPORT_DIR = os.path.join(BASE_DIR, "exports")
+RANK_FILE = os.path.join(BASE_DIR, "rankings_v2.json")
+QUESTION_STATS_FILE = os.path.join(BASE_DIR, "question_stats.json")
 API_CONFIG_CACHE: Dict[str, Tuple[float, List["LLMConfig"]]] = {}
 API_CONFIG_CACHE_TTL = 30 * 60  # 30 分钟
 QUESTION_GLOBAL_STATS: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
@@ -145,6 +148,7 @@ JUDGE_FALSE_VALUES = {
 
 def load_question_banks():
     """加载所有题库"""
+    QUESTION_BANKS.clear()
     banks = {
         "sixiu": {
             "name": "思想道德与法治",
@@ -166,14 +170,17 @@ def load_question_banks():
     for key, config in banks.items():
         file_path = None
         candidates = config.get("files", [])
-        # 兼容：优先根目录，其次 tiku 目录
+        # 兼容：优先项目根目录，其次 tiku 目录
         for candidate in candidates:
-            if os.path.exists(candidate):
-                file_path = candidate
-                break
-            tiku_path = os.path.join("tiku", candidate)
-            if os.path.exists(tiku_path):
-                file_path = tiku_path
+            candidate_paths = [
+                os.path.join(BASE_DIR, candidate),
+                os.path.join(TIKU_DIR, candidate),
+            ]
+            for candidate_path in candidate_paths:
+                if os.path.exists(candidate_path):
+                    file_path = candidate_path
+                    break
+            if file_path:
                 break
 
         if file_path and os.path.exists(file_path):
@@ -1617,8 +1624,10 @@ async def websocket_analyze(websocket: WebSocket, client_id: str):
 @app.post("/api/extract/export")
 async def export_bank(request: ExportRequest):
     """导出口袋"""
-    # 创建临时文件
-    output_file = f"{request.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    safe_name = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", request.name).strip("_") or "question_bank"
+    output_file = f"{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+    output_path = os.path.join(EXPORT_DIR, output_file)
+    os.makedirs(EXPORT_DIR, exist_ok=True)
     
     # 构建题库数据
     bank_data = {
@@ -1632,7 +1641,7 @@ async def export_bank(request: ExportRequest):
     }
     
     # 保存文件
-    with open(output_file, 'w', encoding='utf-8') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(bank_data, f, ensure_ascii=False, indent=2)
     
     return {"download_url": f"/api/download/{output_file}"}
@@ -1641,8 +1650,10 @@ async def export_bank(request: ExportRequest):
 @app.get("/api/download/{filename}")
 async def download_file(filename: str):
     """下载文件"""
-    if os.path.exists(filename):
-        return FileResponse(filename, filename=filename)
+    safe_filename = os.path.basename(filename)
+    file_path = os.path.join(EXPORT_DIR, safe_filename)
+    if os.path.exists(file_path):
+        return FileResponse(file_path, filename=safe_filename)
     raise HTTPException(status_code=404, detail="文件不存在")
 
 
@@ -1681,6 +1692,13 @@ async def get_global_stats(bank: str):
 
 if __name__ == "__main__":
     import uvicorn
+    host = (os.getenv("APP_HOST") or "0.0.0.0").strip() or "0.0.0.0"
+    raw_port = (os.getenv("APP_PORT") or os.getenv("PORT") or "10086").strip()
+    try:
+        port = int(raw_port)
+    except ValueError:
+        port = 10086
+
     print("🚀 启动刷题系统后端...")
-    print("📚 API 文档: http://localhost:10086/docs")
-    uvicorn.run(app, host="0.0.0.0", port=10086)
+    print(f"📚 API 文档: http://127.0.0.1:{port}/docs")
+    uvicorn.run(app, host=host, port=port)
