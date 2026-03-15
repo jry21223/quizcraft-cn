@@ -43,7 +43,7 @@ export default function Practice() {
     } else if (!savedUserId) {
       setShowNameInput(true);
     }
-  }, []);
+  }, [currentBank, setBanks, setCurrentBank]);
   
   const currentBankData = banks.find((b) => b.key === currentBank);
   const countLabel = mode === 'random' && unlimitedCount ? '不限（全部）' : `${count} 道`;

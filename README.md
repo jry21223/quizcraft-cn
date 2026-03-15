@@ -32,15 +32,15 @@ GitHub 仓库：<https://github.com/jry21223/quizcraft-cn>
 
 ```bash
 # 后端依赖
-pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 
 # 前端依赖
 cd web-app
-npm install
+npm install --include=dev
 cd ..
 ```
 
-### 2. 启动系统
+### 2. 启动开发环境
 
 ```bash
 ./start.sh
@@ -50,7 +50,7 @@ cd ..
 
 ```bash
 # 启动后端
-python server.py
+python3 server.py
 
 # 启动前端（新终端）
 cd web-app
@@ -62,6 +62,36 @@ npm run dev
 - 前端: http://localhost:5173
 - 后端 API: http://localhost:10086
 - API 文档: http://localhost:10086/docs
+
+### 4. 部署 ops 版本
+
+```bash
+./start_ops.sh
+```
+
+`ops` 版本默认只保留刷题和排行榜页面，前端请求地址默认为同源 `/api`。
+
+如果你用 Nginx/Caddy 反向代理，请把：
+
+- `/` 转发到前端服务 `5173`
+- `/api` 和 `/ws` 转发到后端服务 `10086`
+
+常用环境变量：
+
+```bash
+BACKEND_PORT=10086 FRONTEND_PORT=5173 ./start_ops.sh
+```
+
+后端也支持直接读取 `APP_HOST`、`APP_PORT` 或平台注入的 `PORT`。
+
+### 5. Electron 桌面端（可选）
+
+```bash
+# 先启动后端和 web-app 开发服务，再开 Electron
+cd electron-app
+npm install
+npm run dev
+```
 
 ## 📁 项目结构
 
@@ -82,6 +112,11 @@ npm run dev
 │   │   └── utils/        # 工具函数
 │   ├── package.json
 │   └── vite.config.ts
+│
+├── electron-app/         # Electron 桌面端壳
+│   ├── main.js
+│   ├── preload.js
+│   └── package.json
 │
 └── tiku/                 # 题库数据
 ```

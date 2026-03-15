@@ -14,3 +14,7 @@ __pycache__/
 # Node
 node_modules/
 web-app/dist/
+
+# Local runtime data
+question_stats.json
+tmp_sources/
