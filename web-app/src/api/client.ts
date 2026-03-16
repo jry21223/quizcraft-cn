@@ -7,6 +7,14 @@ import type {
   UserStats 
 } from '@/types';
 
+type UserStatsResponse = {
+  user_id: string;
+  name?: string;
+  correct?: number;
+  total?: number;
+  rate?: number;
+};
+
 const isElectron =
   typeof navigator !== 'undefined' &&
   navigator.userAgent.toLowerCase().includes('electron');
@@ -68,6 +76,36 @@ export const buildWebSocketURL = (path: string) => {
   const apiUrl = new URL(apiOrigin);
   const wsProtocol = apiUrl.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${wsProtocol}//${apiUrl.host}${normalizedPath}`;
+};
+
+const getStoredUserId = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return localStorage.getItem('user_id')?.trim() || '';
+};
+
+const persistUserId = (userId: string) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('user_id', userId);
+  }
+};
+
+const normalizeUserStats = (user: UserStatsResponse): UserStats => {
+  const correct = user.correct ?? 0;
+  const total = user.total ?? 0;
+  const rate =
+    user.rate ??
+    (total > 0 ? Math.round((correct / total) * 1000) / 10 : 0);
+
+  return {
+    userId: user.user_id,
+    name: user.name?.trim() || user.user_id,
+    correct,
+    total,
+    rate,
+  };
 };
 
 // 创建 axios 实例
@@ -141,18 +179,19 @@ export const practiceApi = {
       bank,
       question_id: questionId,
       answer,
-      user_id: localStorage.getItem('user_id'),
+      user_id: getStoredUserId() || undefined,
     });
   },
 };
 
 // 用户 API
 export const userApi = {
-  // 设置用户名
-  setName: (name: string): Promise<UserStats> => {
+  // 获取或创建用户 ID
+  ensureUser: (name = ''): Promise<UserStats> => {
     return api.post('/user', { name }).then((res: any) => {
-      localStorage.setItem('user_id', res.user_id);
-      return res;
+      const user = normalizeUserStats(res as UserStatsResponse);
+      persistUserId(user.userId);
+      return user;
     });
   },
   

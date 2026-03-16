@@ -67,7 +67,7 @@ export default function Ranking() {
               
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-800 truncate">
-                  {item.name || `用户${item.user_id}`}
+                  {item.user_id}
                 </div>
                 <div className="text-sm text-gray-500">
                   答对 {item.correct} / {item.total} 题

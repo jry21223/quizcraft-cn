@@ -23,12 +23,10 @@ export default function Practice() {
   const [chapterId, setChapterId] = useState('');
   const [threshold, setThreshold] = useState(50);
   const [loading, setLoading] = useState(false);
-  const [userName, setUserName] = useState('');
+  const [displayUserId, setDisplayUserId] = useState('');
   const [userIdInput, setUserIdInput] = useState('');
-  const [showNameInput, setShowNameInput] = useState(false);
   
   // 用于处理中文输入法的 composition 状态
-  const userNameCompositionRef = useRef(false);
   const userIdCompositionRef = useRef(false);
   
   useEffect(() => {
@@ -39,13 +37,12 @@ export default function Practice() {
       }
     });
     
-    // 检查是否需要输入用户名
-    const savedUserId = localStorage.getItem('user_id');
+    // 初始化当前使用中的用户 ID
+    const savedUserId = localStorage.getItem('user_id')?.trim() || '';
     if (IS_OPS_MODE) {
-      setUserIdInput(savedUserId || '');
-      setShowNameInput(false);
-    } else if (!savedUserId) {
-      setShowNameInput(true);
+      setUserIdInput(savedUserId);
+    } else {
+      setDisplayUserId(savedUserId);
     }
   }, [currentBank, setBanks, setCurrentBank]);
   
@@ -82,17 +79,21 @@ export default function Practice() {
         alert('请输入ID');
         return;
       }
-      localStorage.setItem('user_id', normalizedId);
     }
-    
-    // 设置用户名
-    if (!IS_OPS_MODE && userName.trim()) {
-      const user = await userApi.setName(userName.trim());
-      setUser(user);
-    }
-    
+
     setLoading(true);
     try {
+      if (IS_OPS_MODE) {
+        localStorage.setItem('user_id', userIdInput.trim());
+      } else {
+        const savedUserId = localStorage.getItem('user_id')?.trim();
+        if (!savedUserId) {
+          const user = await userApi.ensureUser();
+          setUser(user);
+          setDisplayUserId(user.userId);
+        }
+      }
+
       const requestCount = mode === 'random' && unlimitedCount ? 0 : count;
       const result = await practiceApi.start(currentBank, {
         mode,
@@ -117,34 +118,17 @@ export default function Practice() {
         开始练习
       </h1>
       
-      {/* 用户名输入 */}
-      {showNameInput && (
+      {/* 用户 ID 提示 */}
+      {!IS_OPS_MODE && (
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            设置你的昵称（可选）
-          </label>
-          <input
-            type="text"
-            value={userName}
-            onChange={(e) => {
-              // 仅在非 composition 状态时更新，避免中文输入法冲突
-              if (!userNameCompositionRef.current) {
-                setUserName(e.target.value);
-              } else {
-                // composition 过程中也更新，确保显示正常
-                setUserName(e.target.value);
-              }
-            }}
-            onCompositionStart={() => {
-              userNameCompositionRef.current = true;
-            }}
-            onCompositionEnd={(e) => {
-              userNameCompositionRef.current = false;
-              setUserName((e.target as HTMLInputElement).value);
-            }}
-            placeholder="输入昵称参与排行榜"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
+          <div className="text-sm font-medium text-gray-700 mb-2">
+            排行榜将直接显示你的 ID
+          </div>
+          <p className="text-sm text-gray-600">
+            {displayUserId
+              ? `当前 ID：${displayUserId}`
+              : '首次开始练习时会自动生成一个 ID。'}
+          </p>
         </div>
       )}
 
