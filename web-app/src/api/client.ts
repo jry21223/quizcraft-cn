@@ -79,18 +79,6 @@ const api: AxiosInstance = axios.create({
   },
 });
 
-// 请求拦截器
-api.interceptors.request.use(
-  (config) => {
-    const userId = localStorage.getItem('user_id');
-    if (userId) {
-      config.headers['X-User-Id'] = userId;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
 // 响应拦截器
 api.interceptors.response.use(
   (response) => response.data,
