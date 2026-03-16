@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Shuffle, Target, ListOrdered, ChevronRight } from 'lucide-react';
 import { bankApi, practiceApi, userApi } from '@/api/client';
@@ -26,6 +26,10 @@ export default function Practice() {
   const [userName, setUserName] = useState('');
   const [userIdInput, setUserIdInput] = useState('');
   const [showNameInput, setShowNameInput] = useState(false);
+  
+  // 用于处理中文输入法的 composition 状态
+  const userNameCompositionRef = useRef(false);
+  const userIdCompositionRef = useRef(false);
   
   useEffect(() => {
     bankApi.getList().then((res) => {
@@ -122,7 +126,22 @@ export default function Practice() {
           <input
             type="text"
             value={userName}
-            onChange={(e) => setUserName(e.target.value)}
+            onChange={(e) => {
+              // 仅在非 composition 状态时更新，避免中文输入法冲突
+              if (!userNameCompositionRef.current) {
+                setUserName(e.target.value);
+              } else {
+                // composition 过程中也更新，确保显示正常
+                setUserName(e.target.value);
+              }
+            }}
+            onCompositionStart={() => {
+              userNameCompositionRef.current = true;
+            }}
+            onCompositionEnd={(e) => {
+              userNameCompositionRef.current = false;
+              setUserName((e.target as HTMLInputElement).value);
+            }}
             placeholder="输入昵称参与排行榜"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
@@ -138,7 +157,20 @@ export default function Practice() {
           <input
             type="text"
             value={userIdInput}
-            onChange={(e) => setUserIdInput(e.target.value)}
+            onChange={(e) => {
+              if (!userIdCompositionRef.current) {
+                setUserIdInput(e.target.value);
+              } else {
+                setUserIdInput(e.target.value);
+              }
+            }}
+            onCompositionStart={() => {
+              userIdCompositionRef.current = true;
+            }}
+            onCompositionEnd={(e) => {
+              userIdCompositionRef.current = false;
+              setUserIdInput((e.target as HTMLInputElement).value);
+            }}
             placeholder="请输入学号/工号/自定义ID"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           />
