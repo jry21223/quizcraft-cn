@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { BookOpen, Trophy, FileText, Home } from 'lucide-react';
+import { BookOpen, Trophy, FileText, Home, Github } from 'lucide-react';
 import clsx from 'clsx';
 import { IS_OPS_MODE } from '@/config/appMode';
 
@@ -19,7 +19,7 @@ export default function Layout() {
   const location = useLocation();
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-gray-50 to-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-gray-50 to-white">
       {/* 顶部导航 */}
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
@@ -53,13 +53,26 @@ export default function Layout() {
       </header>
       
       {/* 主内容区 */}
-      <main className="max-w-5xl mx-auto px-4 py-6">
+      <main className="w-full max-w-5xl mx-auto px-4 py-6 flex-1">
         <Outlet />
       </main>
       
       {/* 页脚 */}
-      <footer className="mt-auto py-6 text-center text-sm text-gray-400">
-        <p>刷题助手 · React + TypeScript 重构版</p>
+      <footer className="border-t border-white/70 bg-white/55 backdrop-blur-sm">
+        <div className="max-w-5xl mx-auto px-4 py-6 text-center">
+          <div className="flex flex-col items-center gap-2 text-sm text-gray-500">
+            <p>刷题助手 · React + TypeScript 重构版</p>
+            <a
+              href="https://github.com/jry21223/quizcraft-cn"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-gray-500 transition-colors hover:border-primary-200 hover:text-primary-600"
+            >
+              <Github className="h-3.5 w-3.5" />
+              <span>源码已开源，可自行部署</span>
+            </a>
+          </div>
+        </div>
       </footer>
     </div>
   );
