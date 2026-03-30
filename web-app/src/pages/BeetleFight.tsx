@@ -169,6 +169,14 @@ interface NearestPoint {
   y: number;
 }
 
+interface DragState {
+  dragging: boolean;
+  datasetIndex: number | null;
+  pointIndex: number | null;
+  pendingValue: number | null;
+  hasMoved: boolean;
+}
+
 export default function BeetleFight() {
   const [mainTitle, setMainTitle] = useState('赛博斗蛐蛐 · 角色面板');
   const [introText, setIntroText] = useState('高频震荡型个体，具备较强爆发与压制性能。综合面板偏进攻向，适合截图展示、角色对比与赛博斗蛐蛐风格展示。');
@@ -209,28 +217,45 @@ export default function BeetleFight() {
   });
 
   const radarChartRef = useRef<HTMLCanvasElement>(null);
+  const chartWrapperRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<ChartJS | null>(null);
-  const dragStateRef = useRef<{
-    dragging: boolean;
-    datasetIndex: number | null;
-    pointIndex: number | null;
-  }>({
+  const eventCleanupRef = useRef<(() => void) | null>(null);
+  const rolesRef = useRef<Role[]>(roles);
+  const dimensionsRef = useRef<string[]>(dimensions);
+  const suppressClickRef = useRef(false);
+  const dragStateRef = useRef<DragState>({
     dragging: false,
     datasetIndex: null,
-    pointIndex: null
+    pointIndex: null,
+    pendingValue: null,
+    hasMoved: false
   });
   const canvasEventsBoundRef = useRef(false);
   const captureAreaRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const getVisibleRoles = useCallback((): Role[] => roles.filter(r => !r.hidden), [roles]);
+  useEffect(() => {
+    rolesRef.current = roles;
+  }, [roles]);
+
+  useEffect(() => {
+    dimensionsRef.current = dimensions;
+  }, [dimensions]);
+
+  const getVisibleRoleIndexes = useCallback((sourceRoles: Role[] = rolesRef.current): number[] => {
+    return sourceRoles.reduce<number[]>((indexes, role, index) => {
+      if (!role.hidden) indexes.push(index);
+      return indexes;
+    }, []);
+  }, []);
+
+  const getVisibleRoles = useCallback((): Role[] => {
+    return getVisibleRoleIndexes().map(index => rolesRef.current[index]);
+  }, [getVisibleRoleIndexes]);
 
   const visibleDatasetIndexToRealRoleIndex = useCallback((datasetIndex: number): number | undefined => {
-    const visibleIndexes = roles
-      .map((r, i) => ({ hidden: r.hidden, i }))
-      .filter(x => !x.hidden)
-      .map(x => x.i);
-    return visibleIndexes[datasetIndex];
-  }, [roles]);
+    return getVisibleRoleIndexes()[datasetIndex];
+  }, [getVisibleRoleIndexes]);
 
   const getMousePos = (canvas: HTMLCanvasElement, evt: MouseEvent | TouchEvent): { x: number; y: number } => {
     const rect = canvas.getBoundingClientRect();
@@ -247,7 +272,7 @@ export default function BeetleFight() {
     const pos = getMousePos(canvas, evt);
     let nearest: NearestPoint | null = null;
     let min = Infinity;
-    const threshold = 18;
+    const threshold = 32;
 
     chartInstanceRef.current.data.datasets.forEach((_ds, datasetIndex: number) => {
       const meta = chartInstanceRef.current!.getDatasetMeta(datasetIndex);
@@ -276,7 +301,7 @@ export default function BeetleFight() {
     };
     const hitRadius = 36;
 
-    for (let i = 0; i < dimensions.length; i++) {
+    for (let i = 0; i < dimensionsRef.current.length; i++) {
       const p = scale.getPointPositionForValue(i, scale.max + 10);
       const dx = p.x - pos.x;
       const dy = p.y - pos.y;
@@ -285,6 +310,20 @@ export default function BeetleFight() {
     }
     return -1;
   };
+
+  const getFloatingEditorPosition = useCallback((localX: number, localY: number) => {
+    const wrapper = chartWrapperRef.current;
+    if (!wrapper) {
+      return { x: localX + 12, y: localY + 12 };
+    }
+
+    const maxLeft = Math.max(12, wrapper.clientWidth - 260);
+    const maxTop = Math.max(12, wrapper.clientHeight - 120);
+    return {
+      x: Math.max(12, Math.min(localX + 12, maxLeft)),
+      y: Math.max(12, Math.min(localY + 12, maxTop))
+    };
+  }, []);
 
   const updateDragValue = (evt: MouseEvent | TouchEvent) => {
     if (!dragStateRef.current.dragging || !chartInstanceRef.current) return;
@@ -314,18 +353,16 @@ export default function BeetleFight() {
     value = Math.max(0, Math.min(100, Math.round(value)));
     const realRoleIndex = visibleDatasetIndexToRealRoleIndex(dragStateRef.current.datasetIndex);
     if (realRoleIndex === undefined) return;
-
-    setRoles(prev => {
-      const newRoles = [...prev];
-      newRoles[realRoleIndex].values[dragStateRef.current.pointIndex!] = value;
-      return newRoles;
-    });
+    dragStateRef.current.pendingValue = value;
+    dragStateRef.current.hasMoved = true;
 
     const dataset = chartInstanceRef.current.data.datasets[dragStateRef.current.datasetIndex] as { data: number[] };
     dataset.data[dragStateRef.current.pointIndex] = value;
     chartInstanceRef.current.update('none');
 
-    setStatus({ text: `拖动中：${roles[realRoleIndex]?.name} · ${dimensions[dragStateRef.current.pointIndex!]} = ${value}`, isError: false });
+    const roleName = rolesRef.current[realRoleIndex]?.name || `角色 ${realRoleIndex + 1}`;
+    const dimensionName = dimensionsRef.current[dragStateRef.current.pointIndex] || `维度 ${dragStateRef.current.pointIndex + 1}`;
+    setStatus({ text: `拖动中：${roleName} · ${dimensionName} = ${value}`, isError: false });
   };
 
   const initChart = useCallback(() => {
@@ -342,6 +379,7 @@ export default function BeetleFight() {
       pointBorderColor: role.borderColor,
       pointBorderWidth: 3,
       pointRadius: 6,
+      pointHitRadius: 26,
       pointHoverRadius: 9,
       tension: lineStyle === 'curve' ? 0.22 : 0
     }));
@@ -353,7 +391,7 @@ export default function BeetleFight() {
 
     const options: ChartConfiguration<'radar'>['options'] = {
       responsive: true,
-      maintainAspectRatio: true,
+      maintainAspectRatio: false,
       animation: {
         duration: 850,
         easing: 'easeOutQuart'
@@ -422,6 +460,7 @@ export default function BeetleFight() {
     if (!canvasEventsBoundRef.current && chartInstanceRef.current) {
       canvasEventsBoundRef.current = true;
       const canvas = chartInstanceRef.current.canvas;
+      canvas.style.touchAction = 'none';
 
       const startDrag = (evt: MouseEvent | TouchEvent) => {
         setFloatingEditor(prev => ({ ...prev, visible: false }));
@@ -430,36 +469,65 @@ export default function BeetleFight() {
         dragStateRef.current.dragging = true;
         dragStateRef.current.datasetIndex = nearest.datasetIndex;
         dragStateRef.current.pointIndex = nearest.pointIndex;
-        evt.preventDefault();
+        dragStateRef.current.pendingValue = null;
+        dragStateRef.current.hasMoved = false;
+        suppressClickRef.current = false;
+        setIsDragging(true);
+        if (evt.cancelable) evt.preventDefault();
       };
 
       const moveDrag = (evt: MouseEvent | TouchEvent) => {
         if (!dragStateRef.current.dragging) return;
-        evt.preventDefault();
+        if (evt.cancelable) evt.preventDefault();
         updateDragValue(evt);
       };
 
       const endDrag = () => {
         if (!dragStateRef.current.dragging) return;
+        const { datasetIndex, pointIndex, pendingValue, hasMoved } = dragStateRef.current;
+        if (datasetIndex !== null && pointIndex !== null && pendingValue !== null) {
+          const realRoleIndex = visibleDatasetIndexToRealRoleIndex(datasetIndex);
+          if (realRoleIndex !== undefined) {
+            setRoles(prev => prev.map((role, roleIndex) => {
+              if (roleIndex !== realRoleIndex) return role;
+              const nextValues = [...role.values];
+              nextValues[pointIndex] = pendingValue;
+              return { ...role, values: nextValues };
+            }));
+            const roleName = rolesRef.current[realRoleIndex]?.name || `角色 ${realRoleIndex + 1}`;
+            const dimensionName = dimensionsRef.current[pointIndex] || `维度 ${pointIndex + 1}`;
+            setStatus({ text: `已更新：${roleName} · ${dimensionName} = ${pendingValue}`, isError: false });
+          }
+        } else if (hasMoved) {
+          setStatus({ text: '拖动完成', isError: false });
+        }
+        suppressClickRef.current = hasMoved;
+
         dragStateRef.current.dragging = false;
         dragStateRef.current.datasetIndex = null;
         dragStateRef.current.pointIndex = null;
-        initChart();
-        setStatus({ text: '拖动完成', isError: false });
+        dragStateRef.current.pendingValue = null;
+        dragStateRef.current.hasMoved = false;
+        setIsDragging(false);
       };
 
       const clickHandler = (evt: MouseEvent) => {
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          return;
+        }
         if (dragStateRef.current.dragging) return;
         const labelIndex = findAxisLabelIndex(evt);
         if (labelIndex !== -1) {
           const pos = getMousePos(canvas, evt);
+          const editorPos = getFloatingEditorPosition(pos.x, pos.y);
           setFloatingEditor({
             visible: true,
-            x: pos.x,
-            y: pos.y,
+            x: editorPos.x,
+            y: editorPos.y,
             type: 'dimension',
             title: `编辑维度 ${labelIndex + 1} 名称`,
-            value: dimensions[labelIndex],
+            value: dimensionsRef.current[labelIndex],
             dimensionIndex: labelIndex,
             datasetVisibleIndex: null,
             realRoleIndex: null
@@ -472,15 +540,16 @@ export default function BeetleFight() {
         if (!nearest) return;
         const realRoleIndex = visibleDatasetIndexToRealRoleIndex(nearest.datasetIndex);
         if (realRoleIndex === undefined) return;
-        const role = roles[realRoleIndex];
+        const role = rolesRef.current[realRoleIndex];
         const pos = getMousePos(canvas, evt);
+        const editorPos = getFloatingEditorPosition(pos.x, pos.y);
 
         setFloatingEditor({
           visible: true,
-          x: pos.x,
-          y: pos.y,
+          x: editorPos.x,
+          y: editorPos.y,
           type: 'value',
-          title: `${role.name} · ${dimensions[nearest.pointIndex]}`,
+          title: `${role.name} · ${dimensionsRef.current[nearest.pointIndex]}`,
           value: String(role.values[nearest.pointIndex]),
           dimensionIndex: nearest.pointIndex,
           datasetVisibleIndex: nearest.datasetIndex,
@@ -489,21 +558,41 @@ export default function BeetleFight() {
       };
 
       canvas.addEventListener('mousedown', startDrag);
-      canvas.addEventListener('mousemove', moveDrag);
+      window.addEventListener('mousemove', moveDrag);
       window.addEventListener('mouseup', endDrag);
       canvas.addEventListener('touchstart', startDrag, { passive: false });
-      canvas.addEventListener('touchmove', moveDrag, { passive: false });
+      window.addEventListener('touchmove', moveDrag, { passive: false });
       window.addEventListener('touchend', endDrag, { passive: false });
+      window.addEventListener('touchcancel', endDrag, { passive: false });
       canvas.addEventListener('click', clickHandler);
       canvas.addEventListener('dblclick', dblclickHandler);
+
+      eventCleanupRef.current = () => {
+        canvas.removeEventListener('mousedown', startDrag);
+        window.removeEventListener('mousemove', moveDrag);
+        window.removeEventListener('mouseup', endDrag);
+        canvas.removeEventListener('touchstart', startDrag);
+        window.removeEventListener('touchmove', moveDrag);
+        window.removeEventListener('touchend', endDrag);
+        window.removeEventListener('touchcancel', endDrag);
+        canvas.removeEventListener('click', clickHandler);
+        canvas.removeEventListener('dblclick', dblclickHandler);
+      };
     }
-  }, [dimensions, getVisibleRoles, lineStyle, pointLabelMode, tooltipMode, roles]);
+  }, [dimensions, getFloatingEditorPosition, getVisibleRoles, lineStyle, pointLabelMode, roles, tooltipMode, visibleDatasetIndexToRealRoleIndex]);
 
   useEffect(() => {
     if (radarChartRef.current) {
       initChart();
     }
   }, [initChart]);
+
+  useEffect(() => {
+    return () => {
+      eventCleanupRef.current?.();
+      chartInstanceRef.current?.destroy();
+    };
+  }, []);
 
   const handleDragStart = (e: React.DragEvent, id: number) => {
     e.dataTransfer.setData('text/plain', String(id));
@@ -894,7 +983,7 @@ export default function BeetleFight() {
           </div>
         </div>
 
-        <div className="chart-wrapper">
+        <div className={`chart-wrapper ${isDragging ? 'dragging' : ''}`} ref={chartWrapperRef}>
           <canvas ref={radarChartRef}></canvas>
 
           {floatingEditor.visible && (
@@ -902,8 +991,8 @@ export default function BeetleFight() {
               className="floating-editor active"
               style={{
                 position: 'absolute',
-                left: Math.min(floatingEditor.x + 12, window.innerWidth - 260),
-                top: Math.min(floatingEditor.y + 12, window.innerHeight - 120),
+                left: floatingEditor.x,
+                top: floatingEditor.y,
                 zIndex: 20,
                 minWidth: '220px',
                 maxWidth: '260px'

@@ -55,6 +55,7 @@
 
 /* 斗蛐蛐页面样式 */
 .beetle-container {
+  width: 100%;
   max-width: 1460px;
   margin: 0 auto;
 }
@@ -242,6 +243,7 @@
   border-radius: 20px;
   padding: 24px 24px 14px;
   box-shadow: 0 0 20px rgba(0,255,255,0.08), inset 0 0 30px rgba(0,170,255,0.03);
+  overflow: hidden;
 }
 
 .chart-header {
@@ -315,9 +317,25 @@
 }
 
 .chart-wrapper {
-  width: 100%;
-  height: 780px;
+  width: min(100%, 820px);
+  aspect-ratio: 1 / 1;
+  min-height: 320px;
+  max-height: 780px;
+  margin: 0 auto;
   position: relative;
+}
+
+.chart-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.chart-wrapper.dragging canvas {
+  cursor: grabbing;
 }
 
 .floating-editor {
@@ -362,8 +380,24 @@
 }
 
 @media (max-width: 900px) {
+  .beetle-panel {
+    padding: 18px;
+  }
+  .control-item {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .control-item input,
+  .control-item select {
+    flex: 1;
+    min-width: 0;
+  }
+  .field-buttons {
+    flex-wrap: wrap;
+  }
   .chart-wrapper {
-    height: 560px;
+    width: 100%;
+    min-height: 280px;
   }
   .chart-main-title {
     font-size: 26px;
