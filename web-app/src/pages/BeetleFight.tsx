@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Chart as ChartJS,
+  RadarController,
   RadialLinearScale,
   PointElement,
   LineElement,
@@ -14,6 +15,7 @@ import html2canvas from 'html2canvas';
 
 // 注册 Chart.js 组件
 ChartJS.register(
+  RadarController,
   RadialLinearScale,
   PointElement,
   LineElement,
