@@ -141,6 +141,21 @@ export const bankApi = {
   getList: (): Promise<{ banks: QuestionBank[] }> => {
     return api.get('/banks');
   },
+
+  // 保存题库到服务端
+  save: (payload: {
+    name: string;
+    key?: string;
+    color?: string;
+    questions: any[];
+    overwrite?: boolean;
+  }): Promise<{
+    message: string;
+    bank: QuestionBank;
+    file: string;
+  }> => {
+    return api.post('/banks/save', payload);
+  },
   
   // 获取题库统计
   getStats: (bankKey: string): Promise<any> => {

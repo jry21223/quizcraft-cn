@@ -114,6 +114,14 @@ class ExportRequest(BaseModel):
     name: str
 
 
+class SaveBankRequest(BaseModel):
+    name: str
+    questions: List[Dict]
+    key: Optional[str] = None
+    color: Optional[str] = None
+    overwrite: bool = False
+
+
 # ============== 全局状态 ==============
 
 QUESTION_BANKS: Dict[str, Dict] = {}
@@ -133,6 +141,16 @@ QUESTION_STATS_FILE = os.path.join(BASE_DIR, "question_stats.json")
 API_CONFIG_CACHE: Dict[str, Tuple[float, List["LLMConfig"]]] = {}
 API_CONFIG_CACHE_TTL = 30 * 60  # 30 分钟
 QUESTION_GLOBAL_STATS: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
+BANK_COLOR_PALETTE = [
+    "#1976d2",
+    "#2e7d32",
+    "#c62828",
+    "#6a1b9a",
+    "#ef6c00",
+    "#00838f",
+    "#5d4037",
+    "#7b1fa2",
+]
 
 JUDGE_TRUE_VALUES = {
     "true", "t", "1", "yes", "y", "right",
@@ -146,9 +164,201 @@ JUDGE_FALSE_VALUES = {
 
 # ============== 题库加载 ==============
 
+def normalize_bank_color(color: Optional[str], fallback_key: str = "") -> str:
+    if isinstance(color, str) and re.fullmatch(r"#[0-9a-fA-F]{6}", color.strip()):
+        return color.strip()
+    if not fallback_key:
+        return BANK_COLOR_PALETTE[0]
+    digest = hashlib.md5(fallback_key.encode("utf-8")).hexdigest()
+    return BANK_COLOR_PALETTE[int(digest[:8], 16) % len(BANK_COLOR_PALETTE)]
+
+
+def sanitize_bank_key(raw: Optional[str]) -> str:
+    text = str(raw or "").strip().lower()
+    safe = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", text).strip("_")
+    return safe or f"bank_{int(time.time())}"
+
+
+def register_question_bank(
+    key: str,
+    name: str,
+    color: Optional[str],
+    file_path: str,
+    data: Any,
+    files: Optional[List[str]] = None,
+):
+    QUESTION_BANKS[key] = {
+        "name": name,
+        "files": files or [os.path.basename(file_path)],
+        "color": normalize_bank_color(color, key),
+        "file": file_path,
+        "data": data,
+    }
+
+
+def load_bank_from_file(
+    key: str,
+    file_path: str,
+    name: Optional[str] = None,
+    color: Optional[str] = None,
+    files: Optional[List[str]] = None,
+) -> bool:
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            raise ValueError("题库文件顶层必须是 JSON 对象")
+
+        meta = data.get("meta", {}) if isinstance(data, dict) else {}
+        register_question_bank(
+            key=key,
+            name=str(name or meta.get("name") or key),
+            color=color or meta.get("color"),
+            file_path=file_path,
+            data=data,
+            files=files,
+        )
+        print(f"✓ 加载题库: {QUESTION_BANKS[key]['name']} ({key}) <- {file_path}")
+        return True
+    except Exception as e:
+        print(f"✗ 加载失败 {key}: {e}")
+        return False
+
+
+def build_bank_summary(key: str, bank: Dict[str, Any]) -> Dict[str, Any]:
+    data = bank["data"]
+    chapters = []
+
+    parsed_questions = parse_question_bank(data, key)
+    seen = set()
+    for q in parsed_questions:
+        ch_name = q.get("chapter")
+        ch_id = q.get("chapter_id")
+        if not ch_name:
+            continue
+        if not ch_id:
+            ch_id = str(ch_name)
+        if ch_id not in seen:
+            chapters.append({"id": ch_id, "name": ch_name})
+            seen.add(ch_id)
+
+    if not chapters:
+        chapters = [{"id": "ch01", "name": "默认章节"}]
+
+    total = 0
+    if isinstance(data, dict) and "questions" in data:
+        total = len(parsed_questions)
+    elif isinstance(data, dict) and "meta" in data:
+        total = data["meta"].get("total", 0)
+    elif isinstance(data, dict):
+        total = sum(
+            len(items)
+            for types in data.values()
+            if isinstance(types, dict)
+            for items in types.values()
+            if isinstance(items, list)
+        )
+
+    return {
+        "key": key,
+        "name": bank["name"],
+        "color": bank["color"],
+        "total": total,
+        "chapters": chapters,
+    }
+
+
+def build_standard_bank_data(name: str, questions: List[Dict], color: Optional[str] = None) -> Dict[str, Any]:
+    normalized_questions: List[Dict[str, Any]] = []
+    chapter_to_id: Dict[str, str] = {}
+
+    for idx, raw in enumerate(questions, start=1):
+        if not isinstance(raw, dict):
+            continue
+
+        content = str(
+            raw.get("content")
+            or raw.get("question")
+            or raw.get("title")
+            or ""
+        ).strip()
+        if not content:
+            raise HTTPException(status_code=400, detail=f"第 {idx} 题题干不能为空")
+
+        chapter_name = str(raw.get("chapter") or "默认章节").strip() or "默认章节"
+        chapter_id = str(raw.get("chapter_id") or "").strip()
+        if not chapter_id:
+            chapter_id = chapter_to_id.setdefault(chapter_name, f"ch{len(chapter_to_id) + 1:02d}")
+
+        q_type = _normalize_q_type(raw.get("type"), _answer_to_text(raw.get("answer"), "single"))
+        analysis = str(raw.get("analysis") or "").strip()
+
+        question: Dict[str, Any] = {
+            "id": str(raw.get("id") or f"q{idx:04d}"),
+            "number": str(raw.get("number") or idx),
+            "type": q_type,
+            "content": content,
+            "analysis": analysis,
+            "chapter": chapter_name,
+            "chapter_id": chapter_id,
+            "stats": {
+                "total": 0,
+                "correct": 0,
+                "rate": 0,
+            },
+        }
+
+        if q_type == "judge":
+            normalized_answer = normalize_judge_answer(raw.get("answer"))
+            if normalized_answer is None:
+                raise HTTPException(status_code=400, detail=f"第 {idx} 题判断题答案必须是“对/错”")
+            question["answer"] = normalized_answer
+            question["options"] = None
+            normalized_questions.append(question)
+            continue
+
+        options = [opt for opt in _normalize_options(raw.get("options")) if opt]
+        if len(options) < 2:
+            raise HTTPException(status_code=400, detail=f"第 {idx} 题至少需要 2 个有效选项")
+
+        normalized_type, normalized_answer = normalize_choice_answer(
+            raw.get("answer"),
+            q_type,
+            options,
+            analysis,
+            content,
+        )
+        if normalized_answer is None:
+            raise HTTPException(status_code=400, detail=f"第 {idx} 题答案格式无效，请检查正确答案")
+
+        question["type"] = normalized_type
+        question["options"] = options
+        question["answer"] = normalized_answer
+        normalized_questions.append(question)
+
+    if not normalized_questions:
+        raise HTTPException(status_code=400, detail="题库中没有可保存的题目")
+
+    meta = {
+        "name": name,
+        "version": "1.0.0",
+        "created_at": datetime.now().isoformat(),
+        "total": len(normalized_questions),
+        "chapter_count": len(chapter_to_id) or 1,
+    }
+    normalized_color = normalize_bank_color(color, name)
+    if normalized_color:
+        meta["color"] = normalized_color
+
+    return {
+        "meta": meta,
+        "questions": normalized_questions,
+    }
+
 def load_question_banks():
     """加载所有题库"""
     QUESTION_BANKS.clear()
+    os.makedirs(TIKU_DIR, exist_ok=True)
     banks = {
         "sixiu": {
             "name": "思想道德与法治",
@@ -166,7 +376,8 @@ def load_question_banks():
             "color": "#c62828"
         }
     }
-    
+
+    loaded_files: Set[str] = set()
     for key, config in banks.items():
         file_path = None
         candidates = config.get("files", [])
@@ -184,17 +395,25 @@ def load_question_banks():
                 break
 
         if file_path and os.path.exists(file_path):
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                QUESTION_BANKS[key] = {
-                    **config,
-                    "file": file_path,
-                    "data": data
-                }
-                print(f"✓ 加载题库: {config['name']} ({key}) <- {file_path}")
-            except Exception as e:
-                print(f"✗ 加载失败 {key}: {e}")
+            if load_bank_from_file(
+                key=key,
+                file_path=file_path,
+                name=config["name"],
+                color=config["color"],
+                files=config.get("files"),
+            ):
+                loaded_files.add(os.path.abspath(file_path))
+
+    for filename in sorted(os.listdir(TIKU_DIR)):
+        if not filename.endswith(".json"):
+            continue
+        file_path = os.path.join(TIKU_DIR, filename)
+        abs_path = os.path.abspath(file_path)
+        key = os.path.splitext(filename)[0]
+        if abs_path in loaded_files or key in QUESTION_BANKS:
+            continue
+        if load_bank_from_file(key=key, file_path=file_path):
+            loaded_files.add(abs_path)
 
 
 def save_rankings():
@@ -692,47 +911,12 @@ app.add_middleware(
 @app.get("/api/banks")
 async def get_banks():
     """获取题库列表"""
-    banks = []
-    for key, bank in QUESTION_BANKS.items():
-        data = bank["data"]
-        chapters = []
-
-        # 统一基于解析后的题目提取章节，避免 questions 格式缺 chapter_id 导致章节丢失
-        parsed_questions = parse_question_bank(data, key)
-        seen = set()
-        for q in parsed_questions:
-            ch_name = q.get("chapter")
-            ch_id = q.get("chapter_id")
-            if not ch_name:
-                continue
-            if not ch_id:
-                ch_id = str(ch_name)
-            if ch_id not in seen:
-                chapters.append({"id": ch_id, "name": ch_name})
-                seen.add(ch_id)
-
-        if not chapters:
-            # 无章节信息时给单一默认章，保证前端不空
-            chapters = [{"id": "ch01", "name": "默认章节"}]
-        
-        # 计算题目数
-        total = 0
-        if "questions" in data:
-            total = len(parsed_questions)
-        elif "meta" in data:
-            total = data["meta"].get("total", 0)
-        else:
-            total = sum(len(items) for types in data.values() for items in types.values() if isinstance(types, dict))
-        
-        banks.append({
-            "key": key,
-            "name": bank["name"],
-            "color": bank["color"],
-            "total": total,
-            "chapters": chapters
-        })
-    
-    return {"banks": banks}
+    return {
+        "banks": [
+            build_bank_summary(key, bank)
+            for key, bank in QUESTION_BANKS.items()
+        ]
+    }
 
 
 @app.post("/api/practice/start")
@@ -1623,28 +1807,46 @@ async def websocket_analyze(websocket: WebSocket, client_id: str):
 
 @app.post("/api/extract/export")
 async def export_bank(request: ExportRequest):
-    """导出口袋"""
+    """导出标准 JSON 题库"""
     safe_name = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", request.name).strip("_") or "question_bank"
     output_file = f"{safe_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
     output_path = os.path.join(EXPORT_DIR, output_file)
     os.makedirs(EXPORT_DIR, exist_ok=True)
-    
-    # 构建题库数据
-    bank_data = {
-        "meta": {
-            "name": request.name,
-            "version": "1.0.0",
-            "created_at": datetime.now().isoformat(),
-            "total": len(request.questions)
-        },
-        "questions": request.questions
-    }
-    
-    # 保存文件
+
+    bank_data = build_standard_bank_data(request.name, request.questions)
+
     with open(output_path, 'w', encoding='utf-8') as f:
         json.dump(bank_data, f, ensure_ascii=False, indent=2)
-    
+
     return {"download_url": f"/api/download/{output_file}"}
+
+
+@app.post("/api/banks/save")
+async def save_bank(request: SaveBankRequest):
+    """保存题库到 tiku 目录并刷新题库列表"""
+    bank_name = request.name.strip() or "未命名题库"
+    bank_key = sanitize_bank_key(request.key or bank_name)
+    output_path = os.path.join(TIKU_DIR, f"{bank_key}.json")
+
+    if os.path.exists(output_path) and not request.overwrite:
+        raise HTTPException(status_code=409, detail="题库代号已存在，请修改代号或启用覆盖保存")
+
+    os.makedirs(TIKU_DIR, exist_ok=True)
+    bank_data = build_standard_bank_data(bank_name, request.questions, request.color)
+
+    with open(output_path, 'w', encoding='utf-8') as f:
+        json.dump(bank_data, f, ensure_ascii=False, indent=2)
+
+    load_question_banks()
+
+    if bank_key not in QUESTION_BANKS:
+        raise HTTPException(status_code=500, detail="题库保存成功，但刷新列表失败")
+
+    return {
+        "message": "题库已保存",
+        "bank": build_bank_summary(bank_key, QUESTION_BANKS[bank_key]),
+        "file": os.path.relpath(output_path, BASE_DIR),
+    }
 
 
 @app.get("/api/download/{filename}")

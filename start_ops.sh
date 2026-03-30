@@ -10,6 +10,7 @@ BACKEND_PORT="${BACKEND_PORT:-10086}"
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 WAIT_HOST="${WAIT_HOST:-127.0.0.1}"
+STATIC_DEPLOY_DIR="${STATIC_DEPLOY_DIR:-/var/www/quizcraft-cn}"
 SERVER_PID=""
 CLIENT_PID=""
 
@@ -38,6 +39,32 @@ wait_for_url() {
   done
   echo "❌ ${name}启动失败: ${url}"
   return 1
+}
+
+sync_static_dist() {
+  local deploy_dir="$1"
+
+  if [ -z "${deploy_dir}" ]; then
+    return 0
+  fi
+
+  if [ ! -d "${deploy_dir}" ]; then
+    echo "ℹ️ 静态发布目录不存在，跳过同步: ${deploy_dir}"
+    return 0
+  fi
+
+  if [ ! -w "${deploy_dir}" ]; then
+    echo "⚠️ 静态发布目录不可写，跳过同步: ${deploy_dir}"
+    return 0
+  fi
+
+  echo "📤 同步静态资源到 ${deploy_dir}..."
+  cp -f dist/index.html "${deploy_dir}/"
+
+  if [ -d "dist/assets" ]; then
+    mkdir -p "${deploy_dir}/assets"
+    cp -rf dist/assets/. "${deploy_dir}/assets/"
+  fi
 }
 
 cleanup() {
@@ -97,6 +124,7 @@ if [ ! -x "node_modules/.bin/vite" ]; then
 fi
 
 npm run build:ops
+sync_static_dist "${STATIC_DEPLOY_DIR}"
 
 echo "🌍 启动运营版前端服务..."
 npm run preview:ops -- --host "${FRONTEND_HOST}" --port "${FRONTEND_PORT}" > dev.log 2>&1 &
@@ -109,6 +137,6 @@ echo "   前端: http://${WAIT_HOST}:${FRONTEND_PORT}"
 echo "   后端: http://${WAIT_HOST}:${BACKEND_PORT}"
 echo "   API文档: http://${WAIT_HOST}:${BACKEND_PORT}/docs"
 echo ""
-echo "界面已简化为：刷题、排行榜"
+echo "界面已简化为：刷题、排行榜、斗蛐蛐"
 echo "按 Ctrl+C 停止服务"
 wait

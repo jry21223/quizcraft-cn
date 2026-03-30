@@ -8,6 +8,7 @@ import Quiz from '@/pages/Quiz';
 import Result from '@/pages/Result';
 import Ranking from '@/pages/Ranking';
 import Extract from '@/pages/Extract';
+import BeetleFight from '@/pages/BeetleFight';
 import { IS_OPS_MODE } from '@/config/appMode';
 import './index.css';
 
@@ -28,6 +29,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             path="extract"
             element={IS_OPS_MODE ? <Navigate to="/practice" replace /> : <Extract />}
           />
+          <Route path="beetle" element={<BeetleFight />} />
           <Route path="*" element={<Navigate to="/practice" replace />} />
         </Route>
       </Routes>
