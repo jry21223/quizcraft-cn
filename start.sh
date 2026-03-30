@@ -10,6 +10,7 @@ BACKEND_PORT="${BACKEND_PORT:-10086}"
 FRONTEND_HOST="${FRONTEND_HOST:-0.0.0.0}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 WAIT_HOST="${WAIT_HOST:-127.0.0.1}"
+PYTHON_BIN="${PYTHON_BIN:-}"
 SERVER_PID=""
 CLIENT_PID=""
 
@@ -40,6 +41,29 @@ wait_for_url() {
   return 1
 }
 
+resolve_python_bin() {
+  if [ -n "${PYTHON_BIN}" ]; then
+    return 0
+  fi
+
+  if [ -x "${SCRIPT_DIR}/.venv/bin/python3" ]; then
+    PYTHON_BIN="${SCRIPT_DIR}/.venv/bin/python3"
+    return 0
+  fi
+
+  if [ -x "${SCRIPT_DIR}/.venv/bin/python" ]; then
+    PYTHON_BIN="${SCRIPT_DIR}/.venv/bin/python"
+    return 0
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v python3)"
+    return 0
+  fi
+
+  return 1
+}
+
 cleanup() {
   if [ -n "${SERVER_PID}" ]; then
     kill "${SERVER_PID}" >/dev/null 2>&1 || true
@@ -53,7 +77,7 @@ trap cleanup EXIT INT TERM
 
 echo "🚀 启动刷题系统..."
 
-if ! command -v python3 >/dev/null 2>&1; then
+if ! resolve_python_bin; then
   echo "❌ 需要安装 Python 3"
   exit 1
 fi
@@ -73,19 +97,22 @@ if ! command -v curl >/dev/null 2>&1; then
   exit 1
 fi
 
-if ! python3 -m pip --version >/dev/null 2>&1; then
-  echo "❌ 当前 Python 3 环境缺少 pip"
+if ! "${PYTHON_BIN}" -m pip --version >/dev/null 2>&1; then
+  echo "❌ 当前 Python 环境缺少 pip: ${PYTHON_BIN}"
   exit 1
 fi
 
 echo "📦 检查后端依赖..."
-python3 -m pip install -q -r requirements.txt
+if ! "${PYTHON_BIN}" -m pip install -q -r requirements.txt; then
+  echo "❌ Python 依赖安装失败，请优先使用项目内 .venv，或通过 PYTHON_BIN 指定可写 Python 环境"
+  exit 1
+fi
 
 stop_port "${BACKEND_PORT}"
 stop_port "${FRONTEND_PORT}"
 
 echo "🔧 启动后端服务..."
-APP_HOST="${BACKEND_HOST}" APP_PORT="${BACKEND_PORT}" python3 server.py > server.log 2>&1 &
+APP_HOST="${BACKEND_HOST}" APP_PORT="${BACKEND_PORT}" "${PYTHON_BIN}" server.py > server.log 2>&1 &
 SERVER_PID=$!
 wait_for_url "后端" "http://${WAIT_HOST}:${BACKEND_PORT}/api/banks"
 

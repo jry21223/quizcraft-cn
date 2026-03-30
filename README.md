@@ -69,7 +69,7 @@ npm run dev
 ./start_ops.sh
 ```
 
-`ops` 版本默认只保留刷题和排行榜页面，前端请求地址默认为同源 `/api`。
+`ops` 版本默认保留刷题、排行榜和 `beetle` 页面，前端请求地址默认为同源 `/api`。
 
 如果你用 Nginx/Caddy 反向代理，请把：
 
@@ -80,6 +80,12 @@ npm run dev
 
 ```bash
 BACKEND_PORT=10086 FRONTEND_PORT=5173 ./start_ops.sh
+```
+
+启动脚本会优先使用项目内 `.venv`；如果你要显式指定 Python，可使用：
+
+```bash
+PYTHON_BIN=/path/to/python3 ./start_ops.sh
 ```
 
 后端也支持直接读取 `APP_HOST`、`APP_PORT` 或平台注入的 `PORT`。
