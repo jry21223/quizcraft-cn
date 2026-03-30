@@ -118,10 +118,8 @@ wait_for_url "后端" "http://${WAIT_HOST}:${BACKEND_PORT}/api/banks"
 
 echo "🌐 启动前端..."
 cd web-app
-if [ ! -x "node_modules/.bin/vite" ]; then
-  echo "📦 安装前端依赖..."
-  npm install --include=dev
-fi
+echo "📦 同步前端依赖..."
+npm install --include=dev
 
 npm run dev -- --host "${FRONTEND_HOST}" --port "${FRONTEND_PORT}" > dev.log 2>&1 &
 CLIENT_PID=$!
