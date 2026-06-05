@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -16,12 +16,17 @@ import { formatTime } from '@/utils/format';
 export default function Result() {
   const navigate = useNavigate();
   const { practice, resetPractice, updateUserStats } = useQuizStore();
+  const statsUpdatedRef = useRef(false);
   
   useEffect(() => {
     if (!practice?.isFinished) {
       navigate('/practice');
       return;
     }
+    
+    // 防重复：同一完成结果只更新一次统计
+    if (statsUpdatedRef.current) return;
+    statsUpdatedRef.current = true;
     
     // 更新用户统计
     const correct = Object.values(practice.results).filter(Boolean).length;
