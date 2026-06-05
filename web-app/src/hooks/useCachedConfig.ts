@@ -42,6 +42,13 @@ export function useCachedConfig() {
   const saveConfig = (newConfig: AnalysisConfig) => {
     setConfig(newConfig);
     try {
+      // 安全提示：API Key 明文存储在浏览器 localStorage
+      if (newConfig.apiKey) {
+        console.warn(
+          '⚠️ API Key 已明文存储在浏览器 localStorage。' +
+          '在共享或生产环境中请谨慎使用，建议仅在本地开发环境启用此功能。'
+        );
+      }
       const data: CachedConfig = {
         config: newConfig,
         timestamp: Date.now(),

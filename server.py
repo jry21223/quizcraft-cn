@@ -23,6 +23,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+
+# CORS 配置辅助函数：读取环境变量 CORS_ORIGINS（逗号分隔），默认 ['*']
+def get_cors_origins() -> list:
+    raw = os.getenv("CORS_ORIGINS", "").strip()
+    if not raw:
+        return ["*"]
+    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
 # 导入 LLM 服务
 try:
     from llm_service import LLMService, LLMConfig
@@ -899,7 +907,7 @@ app = FastAPI(
 # CORS 配置
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_cors_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

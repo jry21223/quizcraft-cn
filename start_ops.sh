@@ -15,6 +15,9 @@ PYTHON_BIN="${PYTHON_BIN:-}"
 SERVER_PID=""
 CLIENT_PID=""
 
+# CORS 限制：ops 模式下默认只允许前端地址
+CORS_ORIGINS="${CORS_ORIGINS:-http://${WAIT_HOST}:${FRONTEND_PORT},http://localhost:${FRONTEND_PORT}}"
+
 stop_port() {
   local port="$1"
   local pid
@@ -139,7 +142,7 @@ stop_port "${BACKEND_PORT}"
 stop_port "${FRONTEND_PORT}"
 
 echo "🔧 启动后端服务..."
-APP_HOST="${BACKEND_HOST}" APP_PORT="${BACKEND_PORT}" "${PYTHON_BIN}" server.py > server.log 2>&1 &
+APP_HOST="${BACKEND_HOST}" APP_PORT="${BACKEND_PORT}" CORS_ORIGINS="${CORS_ORIGINS}" "${PYTHON_BIN}" server.py > server.log 2>&1 &
 SERVER_PID=$!
 wait_for_url "后端" "http://${WAIT_HOST}:${BACKEND_PORT}/api/banks"
 
