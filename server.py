@@ -535,12 +535,12 @@ def initialize_database_if_configured():
     print("✓ PostgreSQL 存储已初始化")
 
 
-def sync_question_bank_to_db(key: str, bank: Dict[str, Any]):
+def sync_question_bank_to_db(key: str, bank: Dict[str, Any]) -> bool:
     if not db_runtime_enabled():
-        return
+        return False
     source_file = str(bank.get("file") or "")
     if source_file.startswith("postgresql:"):
-        return
+        return False
     data = bank["data"]
     metadata = data.get("meta", {}) if isinstance(data, dict) else {}
     questions = parse_question_bank(data, key)
@@ -552,14 +552,17 @@ def sync_question_bank_to_db(key: str, bank: Dict[str, Any]):
         metadata=metadata,
         questions=questions,
     )
+    return True
 
 
 def sync_question_banks_to_db():
     if not db_runtime_enabled():
         return
+    synced = 0
     for key, bank in QUESTION_BANKS.items():
-        sync_question_bank_to_db(key, bank)
-    print(f"✓ 已同步 {len(QUESTION_BANKS)} 个题库到 PostgreSQL")
+        if sync_question_bank_to_db(key, bank):
+            synced += 1
+    print(f"✓ 已同步 {synced} 个本地题库到 PostgreSQL")
 
 
 def save_rankings():
