@@ -432,7 +432,7 @@ def build_standard_bank_data(name: str, questions: List[Dict], color: Optional[s
     }
 
 def load_question_banks():
-    """加载所有题库"""
+    """加载所有题库：本地 tiku JSON 优先，PostgreSQL 作为生产兜底。"""
     QUESTION_BANKS.clear()
     QUESTION_CACHE.clear()
     QUESTION_INDEX.clear()
@@ -493,6 +493,31 @@ def load_question_banks():
         if load_bank_from_file(key=key, file_path=file_path):
             loaded_files.add(abs_path)
 
+    if db_runtime_enabled():
+        try:
+            loaded_from_db = 0
+            for key, db_bank in db_storage.load_question_banks().items():
+                if key in QUESTION_BANKS:
+                    continue
+                metadata = dict(db_bank.get("metadata") or {})
+                data = {
+                    "meta": metadata,
+                    "questions": db_bank.get("questions") or [],
+                }
+                register_question_bank(
+                    key=key,
+                    name=str(db_bank.get("name") or metadata.get("name") or key),
+                    color=str(db_bank.get("color") or metadata.get("color") or ""),
+                    file_path=f"postgresql:{key}",
+                    data=data,
+                    files=[],
+                )
+                loaded_from_db += 1
+            if loaded_from_db:
+                print(f"✓ 从 PostgreSQL 加载 {loaded_from_db} 个题库")
+        except Exception as e:
+            print(f"从 PostgreSQL 加载题库失败: {e}")
+
     refresh_question_cache()
 
 
@@ -513,6 +538,9 @@ def initialize_database_if_configured():
 def sync_question_bank_to_db(key: str, bank: Dict[str, Any]):
     if not db_runtime_enabled():
         return
+    source_file = str(bank.get("file") or "")
+    if source_file.startswith("postgresql:"):
+        return
     data = bank["data"]
     metadata = data.get("meta", {}) if isinstance(data, dict) else {}
     questions = parse_question_bank(data, key)
@@ -520,7 +548,7 @@ def sync_question_bank_to_db(key: str, bank: Dict[str, Any]):
         bank_key=key,
         name=bank["name"],
         color=bank["color"],
-        source_file=os.path.relpath(bank["file"], BASE_DIR),
+        source_file=os.path.relpath(source_file, BASE_DIR),
         metadata=metadata,
         questions=questions,
     )
@@ -1029,8 +1057,8 @@ def parse_question_text(text: str, q_type: str, chapter_id: str, chapter_name: s
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     print("🚀 正在初始化...")
-    load_question_banks()
     initialize_database_if_configured()
+    load_question_banks()
     sync_question_banks_to_db()
     load_rankings()
     load_question_stats()

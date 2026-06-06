@@ -2,7 +2,7 @@
 
 GitHub 仓库：<https://github.com/jry21223/quizcraft-cn>
 
-基于 React + TypeScript + FastAPI + PostgreSQL 的刷题系统，支持智能题库提取、AI 解析生成、排行榜统计和生产部署。题库内容仍保留在 `tiku/*.json` 中用于版本化，运行统计和迁移审计进入 PostgreSQL。
+基于 React + TypeScript + FastAPI + PostgreSQL 的刷题系统，支持智能题库提取、AI 解析生成、排行榜统计和生产部署。题库、运行统计和迁移审计都以 PostgreSQL 为生产数据源；`tiku/*.json` 仅作为本地导入/导出缓存，不再提交到仓库。
 
 ## 当前技术选型
 
@@ -12,7 +12,7 @@ GitHub 仓库：<https://github.com/jry21223/quizcraft-cn>
 | UI 与状态 | Tailwind CSS、Framer Motion、Zustand、React Router、Chart.js、Lucide React | 页面样式、动画、客户端状态、路由、统计图表和图标 |
 | 后端 | Python 3.11、FastAPI、Pydantic v2、Uvicorn | REST API、WebSocket 进度推送、请求校验和 ASGI 服务 |
 | 数据库 | PostgreSQL、psycopg 3 | 用户统计、排行榜、题目统计、题库元数据和题目快照 |
-| 题库内容 | `tiku/*.json` + PostgreSQL 双写 | JSON 继续作为可版本化题库源，DB 用于运行统计、审计和后续切库准备 |
+| 题库内容 | PostgreSQL + 本地 `tiku/*.json` 缓存 | DB 是生产题库源；JSON 只用于导入、导出和本地临时编辑 |
 | 文件与 AI | PyPDF2、python-docx、httpx、OpenAI/DeepSeek/自定义兼容接口 | PDF/Word/TXT 导入和 AI 解析生成 |
 | 部署 | Nginx、systemd、环境文件 | 静态前端托管、`/api`/`/ws` 反代、后端进程管理和密钥配置 |
 
@@ -38,7 +38,7 @@ GitHub 仓库：<https://github.com/jry21223/quizcraft-cn>
 - 🤖 **AI 解析**：使用 OpenAI/DeepSeek 生成答案解析
 - ✏️ **可视化编辑**：提取后可编辑题目内容
 - 💾 **一键导出**：导出为标准 JSON 格式
-- 🔁 **题库双写**：保存题库时同时写入 `tiku/{key}.json` 和 PostgreSQL
+- 🔁 **题库保存**：保存题库时写入 PostgreSQL，并在本地生成忽略提交的 `tiku/{key}.json`
 
 ## 🚀 快速开始
 
@@ -122,9 +122,9 @@ ADMIN_TOKEN=change-me
 .venv/bin/python scripts/smoke_backend.py
 ```
 
-迁移脚本会把旧 `rankings_v2.json` 和 `question_stats.json` 导入 PostgreSQL。题库校验脚本会检查 JSON 与 DB 中的题库 key、题目数量、题目 ID 和答案字段是否一致。
+迁移脚本会把旧 `rankings_v2.json` 和 `question_stats.json` 导入 PostgreSQL。历史题库 JSON 已从 Git 跟踪中移除；生产环境启动时会从 PostgreSQL 的 `question_banks` 和 `bank_questions` 表加载题库。
 
-运行时数据已经迁移到 PostgreSQL；`rankings_v2.json` 和 `question_stats.json` 不应再提交到 Git。
+运行时数据和题库数据已经迁移到 PostgreSQL；`rankings_v2.json`、`question_stats.json` 和 `tiku/*.json` 不应再提交到 Git。
 
 ### 6. Electron 桌面端（可选）
 
@@ -175,7 +175,7 @@ npm run dev
 │   ├── preload.js
 │   └── package.json
 │
-└── tiku/                       # 版本化题库 JSON
+└── tiku/                       # 本地题库导入/导出缓存，JSON 不进仓库
 ```
 
 ## 🎯 使用指南

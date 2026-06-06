@@ -395,6 +395,74 @@ def upsert_question_bank(
                 )
 
 
+def load_question_banks() -> Dict[str, Dict[str, Any]]:
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT bank_key, name, color, source_file, metadata
+                FROM question_banks
+                ORDER BY bank_key
+                """
+            )
+            bank_rows = cur.fetchall()
+            cur.execute(
+                """
+                SELECT bank_key, payload
+                FROM bank_questions
+                ORDER BY bank_key, question_id
+                """
+            )
+            question_rows = cur.fetchall()
+
+    banks: Dict[str, Dict[str, Any]] = {}
+    for bank_key, name, color, source_file, metadata in bank_rows:
+        key = str(bank_key)
+        meta = metadata or {}
+        if isinstance(meta, str):
+            try:
+                meta = json.loads(meta)
+            except json.JSONDecodeError:
+                meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        meta.setdefault("name", str(name or key))
+        banks[key] = {
+            "name": str(name or key),
+            "color": str(color or ""),
+            "source_file": str(source_file or f"postgresql:{key}"),
+            "metadata": meta,
+            "questions": [],
+        }
+
+    for bank_key, payload in question_rows:
+        key = str(bank_key)
+        question = payload
+        if isinstance(payload, str):
+            try:
+                question = json.loads(payload)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(question, dict):
+            continue
+        banks.setdefault(
+            key,
+            {
+                "name": key,
+                "color": "",
+                "source_file": f"postgresql:{key}",
+                "metadata": {"name": key},
+                "questions": [],
+            },
+        )
+        banks[key]["questions"].append(question)
+
+    for key, bank in banks.items():
+        bank["metadata"]["total"] = len(bank["questions"])
+
+    return banks
+
+
 def get_ranking(limit: int = 50) -> List[Dict[str, Any]]:
     with connect() as conn:
         with conn.cursor() as cur:

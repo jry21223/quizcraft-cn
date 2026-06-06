@@ -23,6 +23,7 @@ web-app/dist/
 # Local runtime data
 rankings_v2.json
 question_stats.json
+tiku/*.json
 exports/
 tmp_sources/
 .ace-tool/
