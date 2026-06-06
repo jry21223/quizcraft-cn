@@ -18,18 +18,39 @@ from datetime import datetime
 from collections import defaultdict
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+import db_storage
 
-# CORS 配置辅助函数：读取环境变量 CORS_ORIGINS（逗号分隔），默认 ['*']
+
+# CORS 配置辅助函数：读取环境变量 CORS_ORIGINS（逗号分隔），默认只允许本地开发地址
 def get_cors_origins() -> list:
     raw = os.getenv("CORS_ORIGINS", "").strip()
     if not raw:
-        return ["*"]
+        return [
+            "http://127.0.0.1:5173",
+            "http://localhost:5173",
+        ]
     return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+
+def get_admin_token() -> str:
+    return os.getenv("ADMIN_TOKEN", "").strip()
+
+
+def is_admin_token_valid(token: Optional[str]) -> bool:
+    expected = get_admin_token()
+    return bool(expected and token and token == expected)
+
+
+async def require_admin_token(x_admin_token: Optional[str] = Header(None)):
+    if not get_admin_token():
+        raise HTTPException(status_code=503, detail="后台管理 Token 未配置")
+    if not is_admin_token_valid(x_admin_token):
+        raise HTTPException(status_code=403, detail="后台管理 Token 无效")
 
 # 导入 LLM 服务
 try:
@@ -424,8 +445,52 @@ def load_question_banks():
             loaded_files.add(abs_path)
 
 
+def db_runtime_enabled() -> bool:
+    return db_storage.is_available()
+
+
+def initialize_database_if_configured():
+    if not db_storage.is_enabled():
+        print("ℹ️ 未配置 DATABASE_URL，使用本地 JSON 运行时兜底")
+        return
+    if not db_storage.is_available():
+        raise RuntimeError("DATABASE_URL 已配置，但 psycopg 不可用，请安装 requirements.txt")
+    db_storage.init_schema()
+    print("✓ PostgreSQL 存储已初始化")
+
+
+def sync_question_bank_to_db(key: str, bank: Dict[str, Any]):
+    if not db_runtime_enabled():
+        return
+    data = bank["data"]
+    metadata = data.get("meta", {}) if isinstance(data, dict) else {}
+    questions = parse_question_bank(data, key)
+    db_storage.upsert_question_bank(
+        bank_key=key,
+        name=bank["name"],
+        color=bank["color"],
+        source_file=os.path.relpath(bank["file"], BASE_DIR),
+        metadata=metadata,
+        questions=questions,
+    )
+
+
+def sync_question_banks_to_db():
+    if not db_runtime_enabled():
+        return
+    for key, bank in QUESTION_BANKS.items():
+        sync_question_bank_to_db(key, bank)
+    print(f"✓ 已同步 {len(QUESTION_BANKS)} 个题库到 PostgreSQL")
+
+
 def save_rankings():
     """保存排行榜"""
+    if db_runtime_enabled():
+        try:
+            db_storage.save_user_snapshot(dict(USER_STATS))
+        except Exception as e:
+            print(f"保存排行榜到 PostgreSQL 失败: {e}")
+        return
     try:
         data = {
             "users": dict(USER_STATS),
@@ -440,6 +505,17 @@ def save_rankings():
 def load_rankings():
     """加载排行榜"""
     global NEXT_USER_ID
+    if db_runtime_enabled():
+        try:
+            users, name_to_id, next_user_id = db_storage.load_runtime_state()
+            USER_STATS.clear()
+            USER_STATS.update(users)
+            NAME_TO_ID.clear()
+            NAME_TO_ID.update(name_to_id)
+            NEXT_USER_ID = next_user_id
+        except Exception as e:
+            print(f"从 PostgreSQL 加载排行榜失败: {e}")
+        return
     if not os.path.exists(RANK_FILE):
         return
     try:
@@ -460,6 +536,8 @@ def load_rankings():
 
 def save_question_stats():
     """保存全站题目统计"""
+    if db_runtime_enabled():
+        return
     try:
         with open(QUESTION_STATS_FILE, 'w', encoding='utf-8') as f:
             json.dump(dict(QUESTION_GLOBAL_STATS), f, ensure_ascii=False, indent=2)
@@ -469,6 +547,13 @@ def save_question_stats():
 
 def load_question_stats():
     """加载全站题目统计"""
+    if db_runtime_enabled():
+        try:
+            QUESTION_GLOBAL_STATS.clear()
+            QUESTION_GLOBAL_STATS.update(db_storage.load_question_stats())
+        except Exception as e:
+            print(f"从 PostgreSQL 加载题目统计失败: {e}")
+        return
     if not os.path.exists(QUESTION_STATS_FILE):
         return
     try:
@@ -504,6 +589,10 @@ def apply_global_question_stats(bank_key: str, questions: List[Dict]) -> List[Di
 
 def update_global_question_stats(bank_key: str, question_id: str, is_correct: bool):
     """更新全站题目统计"""
+    if db_runtime_enabled():
+        stat = db_storage.increment_question_stats(bank_key, question_id, is_correct)
+        QUESTION_GLOBAL_STATS.setdefault(bank_key, {})[question_id] = stat
+        return
     bank_stats = QUESTION_GLOBAL_STATS.setdefault(bank_key, {})
     current = bank_stats.setdefault(question_id, {"total": 0, "correct": 0, "rate": 0})
     current_total = int(current.get("total", 0)) + 1
@@ -888,6 +977,8 @@ async def lifespan(app: FastAPI):
     """应用生命周期管理"""
     print("🚀 正在初始化...")
     load_question_banks()
+    initialize_database_if_configured()
+    sync_question_banks_to_db()
     load_rankings()
     load_question_stats()
     print(f"📚 已加载 {len(QUESTION_BANKS)} 个题库")
@@ -1026,10 +1117,23 @@ async def submit_answer(request: SubmitAnswerRequest):
     
     # 更新用户统计
     if request.user_id:
-        USER_STATS[request.user_id]["total"] += 1
-        if is_correct:
-            USER_STATS[request.user_id]["correct"] += 1
-        save_rankings()
+        if db_runtime_enabled():
+            current_name = USER_STATS[request.user_id].get("name") or request.user_id
+            updated_stats = db_storage.increment_user_stats(
+                request.user_id,
+                current_name,
+                is_correct,
+            )
+            USER_STATS[request.user_id].update({
+                "name": updated_stats["name"],
+                "correct": updated_stats["correct"],
+                "total": updated_stats["total"],
+            })
+        else:
+            USER_STATS[request.user_id]["total"] += 1
+            if is_correct:
+                USER_STATS[request.user_id]["correct"] += 1
+            save_rankings()
 
     # 更新全站题目统计
     update_global_question_stats(request.bank, request.question_id, is_correct)
@@ -1063,6 +1167,18 @@ async def set_user(request: UserRequest):
             "name": name,
             **USER_STATS[user_id]
         }
+
+    if db_runtime_enabled() and name:
+        found = db_storage.find_user_by_name(name)
+        if found:
+            user_id, stats = found
+            USER_STATS[user_id].update(stats)
+            NAME_TO_ID[name] = user_id
+            return {
+                "user_id": user_id,
+                "name": name,
+                **USER_STATS[user_id]
+            }
     
     # 创建新用户
     user_id = str(NEXT_USER_ID)
@@ -1078,7 +1194,11 @@ async def set_user(request: UserRequest):
     if name:
         NAME_TO_ID[name] = user_id
     
-    save_rankings()
+    if db_runtime_enabled():
+        db_stats = db_storage.upsert_user(user_id, name or user_id)
+        USER_STATS[user_id].update(db_stats)
+    else:
+        save_rankings()
     
     return {
         "user_id": user_id,
@@ -1091,6 +1211,9 @@ async def set_user(request: UserRequest):
 @app.get("/api/ranking")
 async def get_ranking():
     """获取排行榜"""
+    if db_runtime_enabled():
+        return {"ranking": db_storage.get_ranking(50)}
+
     ranking = []
     for user_id, stats in USER_STATS.items():
         if stats["total"] > 0:
@@ -1108,7 +1231,7 @@ async def get_ranking():
 
 # ============== 文件提取 API ==============
 
-@app.post("/api/extract/parse")
+@app.post("/api/extract/parse", dependencies=[Depends(require_admin_token)])
 async def extract_parse(file: UploadFile = File(...)):
     """解析上传的文件"""
     # 保存临时文件
@@ -1647,7 +1770,7 @@ def parse_questions_from_text(text: str) -> List[Dict]:
     return questions
 
 
-@app.post("/api/extract/analyze")
+@app.post("/api/extract/analyze", dependencies=[Depends(require_admin_token)])
 async def generate_analysis(request: AnalyzeRequest):
     """使用 LLM 生成解析 - 高并发版本"""
     questions = request.questions
@@ -1845,8 +1968,11 @@ class WebSocketProgressConfig(BaseModel):
 
 
 @app.websocket("/ws/analyze/{client_id}")
-async def websocket_analyze(websocket: WebSocket, client_id: str):
+async def websocket_analyze(websocket: WebSocket, client_id: str, admin_token: Optional[str] = None):
     """WebSocket 实时解析进度"""
+    if not get_admin_token() or not is_admin_token_valid(admin_token):
+        await websocket.close(code=1008, reason="admin token required")
+        return
     await manager.connect(client_id, websocket)
     
     try:
@@ -1916,7 +2042,7 @@ async def websocket_analyze(websocket: WebSocket, client_id: str):
         manager.disconnect(client_id)
 
 
-@app.post("/api/extract/export")
+@app.post("/api/extract/export", dependencies=[Depends(require_admin_token)])
 async def export_bank(request: ExportRequest):
     """导出标准 JSON 题库"""
     safe_name = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", request.name).strip("_") or "question_bank"
@@ -1932,7 +2058,7 @@ async def export_bank(request: ExportRequest):
     return {"download_url": f"/api/download/{output_file}"}
 
 
-@app.post("/api/banks/save")
+@app.post("/api/banks/save", dependencies=[Depends(require_admin_token)])
 async def save_bank(request: SaveBankRequest):
     """保存题库到 tiku 目录并刷新题库列表"""
     bank_name = request.name.strip() or "未命名题库"
@@ -1949,6 +2075,8 @@ async def save_bank(request: SaveBankRequest):
         json.dump(bank_data, f, ensure_ascii=False, indent=2)
 
     load_question_banks()
+    if bank_key in QUESTION_BANKS:
+        sync_question_bank_to_db(bank_key, QUESTION_BANKS[bank_key])
 
     if bank_key not in QUESTION_BANKS:
         raise HTTPException(status_code=500, detail="题库保存成功，但刷新列表失败")

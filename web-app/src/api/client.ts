@@ -26,6 +26,7 @@ const isFileProtocol =
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
 const rawApiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
+const ADMIN_TOKEN_STORAGE_KEY = 'quiz_admin_token';
 
 const defaultApiBaseURL =
   isElectron || isFileProtocol
@@ -92,6 +93,31 @@ const persistUserId = (userId: string) => {
   }
 };
 
+export const getAdminToken = () => {
+  const envToken = import.meta.env.VITE_ADMIN_TOKEN?.trim() || '';
+  if (typeof window === 'undefined') {
+    return envToken;
+  }
+  return localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)?.trim() || envToken;
+};
+
+export const persistAdminToken = (token: string) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const normalized = token.trim();
+  if (normalized) {
+    localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, normalized);
+  } else {
+    localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+  }
+};
+
+const adminHeaders = () => {
+  const token = getAdminToken();
+  return token ? { 'X-Admin-Token': token } : {};
+};
+
 const normalizeUserStats = (user: UserStatsResponse): UserStats => {
   const correct = user.correct ?? 0;
   const total = user.total ?? 0;
@@ -154,7 +180,7 @@ export const bankApi = {
     bank: QuestionBank;
     file: string;
   }> => {
-    return api.post('/banks/save', payload);
+    return api.post('/banks/save', payload, { headers: adminHeaders() });
   },
   
   // 获取题库统计
@@ -229,6 +255,7 @@ export const analysisApi = {
     return api.post('/extract/parse', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
+        ...adminHeaders(),
       },
     });
   },
@@ -240,6 +267,8 @@ export const analysisApi = {
     return api.post('/extract/analyze', {
       questions,
       config,
+    }, {
+      headers: adminHeaders(),
     });
   },
   
@@ -250,6 +279,8 @@ export const analysisApi = {
     return api.post('/extract/export', {
       questions,
       name,
+    }, {
+      headers: adminHeaders(),
     });
   },
 };

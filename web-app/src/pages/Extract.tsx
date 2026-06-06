@@ -25,6 +25,8 @@ import {
   bankApi,
   buildBrowserURL,
   buildWebSocketURL,
+  getAdminToken,
+  persistAdminToken,
 } from '@/api/client';
 import { useCachedConfig } from '@/hooks/useCachedConfig';
 import { useQuizStore } from '@/stores/quizStore';
@@ -228,6 +230,7 @@ export default function Extract() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [analyzeTime, setAnalyzeTime] = useState(0);
+  const [adminToken, setAdminToken] = useState(() => getAdminToken());
 
   const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -325,6 +328,10 @@ export default function Extract() {
   };
 
   const processFile = useCallback(async (selectedFile: File) => {
+    if (!adminToken.trim()) {
+      setError('请先填写后台管理 Token');
+      return;
+    }
     clearAsyncState();
     setFile(selectedFile);
     setStep('parse');
@@ -350,7 +357,7 @@ export default function Extract() {
       setStep('select');
       setError('文件解析失败: ' + (err as Error).message);
     }
-  }, [applyQuestions, clearAsyncState]);
+  }, [adminToken, applyQuestions, clearAsyncState]);
 
   const handleFileDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -526,8 +533,17 @@ export default function Extract() {
     return true;
   };
 
+  const validateAdminToken = () => {
+    if (!adminToken.trim()) {
+      setError('请先填写后台管理 Token');
+      return false;
+    }
+    return true;
+  };
+
   const handleExport = async () => {
     if (!validateBeforePersist()) return;
+    if (!validateAdminToken()) return;
 
     setError('');
     setSuccess('');
@@ -542,6 +558,7 @@ export default function Extract() {
 
   const handleSaveBank = async () => {
     if (!validateBeforePersist()) return;
+    if (!validateAdminToken()) return;
 
     setError('');
     setSuccess('');
@@ -569,6 +586,7 @@ export default function Extract() {
   };
 
   const handleGenerateAnalysis = async () => {
+    if (!validateAdminToken()) return;
     if (!config.apiKey.trim()) {
       setError('请输入 API Key');
       return;
@@ -598,7 +616,9 @@ export default function Extract() {
     }, 1000);
 
     const clientId = `extract_${Date.now()}`;
-    const wsUrl = buildWebSocketURL(`/ws/analyze/${clientId}`);
+    const wsUrl = buildWebSocketURL(
+      `/ws/analyze/${clientId}?admin_token=${encodeURIComponent(adminToken.trim())}`
+    );
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -672,6 +692,33 @@ export default function Extract() {
         <p className="text-gray-500">
           在线新建题库、编写题目、上传导入文件，并导出或保存为标准 JSON
         </p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-100 p-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          后台管理 Token
+        </label>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <input
+            type="password"
+            value={adminToken}
+            onChange={(event) => {
+              setAdminToken(event.target.value);
+              persistAdminToken(event.target.value);
+            }}
+            placeholder="请输入 ADMIN_TOKEN"
+            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+          />
+          <button
+            onClick={() => {
+              setAdminToken('');
+              persistAdminToken('');
+            }}
+            className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
+          >
+            清除
+          </button>
+        </div>
       </div>
 
       {error && (

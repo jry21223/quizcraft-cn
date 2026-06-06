@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+
+# Local assistant metadata
+CLAUDE.md
+skills/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+
+# Node
+node_modules/
+web-app/dist/
+
+# Local runtime data
+rankings_v2.json
+question_stats.json
+exports/
+tmp_sources/
+.ace-tool/
+.claude/

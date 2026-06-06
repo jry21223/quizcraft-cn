@@ -32,12 +32,7 @@ GitHub 仓库：<https://github.com/jry21223/quizcraft-cn>
 
 ```bash
 # 后端依赖
-python3 -m pip install -r requirements.txt
-
-# 前端依赖
-cd web-app
-npm install --include=dev
-cd ..
+scripts/install_deps.sh
 ```
 
 ### 2. 启动开发环境
@@ -66,31 +61,54 @@ npm run dev
 ### 4. 部署 ops 版本
 
 ```bash
-./start_ops.sh
+scripts/install_deps.sh
+STATIC_DEPLOY_DIR=/var/www/quizcraft-cn scripts/build_ops.sh
 ```
 
-`ops` 版本默认保留刷题、排行榜和 `beetle` 页面，前端请求地址默认为同源 `/api`。
+`ops` 版本默认保留刷题、排行榜和 `beetle` 页面，前端请求地址默认为同源 `/api`。生产环境建议用 Nginx 托管 `web-app/dist` 的静态文件，并用 systemd 管理后端服务。
 
 如果你用 Nginx/Caddy 反向代理，请把：
 
-- `/` 转发到前端服务 `5173`
+- `/` 指向静态目录，例如 `/var/www/quizcraft-cn`
 - `/api` 和 `/ws` 转发到后端服务 `10086`
 
 常用环境变量：
 
 ```bash
-BACKEND_PORT=10086 FRONTEND_PORT=5173 ./start_ops.sh
+APP_HOST=127.0.0.1
+APP_PORT=10086
+CORS_ORIGINS=https://your-domain.example
+DATABASE_URL=postgresql://quizcraft:change-me@127.0.0.1:5432/quizcraft
+ADMIN_TOKEN=change-me
 ```
 
-启动脚本会优先使用项目内 `.venv`；如果你要显式指定 Python，可使用：
+部署示例在 `deploy/`：
+
+- `quizcraft-cn.env.example`：systemd 环境文件模板
+- `quizcraft-cn.service.example`：后端 systemd service 模板
+- `nginx.conf.example`：Nginx 反代和静态站点模板
+
+本地预览仍可使用：
 
 ```bash
-PYTHON_BIN=/path/to/python3 ./start_ops.sh
+./start_ops.sh
 ```
 
-后端也支持直接读取 `APP_HOST`、`APP_PORT` 或平台注入的 `PORT`。
+`start_ops.sh` 不再安装依赖，只负责构建并启动本地预览。依赖安装请显式运行 `scripts/install_deps.sh`。
 
-### 5. Electron 桌面端（可选）
+### 5. 数据迁移与校验
+
+生产环境先配置 `DATABASE_URL`，再初始化并迁移旧排行榜：
+
+```bash
+.venv/bin/python scripts/migrate_rankings_to_db.py
+.venv/bin/python scripts/check_bank_db_consistency.py
+.venv/bin/python scripts/smoke_backend.py
+```
+
+运行时数据已经迁移到 PostgreSQL；`rankings_v2.json` 和 `question_stats.json` 不应再提交到 Git。
+
+### 6. Electron 桌面端（可选）
 
 ```bash
 # 先启动后端和 web-app 开发服务，再开 Electron
