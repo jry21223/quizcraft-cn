@@ -13,6 +13,21 @@ import {
 import { useQuizStore } from '@/stores/quizStore';
 import { practiceApi } from '@/api/client';
 import { formatQuestionType, formatAnswer, getTypeColor, getDifficultyLabel } from '@/utils/format';
+import type { QuestionType } from '@/types';
+
+const isAnswerCorrect = (answer: any, correctAnswer: any, type: QuestionType) => {
+  if (type === 'judge') {
+    return Boolean(answer) === Boolean(correctAnswer);
+  }
+
+  if (type === 'multi') {
+    const selected = Array.isArray(answer) ? [...answer].map(Number).sort() : [];
+    const correct = Array.isArray(correctAnswer) ? [...correctAnswer].map(Number).sort() : [];
+    return selected.length === correct.length && selected.every((value, index) => value === correct[index]);
+  }
+
+  return Number(answer) === Number(correctAnswer);
+};
 
 // 选项组件
 function OptionButton({
@@ -143,7 +158,6 @@ export default function Quiz() {
   
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
 
   const currentIndex = practice?.currentIndex ?? -1;
@@ -190,8 +204,8 @@ export default function Quiz() {
       }
     : null;
   
-  const handleOptionSelect = async (index: number) => {
-    if (showResult || loading) return;
+  const handleOptionSelect = (index: number) => {
+    if (showResult) return;
     
     if (currentQuestion.type === 'multi') {
       // 多选题：切换选择
@@ -203,36 +217,53 @@ export default function Quiz() {
     } else {
       // 单选题：直接提交
       setSelectedAnswer(index);
-      await submitAnswer(index);
+      submitAnswer(index);
     }
   };
   
-  const handleJudgeSelect = async (value: boolean) => {
-    if (showResult || loading) return;
+  const handleJudgeSelect = (value: boolean) => {
+    if (showResult) return;
     setSelectedAnswer(value);
-    await submitAnswer(value);
+    submitAnswer(value);
   };
   
-  const submitAnswer = async (answer: any) => {
+  const submitAnswer = (answer: any) => {
     if (!currentBank || !currentQuestion) return;
-    
-    setLoading(true);
-    try {
-      const res = await practiceApi.submitAnswer(currentBank, currentQuestion.id, answer);
 
-      setShowResult(true);
-      answerQuestion({
-        questionId: currentQuestion.id,
-        answer,
-        isCorrect: res.correct,
-        correctAnswer: res.correct_answer,
-        analysis: res.analysis,
+    const questionId = currentQuestion.id;
+    const localCorrectAnswer = currentQuestion.answer;
+    const localIsCorrect = isAnswerCorrect(answer, localCorrectAnswer, currentQuestion.type);
+
+    setShowResult(true);
+    answerQuestion({
+      questionId,
+      answer,
+      isCorrect: localIsCorrect,
+      correctAnswer: localCorrectAnswer,
+      analysis: currentQuestion.analysis,
+    });
+
+    void practiceApi.submitAnswer(currentBank, questionId, answer)
+      .then((res) => {
+        // 以后如果后端隐藏答案或规则调整，以后端结果为准进行一次轻量校正。
+        answerQuestion({
+          questionId,
+          answer,
+          isCorrect: res.correct,
+          correctAnswer: res.correct_answer,
+          analysis: res.analysis,
+        });
+      })
+      .catch((error) => {
+        console.error('同步答题统计失败:', error);
       });
-    } catch {
-      alert('提交答案失败，请重试');
-    } finally {
-      setLoading(false);
+  };
+
+  const handleMultiSubmit = () => {
+    if (!selectedAnswer || (selectedAnswer as number[]).length === 0 || showResult) {
+      return;
     }
+    submitAnswer(selectedAnswer);
   };
   
   const handleNext = () => {
@@ -365,11 +396,11 @@ export default function Quiz() {
           {/* 多选题提交按钮 */}
           {currentQuestion.type === 'multi' && !showResult && (
             <button
-              onClick={() => submitAnswer(selectedAnswer)}
-              disabled={!selectedAnswer || (selectedAnswer as number[]).length === 0 || loading}
+              onClick={handleMultiSubmit}
+              disabled={!selectedAnswer || (selectedAnswer as number[]).length === 0}
               className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
             >
-              {loading ? '提交中...' : '提交答案'}
+              提交答案
             </button>
           )}
           

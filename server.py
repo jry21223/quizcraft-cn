@@ -154,6 +154,8 @@ class SaveBankRequest(BaseModel):
 # ============== 全局状态 ==============
 
 QUESTION_BANKS: Dict[str, Dict] = {}
+QUESTION_CACHE: Dict[str, List[Dict[str, Any]]] = {}
+QUESTION_INDEX: Dict[str, Dict[str, Dict[str, Any]]] = {}
 USER_STATS: Dict[str, Dict] = defaultdict(lambda: {
     "name": "",
     "correct": 0,
@@ -225,6 +227,51 @@ def register_question_bank(
     }
 
 
+def refresh_question_cache(bank_key: Optional[str] = None):
+    """预解析题库并建立 question_id 索引，避免每次答题都扫描整套题库。"""
+    target_keys = [bank_key] if bank_key else list(QUESTION_BANKS.keys())
+    if bank_key is None:
+        QUESTION_CACHE.clear()
+        QUESTION_INDEX.clear()
+
+    for key in target_keys:
+        bank = QUESTION_BANKS.get(key)
+        if not bank:
+            QUESTION_CACHE.pop(key, None)
+            QUESTION_INDEX.pop(key, None)
+            continue
+        questions = parse_question_bank(bank["data"], key)
+        QUESTION_CACHE[key] = questions
+        QUESTION_INDEX[key] = {
+            str(question.get("id")): question
+            for question in questions
+            if question.get("id") is not None
+        }
+
+
+def get_bank_questions(bank_key: str) -> List[Dict[str, Any]]:
+    if bank_key not in QUESTION_CACHE:
+        refresh_question_cache(bank_key)
+    return QUESTION_CACHE.get(bank_key, [])
+
+
+def get_bank_question(bank_key: str, question_id: str) -> Optional[Dict[str, Any]]:
+    if bank_key not in QUESTION_INDEX:
+        refresh_question_cache(bank_key)
+    return QUESTION_INDEX.get(bank_key, {}).get(str(question_id))
+
+
+def update_cached_question_stats(bank_key: str, question_id: str, stat: Dict[str, Any]):
+    question = get_bank_question(bank_key, question_id)
+    if not question:
+        return
+    question["stats"] = {
+        "total": int(stat.get("total", 0)),
+        "correct": int(stat.get("correct", 0)),
+        "rate": float(stat.get("rate", 0)),
+    }
+
+
 def load_bank_from_file(
     key: str,
     file_path: str,
@@ -258,7 +305,7 @@ def build_bank_summary(key: str, bank: Dict[str, Any]) -> Dict[str, Any]:
     data = bank["data"]
     chapters = []
 
-    parsed_questions = parse_question_bank(data, key)
+    parsed_questions = get_bank_questions(key)
     seen = set()
     for q in parsed_questions:
         ch_name = q.get("chapter")
@@ -387,6 +434,8 @@ def build_standard_bank_data(name: str, questions: List[Dict], color: Optional[s
 def load_question_banks():
     """加载所有题库"""
     QUESTION_BANKS.clear()
+    QUESTION_CACHE.clear()
+    QUESTION_INDEX.clear()
     os.makedirs(TIKU_DIR, exist_ok=True)
     banks = {
         "sixiu": {
@@ -443,6 +492,8 @@ def load_question_banks():
             continue
         if load_bank_from_file(key=key, file_path=file_path):
             loaded_files.add(abs_path)
+
+    refresh_question_cache()
 
 
 def db_runtime_enabled() -> bool:
@@ -592,6 +643,7 @@ def update_global_question_stats(bank_key: str, question_id: str, is_correct: bo
     if db_runtime_enabled():
         stat = db_storage.increment_question_stats(bank_key, question_id, is_correct)
         QUESTION_GLOBAL_STATS.setdefault(bank_key, {})[question_id] = stat
+        update_cached_question_stats(bank_key, question_id, stat)
         return
     bank_stats = QUESTION_GLOBAL_STATS.setdefault(bank_key, {})
     current = bank_stats.setdefault(question_id, {"total": 0, "correct": 0, "rate": 0})
@@ -603,6 +655,7 @@ def update_global_question_stats(bank_key: str, question_id: str, is_correct: bo
         "correct": current_correct,
         "rate": current_rate,
     }
+    update_cached_question_stats(bank_key, question_id, bank_stats[question_id])
 
 
 # ============== 工具函数 ==============
@@ -981,6 +1034,7 @@ async def lifespan(app: FastAPI):
     sync_question_banks_to_db()
     load_rankings()
     load_question_stats()
+    refresh_question_cache()
     print(f"📚 已加载 {len(QUESTION_BANKS)} 个题库")
     yield
     print("👋 正在关闭...")
@@ -1023,9 +1077,8 @@ async def start_practice(request: StartPracticeRequest):
     """开始练习"""
     if request.bank not in QUESTION_BANKS:
         raise HTTPException(status_code=404, detail="题库不存在")
-    
-    bank_data = QUESTION_BANKS[request.bank]["data"]
-    questions = parse_question_bank(bank_data, request.bank)
+
+    questions = get_bank_questions(request.bank)
     
     mode = request.mode
     params = request.params
@@ -1083,11 +1136,8 @@ async def submit_answer(request: SubmitAnswerRequest):
     """提交答案"""
     if request.bank not in QUESTION_BANKS:
         raise HTTPException(status_code=404, detail="题库不存在")
-    
-    bank_data = QUESTION_BANKS[request.bank]["data"]
-    questions = parse_question_bank(bank_data, request.bank)
-    
-    question = next((q for q in questions if q["id"] == request.question_id), None)
+
+    question = get_bank_question(request.bank, request.question_id)
     if not question:
         raise HTTPException(status_code=404, detail="题目不存在")
     
@@ -2103,9 +2153,8 @@ async def get_global_stats(bank: str):
     """获取题库统计"""
     if bank not in QUESTION_BANKS:
         raise HTTPException(status_code=404, detail="题库不存在")
-    
-    bank_data = QUESTION_BANKS[bank]["data"]
-    questions = parse_question_bank(bank_data, bank)
+
+    questions = get_bank_questions(bank)
     
     stats = {
         "total": len(questions),
