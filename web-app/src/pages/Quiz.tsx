@@ -32,6 +32,7 @@ const isAnswerCorrect = (answer: any, correctAnswer: any, type: QuestionType) =>
 const SWIPE_THRESHOLD = 50;
 const SWIPE_DIRECTION_RATIO = 1.25;
 const SWIPE_MAX_DRAG = 120;
+const CARD_TRANSITION_OFFSET = 24;
 
 type SwipeDirection = -1 | 1;
 
@@ -52,8 +53,34 @@ const clampSwipeDrag = (value: number) => {
 };
 
 const cardVariants = {
-  enter: (direction: SwipeDirection) => ({ opacity: 0, x: direction * 36 }),
-  exit: (direction: SwipeDirection) => ({ opacity: 0, x: direction * -36 }),
+  enter: (direction: SwipeDirection) => ({ opacity: 0, x: direction * CARD_TRANSITION_OFFSET }),
+  exit: (direction: SwipeDirection) => ({ opacity: 0, x: direction * -CARD_TRANSITION_OFFSET }),
+};
+
+const getProgressDotClass = ({
+  current,
+  answered,
+  correct,
+  starred,
+}: {
+  current: boolean;
+  answered: boolean;
+  correct?: boolean;
+  starred: boolean;
+}) => {
+  if (starred) {
+    return current ? 'bg-yellow-400 w-4' : 'bg-yellow-400';
+  }
+
+  if (current) {
+    return 'bg-primary-500 w-4';
+  }
+
+  if (answered) {
+    return correct ? 'bg-green-400' : 'bg-red-400';
+  }
+
+  return 'bg-gray-200';
 };
 
 // 选项组件
@@ -439,7 +466,7 @@ export default function Quiz() {
       </div>
       
       {/* 题目卡片 */}
-      <AnimatePresence mode="wait" custom={transitionDirection}>
+      <AnimatePresence custom={transitionDirection}>
         <motion.div
           key={currentQuestion.id}
           custom={transitionDirection}
@@ -450,12 +477,19 @@ export default function Quiz() {
             x: dragX,
           }}
           exit="exit"
-          transition={{
-            type: 'spring',
-            stiffness: isDraggingCard ? 420 : 300,
-            damping: isDraggingCard ? 34 : 28,
-            mass: 0.9,
-          }}
+          transition={
+            isDraggingCard
+              ? {
+                  type: 'spring',
+                  stiffness: 520,
+                  damping: 38,
+                  mass: 0.8,
+                }
+              : {
+                  duration: 0.16,
+                  ease: 'easeOut',
+                }
+          }
           onTouchStart={handleCardTouchStart}
           onTouchMove={handleCardTouchMove}
           onTouchEnd={handleCardTouchEnd}
@@ -596,21 +630,22 @@ export default function Quiz() {
             
             <div className="mt-3 overflow-x-auto pb-1" data-swipe-ignore="true">
               <div className="flex gap-1 min-w-max px-0.5">
-                {practice.questions.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => jumpToQuestion(idx)}
-                    className={`w-2 h-2 rounded-full transition-all ${
-                      idx === practice.currentIndex
-                        ? 'bg-primary-500 w-4'
-                        : practice.answers[practice.questions[idx].id] !== undefined
-                          ? practice.results[practice.questions[idx].id]
-                            ? 'bg-green-400'
-                            : 'bg-red-400'
-                          : 'bg-gray-200'
-                    }`}
-                  />
-                ))}
+                {practice.questions.map((question, idx) => {
+                  const answered = practice.answers[question.id] !== undefined;
+
+                  return (
+                    <button
+                      key={question.id}
+                      onClick={() => jumpToQuestion(idx)}
+                      className={`w-2 h-2 rounded-full transition-all ${getProgressDotClass({
+                        current: idx === practice.currentIndex,
+                        answered,
+                        correct: practice.results[question.id],
+                        starred: isStarred(question.id),
+                      })}`}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>
