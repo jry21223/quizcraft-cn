@@ -32,11 +32,15 @@ export default function Practice() {
   useEffect(() => {
     bankApi.getList().then((res) => {
       setBanks(res.banks);
-      if (res.banks.length > 0 && !currentBank) {
+      const activeBank = useQuizStore.getState().currentBank;
+      const activeBankExists = res.banks.some((bank) => bank.key === activeBank);
+      if (res.banks.length > 0 && (!activeBank || !activeBankExists)) {
         setCurrentBank(res.banks[0].key);
       }
     });
-    
+  }, [setBanks, setCurrentBank]);
+
+  useEffect(() => {
     // 初始化当前使用中的用户 ID
     const savedUserId = localStorage.getItem('user_id')?.trim() || '';
     if (IS_OPS_MODE) {
@@ -44,7 +48,7 @@ export default function Practice() {
     } else {
       setDisplayUserId(savedUserId);
     }
-  }, [currentBank, setBanks, setCurrentBank]);
+  }, []);
   
   const currentBankData = banks.find((b) => b.key === currentBank);
   const countLabel = mode === 'random' && unlimitedCount ? '不限（全部）' : `${count} 道`;
