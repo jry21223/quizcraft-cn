@@ -41,6 +41,26 @@ def get_admin_token() -> str:
     return os.getenv("ADMIN_TOKEN", "").strip()
 
 
+def get_disabled_bank_keys() -> Set[str]:
+    raw = os.getenv("DISABLED_BANK_KEYS", "").strip()
+    if not raw:
+        return set()
+    return {
+        key.strip()
+        for key in re.split(r"[,;\s]+", raw)
+        if key.strip()
+    }
+
+
+def is_bank_enabled(bank_key: str) -> bool:
+    return bank_key not in get_disabled_bank_keys()
+
+
+def require_enabled_bank(bank_key: str):
+    if bank_key not in QUESTION_BANKS or not is_bank_enabled(bank_key):
+        raise HTTPException(status_code=404, detail="题库不存在")
+
+
 def is_admin_token_valid(token: Optional[str]) -> bool:
     expected = get_admin_token()
     return bool(expected and token and token == expected)
@@ -1099,6 +1119,7 @@ async def get_banks():
         "banks": [
             build_bank_summary(key, bank)
             for key, bank in QUESTION_BANKS.items()
+            if is_bank_enabled(key)
         ]
     }
 
@@ -1106,8 +1127,7 @@ async def get_banks():
 @app.post("/api/practice/start")
 async def start_practice(request: StartPracticeRequest):
     """开始练习"""
-    if request.bank not in QUESTION_BANKS:
-        raise HTTPException(status_code=404, detail="题库不存在")
+    require_enabled_bank(request.bank)
 
     questions = get_bank_questions(request.bank)
     
@@ -1165,8 +1185,7 @@ async def start_practice(request: StartPracticeRequest):
 @app.post("/api/practice/submit")
 async def submit_answer(request: SubmitAnswerRequest):
     """提交答案"""
-    if request.bank not in QUESTION_BANKS:
-        raise HTTPException(status_code=404, detail="题库不存在")
+    require_enabled_bank(request.bank)
 
     question = get_bank_question(request.bank, request.question_id)
     if not question:
@@ -2182,8 +2201,7 @@ async def download_file(filename: str):
 @app.get("/api/stats/global")
 async def get_global_stats(bank: str):
     """获取题库统计"""
-    if bank not in QUESTION_BANKS:
-        raise HTTPException(status_code=404, detail="题库不存在")
+    require_enabled_bank(bank)
 
     questions = get_bank_questions(bank)
     
