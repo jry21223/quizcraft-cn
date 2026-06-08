@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -27,6 +27,33 @@ const isAnswerCorrect = (answer: any, correctAnswer: any, type: QuestionType) =>
   }
 
   return Number(answer) === Number(correctAnswer);
+};
+
+const SWIPE_THRESHOLD = 50;
+const SWIPE_DIRECTION_RATIO = 1.25;
+const SWIPE_MAX_DRAG = 120;
+
+type SwipeDirection = -1 | 1;
+
+type SwipeStart = {
+  x: number;
+  y: number;
+  currentX: number;
+  tracking: boolean;
+  horizontal: boolean;
+};
+
+const shouldIgnoreSwipeTarget = (target: EventTarget | null) => {
+  return target instanceof HTMLElement && Boolean(target.closest('[data-swipe-ignore="true"]'));
+};
+
+const clampSwipeDrag = (value: number) => {
+  return Math.max(-SWIPE_MAX_DRAG, Math.min(SWIPE_MAX_DRAG, value));
+};
+
+const cardVariants = {
+  enter: (direction: SwipeDirection) => ({ opacity: 0, x: direction * 36 }),
+  exit: (direction: SwipeDirection) => ({ opacity: 0, x: direction * -36 }),
 };
 
 // 选项组件
@@ -159,6 +186,10 @@ export default function Quiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [dragX, setDragX] = useState(0);
+  const [isDraggingCard, setIsDraggingCard] = useState(false);
+  const [transitionDirection, setTransitionDirection] = useState<SwipeDirection>(1);
+  const swipeStartRef = useRef<SwipeStart | null>(null);
 
   const currentIndex = practice?.currentIndex ?? -1;
 
@@ -267,6 +298,7 @@ export default function Quiz() {
   };
   
   const handleNext = () => {
+    setTransitionDirection(1);
     if (practice.currentIndex < practice.questions.length - 1) {
       nextQuestion();
       setSelectedAnswer(null);
@@ -278,7 +310,91 @@ export default function Quiz() {
   };
   
   const handlePrev = () => {
+    setTransitionDirection(-1);
     prevQuestion();
+  };
+
+  const resetSwipeState = () => {
+    swipeStartRef.current = null;
+    setDragX(0);
+    setIsDraggingCard(false);
+  };
+
+  const handleCardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 1 || shouldIgnoreSwipeTarget(event.target)) {
+      resetSwipeState();
+      return;
+    }
+
+    const touch = event.touches[0];
+    swipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      currentX: 0,
+      tracking: true,
+      horizontal: false,
+    };
+    setDragX(0);
+    setIsDraggingCard(false);
+  };
+
+  const handleCardTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start?.tracking || event.touches.length !== 1) return;
+
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    if (!start.horizontal) {
+      if (absY > 12 && absY > absX) {
+        resetSwipeState();
+        return;
+      }
+      if (absX < 12 || absX < absY * SWIPE_DIRECTION_RATIO) {
+        return;
+      }
+      start.horizontal = true;
+      setIsDraggingCard(true);
+    }
+
+    start.currentX = deltaX;
+    setDragX(clampSwipeDrag(deltaX));
+  };
+
+  const handleCardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start?.tracking) {
+      resetSwipeState();
+      return;
+    }
+
+    const changedTouch = event.changedTouches[0];
+    const fallbackDeltaX = changedTouch ? changedTouch.clientX - start.x : dragX;
+    const fallbackDeltaY = changedTouch ? changedTouch.clientY - start.y : 0;
+    const finalX = clampSwipeDrag(
+      start.currentX || fallbackDeltaX
+    );
+    const finalIsHorizontal =
+      start.horizontal ||
+      (Math.abs(fallbackDeltaX) >= SWIPE_THRESHOLD &&
+        Math.abs(fallbackDeltaX) >= Math.abs(fallbackDeltaY) * SWIPE_DIRECTION_RATIO);
+    resetSwipeState();
+
+    if (!finalIsHorizontal || Math.abs(finalX) < SWIPE_THRESHOLD) {
+      return;
+    }
+
+    if (finalX < 0) {
+      handleNext();
+      return;
+    }
+
+    if (practice.currentIndex > 0) {
+      handlePrev();
+    }
   };
   
   const formatTime = (seconds: number) => {
@@ -323,13 +439,28 @@ export default function Quiz() {
       </div>
       
       {/* 题目卡片 */}
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" custom={transitionDirection}>
         <motion.div
           key={currentQuestion.id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
+          custom={transitionDirection}
+          variants={cardVariants}
+          initial="enter"
+          animate={{
+            opacity: isDraggingCard ? Math.max(0.86, 1 - Math.abs(dragX) / 500) : 1,
+            x: dragX,
+          }}
+          exit="exit"
+          transition={{
+            type: 'spring',
+            stiffness: isDraggingCard ? 420 : 300,
+            damping: isDraggingCard ? 34 : 28,
+            mass: 0.9,
+          }}
+          onTouchStart={handleCardTouchStart}
+          onTouchMove={handleCardTouchMove}
+          onTouchEnd={handleCardTouchEnd}
+          onTouchCancel={resetSwipeState}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform"
         >
           {/* 题目信息 */}
           <div className="flex items-center gap-2 mb-4">
@@ -463,7 +594,7 @@ export default function Quiz() {
               </button>
             </div>
             
-            <div className="mt-3 overflow-x-auto pb-1">
+            <div className="mt-3 overflow-x-auto pb-1" data-swipe-ignore="true">
               <div className="flex gap-1 min-w-max px-0.5">
                 {practice.questions.map((_, idx) => (
                   <button
