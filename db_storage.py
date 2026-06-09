@@ -110,6 +110,27 @@ def init_schema() -> None:
                 )
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS feedbacks (
+                    feedback_id BIGSERIAL PRIMARY KEY,
+                    question_index INTEGER NOT NULL CHECK (question_index > 0),
+                    suggestion TEXT NOT NULL,
+                    user_id TEXT,
+                    source_page TEXT NOT NULL DEFAULT 'quiz',
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                )
+                """
+            )
+            cur.execute(
+                "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS question_bank TEXT"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feedbacks_created_at ON feedbacks(created_at DESC)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feedbacks_question_index ON feedbacks(question_index)"
+            )
 
 
 def _rate(correct: int, total: int) -> float:
@@ -233,6 +254,52 @@ def find_user_by_name(name: str) -> Optional[Tuple[str, Dict[str, Any]]]:
         "correct": _coerce_int(correct),
         "total": _coerce_int(total),
         "practice_history": [],
+    }
+
+
+def create_feedback(
+    question_index: int,
+    suggestion: str,
+    user_id: Optional[str] = None,
+    question_bank: Optional[str] = None,
+    source_page: str = "quiz",
+) -> Dict[str, Any]:
+    normalized_suggestion = str(suggestion or "").strip()
+    index_value = int(question_index)
+    normalized_bank = (question_bank or "").strip() or None
+
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO feedbacks (
+                    question_index,
+                    suggestion,
+                    user_id,
+                    question_bank,
+                    source_page
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING feedback_id, created_at
+                """,
+                (
+                    index_value,
+                    normalized_suggestion,
+                    user_id,
+                    normalized_bank,
+                    source_page,
+                ),
+            )
+            feedback_id, created_at = cur.fetchone()
+
+    return {
+        "feedback_id": int(feedback_id),
+        "question_index": index_value,
+        "suggestion": normalized_suggestion,
+        "created_at": str(created_at),
+        "user_id": user_id,
+        "question_bank": normalized_bank,
+        "source_page": source_page,
     }
 
 

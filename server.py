@@ -140,6 +140,13 @@ class SubmitAnswerRequest(BaseModel):
     user_id: Optional[str] = None
 
 
+class FeedbackRequest(BaseModel):
+    question_index: int
+    suggestion: str
+    source_page: str = "quiz"
+    question_bank: Optional[str] = None
+
+
 class UserRequest(BaseModel):
     name: Optional[str] = None
 
@@ -189,6 +196,7 @@ TIKU_DIR = os.path.join(BASE_DIR, "tiku")
 EXPORT_DIR = os.path.join(BASE_DIR, "exports")
 RANK_FILE = os.path.join(BASE_DIR, "rankings_v2.json")
 QUESTION_STATS_FILE = os.path.join(BASE_DIR, "question_stats.json")
+FEEDBACK_FILE = os.path.join(BASE_DIR, "feedbacks.json")
 API_CONFIG_CACHE: Dict[str, Tuple[float, List["LLMConfig"]]] = {}
 API_CONFIG_CACHE_TTL = 30 * 60  # 30 分钟
 QUESTION_GLOBAL_STATS: Dict[str, Dict[str, Dict[str, float]]] = defaultdict(dict)
@@ -667,6 +675,62 @@ def load_question_stats():
                 QUESTION_GLOBAL_STATS[bank] = stats
     except Exception as e:
         print(f"加载题目统计失败: {e}")
+
+
+def _normalize_feedback_suggestion(value: str) -> str:
+    text = (value or "").strip()
+    return text
+
+
+def _normalize_feedback_bank(value: Optional[str]) -> Optional[str]:
+    text = (value or "").strip()
+    return text or None
+
+
+def save_feedback_fallback(
+    question_index: int,
+    suggestion: str,
+    question_bank: Optional[str] = None,
+    source_page: str = "quiz",
+) -> Dict[str, Any]:
+    normalized_suggestion = _normalize_feedback_suggestion(suggestion)
+    if not normalized_suggestion:
+        raise ValueError("suggestion is required")
+    if len(normalized_suggestion) > 2000:
+        raise ValueError("suggestion is too long")
+
+    next_id = 1
+    payload = []
+    if os.path.exists(FEEDBACK_FILE):
+        try:
+            with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+                existing = json.load(f)
+                if isinstance(existing, list):
+                    payload = existing
+        except (OSError, json.JSONDecodeError):
+            payload = []
+    payload = [item for item in payload if isinstance(item, dict)]
+    if payload:
+        tail_id = payload[-1].get("feedback_id")
+        try:
+            next_id = int(tail_id) + 1
+        except (TypeError, ValueError):
+            next_id = 1
+
+    now = datetime.now().isoformat()
+    record = {
+        "feedback_id": next_id,
+        "question_index": int(question_index),
+        "suggestion": normalized_suggestion,
+        "user_id": None,
+        "question_bank": _normalize_feedback_bank(question_bank),
+        "source_page": (source_page or "quiz").strip() or "quiz",
+        "created_at": now,
+    }
+    payload.append(record)
+    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+        json.dump(payload, f, ensure_ascii=False, indent=2)
+    return record
 
 
 def apply_global_question_stats(bank_key: str, questions: List[Dict]) -> List[Dict]:
@@ -1365,6 +1429,54 @@ async def get_ranking():
     
     ranking.sort(key=lambda x: (-x["correct"], -x["accuracy"]))
     return {"ranking": ranking[:50]}
+
+
+@app.post("/api/feedback")
+async def create_feedback(request: FeedbackRequest):
+    question_index = request.question_index
+    suggestion = _normalize_feedback_suggestion(request.suggestion)
+
+    if question_index <= 0:
+        raise HTTPException(status_code=422, detail="题目索引必须是大于 0 的整数")
+    if not suggestion:
+        raise HTTPException(status_code=422, detail="建议改正内容不能为空")
+    if len(suggestion) > 2000:
+        raise HTTPException(status_code=422, detail="建议改正内容不能超过 2000 字符")
+
+    source_page = (request.source_page or "quiz").strip() or "quiz"
+    question_bank = _normalize_feedback_bank(request.question_bank)
+
+    if db_runtime_enabled():
+        try:
+            result = db_storage.create_feedback(
+                question_index=question_index,
+                suggestion=suggestion,
+                question_bank=question_bank,
+                source_page=source_page,
+            )
+            return {
+                "ok": True,
+                "feedback_id": result["feedback_id"],
+                "question_index": result["question_index"],
+                "question_bank": result.get("question_bank"),
+                "created_at": result["created_at"],
+            }
+        except Exception as e:
+            print(f"保存反馈到 PostgreSQL 失败: {e}")
+
+    result = save_feedback_fallback(
+        question_index=question_index,
+        suggestion=suggestion,
+        question_bank=question_bank,
+        source_page=source_page,
+    )
+    return {
+        "ok": True,
+        "feedback_id": result["feedback_id"],
+        "question_index": result["question_index"],
+        "question_bank": result.get("question_bank"),
+        "created_at": result["created_at"],
+    }
 
 
 # ============== 文件提取 API ==============

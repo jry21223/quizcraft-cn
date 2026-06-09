@@ -4,6 +4,7 @@ import {
   Trophy,
   FileText,
   Home,
+  MessageSquare,
   Github,
   Heart,
   X,
@@ -16,12 +17,14 @@ const navItems = IS_OPS_MODE
   ? [
       { path: '/practice', icon: BookOpen, label: '刷题' },
       { path: '/ranking', icon: Trophy, label: '排行榜' },
+      { path: '/feedback', icon: MessageSquare, label: '反馈' },
     ]
   : [
       { path: '/', icon: Home, label: '首页' },
       { path: '/practice', icon: BookOpen, label: '刷题' },
       { path: '/extract', icon: FileText, label: '题库工坊' },
       { path: '/ranking', icon: Trophy, label: '排行榜' },
+      { path: '/feedback', icon: MessageSquare, label: '反馈' },
   ];
 
 const donateQrUrl =

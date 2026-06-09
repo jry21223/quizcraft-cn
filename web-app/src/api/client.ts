@@ -7,6 +7,18 @@ import type {
   UserStats 
 } from '@/types';
 
+type FeedbackPayload = {
+  question_index: number;
+  suggestion: string;
+  question_bank?: string;
+};
+
+type FeedbackResponse = {
+  ok: boolean;
+  feedback_id: number;
+  created_at: string;
+};
+
 type UserStatsResponse = {
   user_id: string;
   name?: string;
@@ -239,6 +251,12 @@ export const userApi = {
   // 获取排行榜
   getRanking: (): Promise<{ ranking: RankItem[] }> => {
     return api.get('/ranking');
+  },
+};
+
+export const feedbackApi = {
+  submit: (payload: FeedbackPayload): Promise<FeedbackResponse> => {
+    return api.post('/feedback', payload);
   },
 };
 

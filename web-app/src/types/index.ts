@@ -4,6 +4,7 @@ export type QuestionType = 'single' | 'multi' | 'judge';
 // 题目
 export interface Question {
   id: string;
+  number?: string;
   type: QuestionType;
   chapter: string;
   chapter_id: string;

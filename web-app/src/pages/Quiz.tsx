@@ -16,6 +16,7 @@ import {
   XCircle,
   BookOpen,
   Timer,
+  MessageCircle,
 } from "lucide-react";
 import { useQuizStore } from "@/stores/quizStore";
 import { practiceApi } from "@/api/client";
@@ -83,6 +84,42 @@ const clampSwipeDrag = (value: number) => {
 
   return value;
 };
+
+const parsePositiveInt = (value: unknown): number | null => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  const text = typeof value === "string" ? value.trim() : String(value);
+  if (!text) {
+    return null;
+  }
+
+  const parsed = Number(text);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+};
+
+const getQuestionMetadataIndex = (
+  question: Question | null | undefined,
+): number | null => {
+  if (!question) {
+    return null;
+  }
+
+  const fromNumber = parsePositiveInt(question.number);
+  if (fromNumber !== null) {
+    return fromNumber;
+  }
+
+  const match = question.id.match(/(\d+)\s*$/);
+  if (!match) return null;
+  return parsePositiveInt(match[1]);
+};
+
+const resolveFeedbackQuestionIndex = (
+  question: Question | null | undefined,
+  fallbackIndex: number,
+): number => getQuestionMetadataIndex(question) || fallbackIndex;
 
 const getProgressDotClass = ({
   current,
@@ -422,6 +459,25 @@ export default function Quiz() {
       practice.questions.length - 1,
     )
     : 0;
+  const feedbackQuestionIndex = resolveFeedbackQuestionIndex(
+    activeQuestion,
+    visualIndex + 1,
+  );
+
+  useEffect(() => {
+    if (!hasPractice || practice.questions.length === 0) {
+      return;
+    }
+    try {
+      // 与题目索引脱钩，优先使用题库元数据 index（如 question.number 或 id 后缀）
+      localStorage.setItem(
+        "quizcraft_last_feedback_question_index",
+        String(feedbackQuestionIndex),
+      );
+    } catch {
+      // ignore storage errors
+    }
+  }, [hasPractice, practice.questions.length, feedbackQuestionIndex]);
 
   const progress = ((visualIndex + 1) / practice.questions.length) * 100;
 
@@ -878,6 +934,24 @@ export default function Quiz() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const queryBank = encodeURIComponent(currentBank || "");
+                const feedbackQuery = `/feedback?questionIndex=${feedbackQuestionIndex}${
+                  currentBank ? `&questionBank=${queryBank}` : ""
+                }`;
+                navigate(feedbackQuery, {
+                  state: {
+                    questionIndex: feedbackQuestionIndex,
+                    questionBank: currentBank,
+                  },
+                });
+              }}
+              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+              aria-label="反馈本题"
+            >
+              <MessageCircle className="w-4 h-4" />
+            </button>
             <div className="flex items-center gap-1 text-sm text-gray-500">
               <Timer className="w-4 h-4" />
               <span>{formatTime(elapsedTime)}</span>
