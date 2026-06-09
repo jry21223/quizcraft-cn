@@ -7,12 +7,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  animate,
-  AnimatePresence,
-  motion,
-  useMotionValue,
-} from "framer-motion";
+import { animate, motion, useMotionValue } from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -60,10 +55,9 @@ const isAnswerCorrect = (
 const SWIPE_THRESHOLD = 50;
 const SWIPE_DIRECTION_RATIO = 1.25;
 const SWIPE_MAX_DRAG = 120;
-const CARD_TRANSITION_OFFSET = 32;
 const PROGRESS_DOT_WINDOW_RADIUS = 40;
-
-type SwipeDirection = -1 | 1;
+const SLIDE_DURATION = 0.22;
+const SLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 type SwipeStart = {
   x: number;
@@ -84,18 +78,6 @@ const clampSwipeDrag = (value: number) => {
   return Math.max(-SWIPE_MAX_DRAG, Math.min(SWIPE_MAX_DRAG, value));
 };
 
-const cardVariants = {
-  enter: (direction: SwipeDirection) => ({
-    x: direction * CARD_TRANSITION_OFFSET,
-    opacity: 0,
-  }),
-  center: { x: 0, opacity: 1 },
-  exit: (direction: SwipeDirection) => ({
-    x: direction * -CARD_TRANSITION_OFFSET,
-    opacity: 0,
-  }),
-};
-
 const getProgressDotClass = ({
   current,
   answered,
@@ -107,19 +89,21 @@ const getProgressDotClass = ({
   correct?: boolean;
   starred: boolean;
 }) => {
+  const baseClass = "w-2 h-2 rounded-full transition-all transform-gpu";
+
   if (starred) {
-    return current ? "bg-yellow-400 w-4" : "bg-yellow-400";
+    return `${baseClass} ${current ? "scale-125 bg-yellow-500" : "bg-yellow-400"}`;
   }
 
   if (current) {
-    return "bg-primary-500 w-4";
+    return `${baseClass} bg-primary-500 scale-125`;
   }
 
   if (answered) {
-    return correct ? "bg-green-400" : "bg-red-400";
+    return `${baseClass} ${correct ? "bg-green-400" : "bg-red-400"}`;
   }
 
-  return "bg-gray-200";
+  return `${baseClass} bg-gray-200`;
 };
 
 type ProgressDotsProps = {
@@ -175,7 +159,10 @@ const ProgressDots = memo(function ProgressDots({
   };
 
   return (
-    <div className="mt-3 overflow-x-auto pb-1" data-swipe-ignore="true">
+    <div
+      className="mt-3 w-full overflow-x-auto pb-1"
+      data-swipe-ignore="true"
+    >
       <div className="flex items-center gap-1 min-w-max px-0.5">
         {start > 0 && (
           <>
@@ -328,8 +315,6 @@ export default function Quiz() {
     practice,
     currentBank,
     answerQuestion,
-    nextQuestion,
-    prevQuestion,
     jumpToQuestion,
     finishPractice,
     toggleStar,
@@ -339,11 +324,14 @@ export default function Quiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [transitionDirection, setTransitionDirection] =
-    useState<SwipeDirection>(1);
-  const dragX = useMotionValue(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [isSliding, setIsSliding] = useState(false);
+  const trackX = useMotionValue(0);
   const dragXRef = useRef(0);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<SwipeStart | null>(null);
+
+  const [visualCurrentIndex, setVisualCurrentIndex] = useState(0);
 
   const currentIndex = practice?.currentIndex ?? -1;
   const hasPractice = Boolean(practice);
@@ -352,6 +340,25 @@ export default function Quiz() {
   const activeAnswer = activeQuestionId
     ? practice?.answers[activeQuestionId]
     : undefined;
+
+  useLayoutEffect(() => {
+    if (!viewportRef.current) return;
+
+    const node = viewportRef.current;
+    const updateWidth = () => {
+      const width = Math.floor(node.getBoundingClientRect().width);
+      setViewportWidth(width > 0 ? width : 0);
+    };
+
+    updateWidth();
+
+    const ro = new ResizeObserver(() => {
+      updateWidth();
+    });
+
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [hasPractice]);
 
   useEffect(() => {
     if (!hasPractice) {
@@ -363,13 +370,30 @@ export default function Quiz() {
     if (!hasPractice) return;
 
     if (activeAnswer !== undefined) {
-      setSelectedAnswer(activeAnswer);
-      setShowResult(true);
-    } else {
-      setSelectedAnswer(null);
-      setShowResult(false);
-    }
+    setSelectedAnswer(activeAnswer);
+    setShowResult(true);
+  } else {
+    setSelectedAnswer(null);
+    setShowResult(false);
+  }
   }, [hasPractice, activeQuestionId, activeAnswer]);
+
+  useLayoutEffect(() => {
+    if (!hasPractice || !practice) return;
+
+    setVisualCurrentIndex(practice.currentIndex);
+  }, [hasPractice, practice?.currentIndex, practice]);
+
+  useLayoutEffect(() => {
+    if (!hasPractice || !viewportWidth) {
+      return;
+    }
+
+    trackX.set(-viewportWidth);
+    dragXRef.current = 0;
+    swipeStartRef.current = null;
+    setIsSliding(false);
+  }, [hasPractice, currentIndex, practice?.questions.length, viewportWidth, trackX]);
 
   const startTime = practice?.startTime;
   const isFinished = practice?.isFinished ?? false;
@@ -386,17 +410,371 @@ export default function Quiz() {
 
   if (!hasPractice || !activeQuestion) return null;
 
-  const progress =
-    ((practice.currentIndex + 1) / practice.questions.length) * 100;
+  const visualIndex = hasPractice
+    ? Math.min(
+      Math.max(visualCurrentIndex, 0),
+      practice.questions.length - 1,
+    )
+    : 0;
 
-  const result =
-    practice.answers[activeQuestion.id] !== undefined
-      ? {
-          correct: practice.results[activeQuestion.id],
-          correctAnswer: practice.correctAnswers[activeQuestion.id],
-          analysis: practice.analyses[activeQuestion.id],
-        }
+  const progress = ((visualIndex + 1) / practice.questions.length) * 100;
+
+  const prevQuestion = currentIndex > 0 ? practice.questions[currentIndex - 1] : null;
+  const nextQuestionRef =
+    currentIndex < practice.questions.length - 1
+      ? practice.questions[currentIndex + 1]
       : null;
+
+  const canSubmitCurrent = Boolean(
+    activeQuestion &&
+      (activeQuestion.type === "multi"
+        ? Array.isArray(selectedAnswer) && selectedAnswer.length > 0
+        : activeQuestion.type === "judge"
+          ? selectedAnswer === true || selectedAnswer === false
+          : selectedAnswer !== null && selectedAnswer !== undefined),
+  );
+
+  const alignTrackToCenter = (animateBack = true) => {
+    if (!viewportWidth) {
+      return;
+    }
+
+    if (animateBack) {
+      animate(trackX, -viewportWidth, { duration: 0.12, ease: "easeOut" });
+    } else {
+      trackX.set(-viewportWidth);
+    }
+  };
+
+  const setTrackDragPosition = (value: number) => {
+    if (!viewportWidth) {
+      return;
+    }
+
+    const clamped = clampSwipeDrag(value);
+    dragXRef.current = clamped;
+    trackX.set(-viewportWidth + clamped);
+  };
+
+  const resetSwipeState = (animateBack = true) => {
+    swipeStartRef.current = null;
+    dragXRef.current = 0;
+    alignTrackToCenter(animateBack);
+  };
+
+  const resetQuestionViewState = () => {
+    setSelectedAnswer(null);
+    setShowResult(false);
+  };
+
+  const slideToIndex = (targetIndex: number) => {
+    if (!practice || isSliding) {
+      return;
+    }
+
+    const { currentIndex, questions } = practice;
+    const maxIndex = questions.length - 1;
+    const nextIndex = Math.max(0, Math.min(maxIndex, targetIndex));
+
+    if (nextIndex === currentIndex) return;
+
+    resetQuestionViewState();
+
+    if (!viewportWidth || Math.abs(nextIndex - currentIndex) > 1) {
+      setVisualCurrentIndex(nextIndex);
+      jumpToQuestion(nextIndex);
+      trackX.set(-viewportWidth);
+      return;
+    }
+
+    const targetX = nextIndex > currentIndex ? -2 * viewportWidth : 0;
+
+    setVisualCurrentIndex(nextIndex);
+    setIsSliding(true);
+    const controls = animate(trackX, targetX, {
+      duration: SLIDE_DURATION,
+      ease: SLIDE_EASE,
+    });
+
+    void controls.then(() => {
+      jumpToQuestion(nextIndex);
+      trackX.set(-viewportWidth);
+      setIsSliding(false);
+    });
+  };
+
+  const handleJump = (index: number) => {
+    if (!practice) return;
+    if (index === practice.currentIndex) return;
+    if (index < 0 || index >= practice.questions.length) return;
+
+    slideToIndex(index);
+  };
+
+  const handleNext = () => {
+    if (!practice || isSliding) return;
+
+    if (practice.currentIndex < practice.questions.length - 1) {
+      slideToIndex(practice.currentIndex + 1);
+    } else {
+      finishPractice();
+      navigate("/result");
+    }
+  };
+
+  const handlePrev = () => {
+    if (!practice || isSliding) return;
+    if (practice.currentIndex <= 0) {
+      return;
+    }
+
+    slideToIndex(practice.currentIndex - 1);
+  };
+
+  const handleCardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (isSliding || event.touches.length !== 1 || shouldIgnoreSwipeTarget(event.target)) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    swipeStartRef.current = {
+      x: touch.clientX,
+      y: touch.clientY,
+      currentX: 0,
+      tracking: true,
+      horizontal: false,
+    };
+
+    dragXRef.current = 0;
+    trackX.set(-viewportWidth);
+  };
+
+  const handleCardTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start?.tracking || event.touches.length !== 1 || !viewportWidth) return;
+
+    const touch = event.touches[0];
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+
+    if (!start.horizontal) {
+      if (absY > 12 && absY > absX) {
+        resetSwipeState();
+        return;
+      }
+      if (absX < 12 || absX < absY * SWIPE_DIRECTION_RATIO) {
+        return;
+      }
+      start.horizontal = true;
+    }
+
+    start.currentX = deltaX;
+    setTrackDragPosition(deltaX);
+  };
+
+  const handleCardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    const start = swipeStartRef.current;
+    if (!start?.tracking) {
+      resetSwipeState();
+      return;
+    }
+
+    const changedTouch = event.changedTouches[0];
+    const fallbackDeltaX = changedTouch
+      ? changedTouch.clientX - start.x
+      : dragXRef.current;
+    const fallbackDeltaY = changedTouch ? changedTouch.clientY - start.y : 0;
+    const finalX = clampSwipeDrag(start.currentX || fallbackDeltaX);
+    const finalIsHorizontal =
+      start.horizontal ||
+      (Math.abs(fallbackDeltaX) >= SWIPE_THRESHOLD &&
+        Math.abs(fallbackDeltaX) >=
+          Math.abs(fallbackDeltaY) * SWIPE_DIRECTION_RATIO);
+
+    if (!finalIsHorizontal || Math.abs(finalX) < SWIPE_THRESHOLD) {
+      resetSwipeState();
+      return;
+    }
+
+    if (finalX < 0) {
+      if (practice.currentIndex < practice.questions.length - 1) {
+        slideToIndex(practice.currentIndex + 1);
+      } else {
+        resetSwipeState();
+      }
+
+      return;
+    }
+
+    if (practice.currentIndex > 0) {
+      slideToIndex(practice.currentIndex - 1);
+      return;
+    }
+
+    resetSwipeState();
+  };
+
+  const renderCard = (question: Question | null, isCurrent = false) => {
+    if (!question) {
+      return (
+        <div className="w-full flex-shrink-0 min-w-full px-0.5">
+          <div className="bg-white rounded-2xl border border-transparent p-6 min-h-[300px]" />
+        </div>
+      );
+    }
+
+    const result =
+      practice.answers[question.id] !== undefined
+        ? {
+            correct: practice.results[question.id],
+            correctAnswer: practice.correctAnswers[question.id],
+            analysis: practice.analyses[question.id],
+          }
+        : null;
+
+    const difficulty = question.stats
+      ? getDifficultyLabel(question.stats.rate)
+      : null;
+
+    return (
+      <div className="w-full flex-shrink-0 min-w-full px-0.5">
+        <div
+          onTouchStart={isCurrent ? handleCardTouchStart : undefined}
+          onTouchMove={isCurrent ? handleCardTouchMove : undefined}
+          onTouchEnd={isCurrent ? handleCardTouchEnd : undefined}
+          onTouchCancel={isCurrent ? () => resetSwipeState() : undefined}
+          className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform ${
+            isCurrent ? "" : "pointer-events-none"
+          }`}
+        >
+          <div className="flex items-center gap-2 mb-4">
+            <span
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(question.type)}`}
+            >
+              {formatQuestionType(question.type)}
+            </span>
+            {difficulty && (
+              <span
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}
+              >
+                {difficulty.label} · 正确率 {question.stats?.rate}%
+              </span>
+            )}
+            <span className="text-xs text-gray-400">{question.chapter}</span>
+          </div>
+
+          <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
+            {question.content}
+          </h2>
+
+          <div className="space-y-3 mb-6">
+            {question.type === "judge" ? (
+              <JudgeButtons
+                selected={isCurrent ? selectedAnswer : null}
+                correct={isCurrent ? result?.correctAnswer : undefined}
+                showResult={isCurrent && showResult}
+                onSelect={isCurrent ? handleJudgeSelect : () => undefined}
+              />
+            ) : (
+              question.options?.map((option, index) => {
+                const isSelected =
+                  isCurrent &&
+                  (question.type === "multi"
+                    ? (selectedAnswer as number[])?.includes(index)
+                    : selectedAnswer === index);
+
+                const isCorrect =
+                  isCurrent && showResult
+                    ? question.type === "multi"
+                      ? (result?.correctAnswer as number[])?.includes(index)
+                      : result?.correctAnswer === index
+                    : undefined;
+
+                const isMissed = Boolean(
+                  isCurrent &&
+                    showResult &&
+                    question.type === "multi" &&
+                    isCorrect &&
+                    !isSelected,
+                );
+
+                return (
+                  <OptionButton
+                    key={index}
+                    label={String.fromCharCode(65 + index)}
+                    text={option}
+                    selected={Boolean(isSelected)}
+                    correct={isCorrect}
+                    missed={isMissed}
+                    showResult={isCurrent && showResult}
+                    onClick={
+                      isCurrent ? () => handleOptionSelect(index) : () => undefined
+                    }
+                  />
+                );
+              })
+            )}
+          </div>
+
+          {isCurrent && !showResult && (
+            <div className="min-h-[52px] mb-4 flex items-end">
+              <button
+                onClick={handleSubmitCurrent}
+                disabled={!canSubmitCurrent || isSliding}
+                className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                提交答案
+              </button>
+            </div>
+          )}
+
+          {isCurrent && showResult && result && (
+            <div
+              className={`rounded-xl p-4 mb-4 ${result.correct ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {result.correct ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <span className="font-medium text-green-800">
+                      回答正确！
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-5 h-5 text-red-500" />
+                    <span className="font-medium text-red-800">回答错误</span>
+                  </>
+                )}
+              </div>
+
+              {!result.correct && (
+                <div className="text-sm text-gray-700 mb-2">
+                  正确答案：
+                  <span className="font-medium text-green-700">
+                    {formatAnswer(result.correctAnswer, question.type)}
+                  </span>
+                </div>
+              )}
+
+              {result.analysis && (
+                <div className="mt-3 pt-3 border-t border-gray-200/50">
+                  <div className="text-sm font-medium text-gray-700 mb-1">
+                    解析
+                  </div>
+                  <div className="text-sm text-gray-600 leading-relaxed">
+                    {result.analysis}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const handleOptionSelect = (index: number) => {
     if (showResult) return;
@@ -409,16 +787,22 @@ export default function Quiz() {
         : [...current, index].sort();
       setSelectedAnswer(newAnswer);
     } else {
-      // 单选题：直接提交
+      // 单选题：只更新选中
       setSelectedAnswer(index);
-      submitAnswer(index);
     }
   };
 
-  const handleJudgeSelect = (value: boolean) => {
-    if (showResult) return;
-    setSelectedAnswer(value);
-    submitAnswer(value);
+  const handleSubmitCurrent = () => {
+    if (!activeQuestion || showResult || !canSubmitCurrent || isSliding) return;
+
+    if (
+      activeQuestion.type === "multi" &&
+      (!Array.isArray(selectedAnswer) || selectedAnswer.length === 0)
+    ) {
+      return;
+    }
+
+    submitAnswer(selectedAnswer);
   };
 
   const submitAnswer = (answer: any) => {
@@ -458,148 +842,9 @@ export default function Quiz() {
       });
   };
 
-  const handleMultiSubmit = () => {
-    if (
-      !selectedAnswer ||
-      (selectedAnswer as number[]).length === 0 ||
-      showResult
-    ) {
-      return;
-    }
-    submitAnswer(selectedAnswer);
-  };
-
-  const resetSwipeState = (animateBack = true) => {
-    swipeStartRef.current = null;
-    dragXRef.current = 0;
-
-    if (animateBack) {
-      animate(dragX, 0, { duration: 0.12, ease: "easeOut" });
-    } else {
-      dragX.set(0);
-    }
-  };
-
-  const setDragPosition = (value: number) => {
-    const clamped = clampSwipeDrag(value);
-    dragXRef.current = clamped;
-    dragX.set(clamped);
-  };
-
-  const resetQuestionViewState = () => {
-    setSelectedAnswer(null);
-    setShowResult(false);
-  };
-
-  const handleJump = (index: number) => {
-    if (!practice || index === practice.currentIndex) return;
-    if (index < 0 || index >= practice.questions.length) return;
-
-    resetSwipeState(false);
-    setTransitionDirection(index > practice.currentIndex ? 1 : -1);
-    resetQuestionViewState();
-    jumpToQuestion(index);
-  };
-
-  const handleNext = () => {
-    resetSwipeState(false);
-    setTransitionDirection(1);
-    if (practice.currentIndex < practice.questions.length - 1) {
-      resetQuestionViewState();
-      nextQuestion();
-    } else {
-      finishPractice();
-      navigate("/result");
-    }
-  };
-
-  const handlePrev = () => {
-    resetSwipeState(false);
-    setTransitionDirection(-1);
-    resetQuestionViewState();
-    prevQuestion();
-  };
-
-  const handleCardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 1 || shouldIgnoreSwipeTarget(event.target)) {
-      resetSwipeState();
-      return;
-    }
-
-    const touch = event.touches[0];
-    swipeStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      currentX: 0,
-      tracking: true,
-      horizontal: false,
-    };
-    dragXRef.current = 0;
-    dragX.set(0);
-  };
-
-  const handleCardTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    const start = swipeStartRef.current;
-    if (!start?.tracking || event.touches.length !== 1) return;
-
-    const touch = event.touches[0];
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-
-    if (!start.horizontal) {
-      if (absY > 12 && absY > absX) {
-        resetSwipeState();
-        return;
-      }
-      if (absX < 12 || absX < absY * SWIPE_DIRECTION_RATIO) {
-        return;
-      }
-      start.horizontal = true;
-    }
-
-    start.currentX = deltaX;
-    setDragPosition(deltaX);
-  };
-
-  const handleCardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    const start = swipeStartRef.current;
-    if (!start?.tracking) {
-      resetSwipeState();
-      return;
-    }
-
-    const changedTouch = event.changedTouches[0];
-    const fallbackDeltaX = changedTouch
-      ? changedTouch.clientX - start.x
-      : dragXRef.current;
-    const fallbackDeltaY = changedTouch ? changedTouch.clientY - start.y : 0;
-    const finalX = clampSwipeDrag(start.currentX || fallbackDeltaX);
-    const finalIsHorizontal =
-      start.horizontal ||
-      (Math.abs(fallbackDeltaX) >= SWIPE_THRESHOLD &&
-        Math.abs(fallbackDeltaX) >=
-          Math.abs(fallbackDeltaY) * SWIPE_DIRECTION_RATIO);
-
-    if (!finalIsHorizontal || Math.abs(finalX) < SWIPE_THRESHOLD) {
-      resetSwipeState();
-      return;
-    }
-
-    if (finalX < 0) {
-      resetSwipeState(false);
-      handleNext();
-      return;
-    }
-
-    if (practice.currentIndex > 0) {
-      resetSwipeState(false);
-      handlePrev();
-      return;
-    }
-
-    resetSwipeState();
+  const handleJudgeSelect = (value: boolean) => {
+    if (showResult) return;
+    setSelectedAnswer(value);
   };
 
   const formatTime = (seconds: number) => {
@@ -609,19 +854,16 @@ export default function Quiz() {
   };
 
   const starred = starredQuestions.includes(activeQuestion.id);
-  const difficulty = activeQuestion.stats
-    ? getDifficultyLabel(activeQuestion.stats.rate)
-    : null;
 
   return (
-    <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto">
       {/* 顶部进度条 */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-4 px-4 py-3 mb-6">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <BookOpen className="w-4 h-4" />
             <span>
-              题目 {practice.currentIndex + 1} / {practice.questions.length}
+              题目 {visualIndex + 1} / {practice.questions.length}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -637,7 +879,7 @@ export default function Quiz() {
             </button>
           </div>
         </div>
-        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
           <div
             className="h-full bg-primary-500 transition-all duration-[120ms]"
             style={{ width: `${progress}%` }}
@@ -645,161 +887,20 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* 题目卡片 */}
-      <AnimatePresence
-        custom={transitionDirection}
-        initial={false}
-        mode="popLayout"
-      >
-        <motion.div
-          key={activeQuestion.id}
-          custom={transitionDirection}
-          variants={cardVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.12, ease: "easeOut" }}
-        >
-          <motion.div
-            style={{ x: dragX }}
-            onTouchStart={handleCardTouchStart}
-            onTouchMove={handleCardTouchMove}
-            onTouchEnd={handleCardTouchEnd}
-            onTouchCancel={() => resetSwipeState()}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform"
-          >
-            {/* 题目信息 */}
-            <div className="flex items-center gap-2 mb-4">
-              <span
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(activeQuestion.type)}`}
-              >
-                {formatQuestionType(activeQuestion.type)}
-              </span>
-              {difficulty && (
-                <span
-                  className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}
-                >
-                  {difficulty.label} · 正确率 {activeQuestion.stats?.rate}%
-                </span>
-              )}
-              <span className="text-xs text-gray-400">
-                {activeQuestion.chapter}
-              </span>
-            </div>
-
-            {/* 题目内容 */}
-            <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
-              {activeQuestion.content}
-            </h2>
-
-            {/* 选项区域 */}
-            <div className="space-y-3 mb-6">
-              {activeQuestion.type === "judge" ? (
-                <JudgeButtons
-                  selected={selectedAnswer}
-                  correct={result?.correctAnswer}
-                  showResult={showResult}
-                  onSelect={handleJudgeSelect}
-                />
-              ) : (
-                activeQuestion.options?.map((option, index) => {
-                  const isSelected =
-                    activeQuestion.type === "multi"
-                      ? (selectedAnswer as number[])?.includes(index)
-                      : selectedAnswer === index;
-
-                  const isCorrect = showResult
-                    ? activeQuestion.type === "multi"
-                      ? (result?.correctAnswer as number[])?.includes(index)
-                      : result?.correctAnswer === index
-                    : undefined;
-
-                  const isMissed = Boolean(
-                    showResult &&
-                    activeQuestion.type === "multi" &&
-                    isCorrect &&
-                    !isSelected,
-                  );
-
-                  return (
-                    <OptionButton
-                      key={index}
-                      label={String.fromCharCode(65 + index)}
-                      text={option}
-                      selected={Boolean(isSelected)}
-                      correct={isCorrect}
-                      missed={isMissed}
-                      showResult={showResult}
-                      onClick={() => handleOptionSelect(index)}
-                    />
-                  );
-                })
-              )}
-            </div>
-
-            {/* 多选题提交按钮 */}
-            {activeQuestion.type === "multi" && !showResult && (
-              <button
-                onClick={handleMultiSubmit}
-                disabled={
-                  !selectedAnswer || (selectedAnswer as number[]).length === 0
-                }
-                className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
-              >
-                提交答案
-              </button>
-            )}
-
-            {/* 结果展示 */}
-            {showResult && result && (
-              <div
-                className={`rounded-xl p-4 mb-4 ${result.correct ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  {result.correct ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span className="font-medium text-green-800">
-                        回答正确！
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-5 h-5 text-red-500" />
-                      <span className="font-medium text-red-800">回答错误</span>
-                    </>
-                  )}
-                </div>
-
-                {!result.correct && (
-                  <div className="text-sm text-gray-700 mb-2">
-                    正确答案：
-                    <span className="font-medium text-green-700">
-                      {formatAnswer(result.correctAnswer, activeQuestion.type)}
-                    </span>
-                  </div>
-                )}
-
-                {result.analysis && (
-                  <div className="mt-3 pt-3 border-t border-gray-200/50">
-                    <div className="text-sm font-medium text-gray-700 mb-1">
-                      解析
-                    </div>
-                    <div className="text-sm text-gray-600 leading-relaxed">
-                      {result.analysis}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 导航按钮 */}
+        {/* 题目卡片 */}
+        <div className="overflow-hidden" ref={viewportRef}>
+          <motion.div style={{ x: trackX }} className="flex">
+            {renderCard(prevQuestion)}
+            {renderCard(activeQuestion, true)}
+            {renderCard(nextQuestionRef)}
+          </motion.div>
+        </div>
             <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={handlePrev}
-                  disabled={practice.currentIndex === 0}
-                  className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+                  disabled={isSliding || practice.currentIndex === 0}
+                  className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
                 >
                   <ChevronLeft className="w-5 h-5" />
                   上一题
@@ -807,27 +908,25 @@ export default function Quiz() {
 
                 <button
                   onClick={handleNext}
-                  className="flex items-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex-shrink-0"
+                  disabled={isSliding}
+                  className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
                 >
-                  {practice.currentIndex === practice.questions.length - 1
+                  {visualIndex === practice.questions.length - 1
                     ? "查看结果"
                     : "下一题"}
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
 
-              <ProgressDots
-                questions={practice.questions}
-                currentIndex={practice.currentIndex}
-                answers={practice.answers}
-                results={practice.results}
-                starredQuestions={starredQuestions}
-                onJump={handleJump}
-              />
-            </div>
-          </motion.div>
-        </motion.div>
-      </AnimatePresence>
-    </div>
+          <ProgressDots
+            questions={practice.questions}
+            currentIndex={visualIndex}
+            answers={practice.answers}
+            results={practice.results}
+            starredQuestions={starredQuestions}
+            onJump={handleJump}
+          />
+        </div>
+      </div>
   );
 }
