@@ -28,7 +28,7 @@ const navItems = IS_OPS_MODE
   ];
 
 const donateQrUrl =
-  (import.meta.env.VITE_DONATE_QR_URL?.trim()) || '/wechat-receive-qrcode.png';
+  (import.meta.env.VITE_DONATE_QR_URL?.trim()) || '/wechat-receive-qrcode.jpg';
 
 export default function Layout() {
   const location = useLocation();

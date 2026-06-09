@@ -119,7 +119,7 @@ VITE_DONATE_QR_URL=https://your-qrcode.example/wechat-receive.png
 
 ```bash
 VITE_DONATE_QR_URL=https://你的二维码图片链接
-# 未配置时回退到 /wechat-receive-qrcode.png
+# 未配置时回退到 /wechat-receive-qrcode.jpg
 ```
 
 ### 5. 数据迁移与校验
