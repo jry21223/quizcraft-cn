@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { animate, AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion';
+import { animate, AnimatePresence, motion, useMotionValue } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -54,9 +54,9 @@ const clampSwipeDrag = (value: number) => {
 };
 
 const cardVariants = {
-  enter: (direction: SwipeDirection) => ({ opacity: 0, x: direction * CARD_TRANSITION_OFFSET }),
-  center: { opacity: 1, x: 0 },
-  exit: (direction: SwipeDirection) => ({ opacity: 0, x: direction * -CARD_TRANSITION_OFFSET }),
+  enter: (direction: SwipeDirection) => ({ x: direction * CARD_TRANSITION_OFFSET }),
+  center: { x: 0 },
+  exit: (direction: SwipeDirection) => ({ x: direction * -CARD_TRANSITION_OFFSET }),
 };
 
 const getProgressDotClass = ({
@@ -286,7 +286,6 @@ export default function Quiz() {
   const [elapsedTime, setElapsedTime] = useState(0);
   const [transitionDirection, setTransitionDirection] = useState<SwipeDirection>(1);
   const dragX = useMotionValue(0);
-  const dragOpacity = useTransform(dragX, (value) => Math.max(0.86, 1 - Math.abs(value) / 500));
   const dragXRef = useRef(0);
   const swipeStartRef = useRef<SwipeStart | null>(null);
 
@@ -566,7 +565,7 @@ export default function Quiz() {
           transition={{ duration: 0.16, ease: 'easeOut' }}
         >
           <motion.div
-            style={{ x: dragX, opacity: dragOpacity }}
+            style={{ x: dragX }}
             onTouchStart={handleCardTouchStart}
             onTouchMove={handleCardTouchMove}
             onTouchEnd={handleCardTouchEnd}
