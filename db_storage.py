@@ -9,9 +9,11 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 try:
     import psycopg
+    from psycopg import errors as pg_errors
     from psycopg.types.json import Jsonb
 except ImportError:  # pragma: no cover - dependency can be absent in local fallback mode
     psycopg = None
+    pg_errors = None
     Jsonb = None
 
 
@@ -237,23 +239,76 @@ def find_user_by_name(name: str) -> Optional[Tuple[str, Dict[str, Any]]]:
 def increment_user_stats(user_id: str, display_name: Optional[str], is_correct: bool) -> Dict[str, Any]:
     name = (display_name or user_id).strip() or user_id
     correct_inc = 1 if is_correct else 0
+    resolved_user_id = str(user_id)
+
     with connect() as conn:
         with conn.cursor() as cur:
+            # 优先复用当前 user_id；不存在时按 display_name 回查复用历史用户，避免 display_name 唯一约束冲突。
             cur.execute(
-                """
-                INSERT INTO users (user_id, display_name)
-                VALUES (%s, %s)
-                ON CONFLICT (user_id) DO NOTHING
-                """,
-                (user_id, name),
+                "SELECT display_name FROM users WHERE user_id = %s",
+                (resolved_user_id,),
             )
+            user_row = cur.fetchone()
+
+            if user_row is None:
+                if name:
+                    cur.execute(
+                        "SELECT user_id, display_name FROM users WHERE display_name = %s",
+                        (name,),
+                    )
+                    user_row = cur.fetchone()
+                    if user_row is not None:
+                        resolved_user_id = str(user_row[0])
+
+            if user_row is None:
+                try:
+                    cur.execute(
+                        """
+                        INSERT INTO users (user_id, display_name)
+                        VALUES (%s, %s)
+                        """,
+                        (resolved_user_id, name),
+                    )
+                except Exception as exc:
+                    conn.rollback()
+                    if pg_errors is not None and isinstance(exc, pg_errors.UniqueViolation):
+                        cur.execute(
+                            "SELECT user_id, display_name FROM users WHERE display_name = %s",
+                            (name,),
+                        )
+                        user_row = cur.fetchone()
+                        if user_row is None:
+                            raise
+                        resolved_user_id = str(user_row[0])
+                        name = str(user_row[1] or resolved_user_id)
+                    else:
+                        raise
+            elif user_row and not str(user_row[0]).strip() and name:
+                cur.execute(
+                    """
+                    UPDATE users
+                    SET display_name = %s
+                    WHERE user_id = %s
+                    """,
+                    (name, resolved_user_id),
+                )
+
+            if resolved_user_id != user_id:
+                cur.execute(
+                    "SELECT display_name FROM users WHERE user_id = %s",
+                    (resolved_user_id,),
+                )
+                name_row = cur.fetchone()
+                if name_row is not None and name_row[0]:
+                    name = str(name_row[0])
+
             cur.execute(
                 """
                 INSERT INTO user_stats (user_id, correct, total)
                 VALUES (%s, 0, 0)
                 ON CONFLICT (user_id) DO NOTHING
                 """,
-                (user_id,),
+                (resolved_user_id,),
             )
             cur.execute(
                 """
@@ -264,12 +319,13 @@ def increment_user_stats(user_id: str, display_name: Optional[str], is_correct: 
                 WHERE user_id = %s
                 RETURNING correct, total
                 """,
-                (correct_inc, user_id),
+                (correct_inc, resolved_user_id),
             )
             correct, total = cur.fetchone()
     correct_i = _coerce_int(correct)
     total_i = _coerce_int(total)
     return {
+        "user_id": resolved_user_id,
         "name": name,
         "correct": correct_i,
         "total": total_i,

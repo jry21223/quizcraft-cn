@@ -1216,24 +1216,62 @@ async def submit_answer(request: SubmitAnswerRequest):
         is_correct = user_answer == correct_answer
     
     # 更新用户统计
+    resolved_user_id = request.user_id
+    user_stats_payload: Optional[Dict[str, Any]] = None
     if request.user_id:
+        current_name = (USER_STATS.get(request.user_id, {}).get("name") or request.user_id)
         if db_runtime_enabled():
-            current_name = USER_STATS[request.user_id].get("name") or request.user_id
             updated_stats = db_storage.increment_user_stats(
                 request.user_id,
                 current_name,
                 is_correct,
             )
-            USER_STATS[request.user_id].update({
-                "name": updated_stats["name"],
+            resolved_user_id = str(updated_stats.get("user_id") or request.user_id)
+            resolved_name = str(updated_stats.get("name") or current_name)
+            if resolved_user_id != request.user_id:
+                if request.user_id in USER_STATS:
+                    USER_STATS.pop(request.user_id, None)
+                NAME_TO_ID[resolved_name] = resolved_user_id
+            USER_STATS.setdefault(resolved_user_id, {
+                "name": resolved_name,
+                "correct": 0,
+                "total": 0,
+                "practice_history": [],
+            }).update({
+                "name": resolved_name,
                 "correct": updated_stats["correct"],
                 "total": updated_stats["total"],
             })
+            user_stats_payload = {
+                "correct": updated_stats["correct"],
+                "total": updated_stats["total"],
+                "rate": round(
+                    updated_stats["correct"] / max(1, updated_stats["total"]) * 100,
+                    1,
+                ),
+            }
         else:
+            USER_STATS.setdefault(request.user_id, {
+                "name": current_name,
+                "correct": 0,
+                "total": 0,
+                "practice_history": [],
+            })
             USER_STATS[request.user_id]["total"] += 1
             if is_correct:
                 USER_STATS[request.user_id]["correct"] += 1
+            resolved_user_id = request.user_id
             save_rankings()
+            resolved_user_stats = USER_STATS[resolved_user_id]
+            user_stats_payload = {
+                "correct": resolved_user_stats["correct"],
+                "total": resolved_user_stats["total"],
+                "rate": round(
+                    resolved_user_stats["correct"]
+                    / max(1, resolved_user_stats["total"]) * 100,
+                    1,
+                ),
+            }
 
     # 更新全站题目统计
     update_global_question_stats(request.bank, request.question_id, is_correct)
@@ -1245,10 +1283,10 @@ async def submit_answer(request: SubmitAnswerRequest):
         "analysis": question.get("analysis", ""),
         "stats": question.get("stats", {}),
         "user_stats": {
-            "correct": USER_STATS[request.user_id]["correct"],
-            "total": USER_STATS[request.user_id]["total"],
-            "rate": round(USER_STATS[request.user_id]["correct"] / USER_STATS[request.user_id]["total"] * 100, 1)
-        } if request.user_id else None
+            "correct": user_stats_payload["correct"],
+            "total": user_stats_payload["total"],
+            "rate": user_stats_payload["rate"],
+        } if user_stats_payload is not None else None
     }
 
 
