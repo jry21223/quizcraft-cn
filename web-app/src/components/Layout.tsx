@@ -5,7 +5,6 @@ import {
   FileText,
   Home,
   Github,
-  Swords,
   Heart,
   X,
 } from 'lucide-react';
@@ -17,14 +16,12 @@ const navItems = IS_OPS_MODE
   ? [
       { path: '/practice', icon: BookOpen, label: '刷题' },
       { path: '/ranking', icon: Trophy, label: '排行榜' },
-      { path: '/beetle', icon: Swords, label: '斗蛐蛐' },
     ]
   : [
       { path: '/', icon: Home, label: '首页' },
       { path: '/practice', icon: BookOpen, label: '刷题' },
       { path: '/extract', icon: FileText, label: '题库工坊' },
       { path: '/ranking', icon: Trophy, label: '排行榜' },
-      { path: '/beetle', icon: Swords, label: '斗蛐蛐' },
   ];
 
 const donateQrUrl =

@@ -79,7 +79,7 @@ scripts/install_deps.sh
 STATIC_DEPLOY_DIR=/var/www/quizcraft-cn scripts/build_ops.sh
 ```
 
-`ops` 版本默认保留刷题、排行榜和 `beetle` 页面，前端请求地址默认为同源 `/api`。生产环境建议用 Nginx 托管 `web-app/dist` 的静态文件，并用 systemd 管理后端服务。
+`ops` 版本默认保留刷题和排行榜页面，前端请求地址默认为同源 `/api`。生产环境建议用 Nginx 托管 `web-app/dist` 的静态文件，并用 systemd 管理后端服务。
 
 如果你用 Nginx/Caddy 反向代理，请把：
 
