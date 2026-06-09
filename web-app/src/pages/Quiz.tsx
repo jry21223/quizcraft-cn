@@ -1,6 +1,6 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { animate, AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion';
+import { animate, AnimatePresence, motion, useMotionValue } from 'framer-motion';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -32,10 +32,7 @@ const isAnswerCorrect = (answer: any, correctAnswer: any, type: QuestionType) =>
 const SWIPE_THRESHOLD = 50;
 const SWIPE_DIRECTION_RATIO = 1.25;
 const SWIPE_MAX_DRAG = 120;
-const CARD_TRANSITION_OFFSET = 24;
 const PROGRESS_DOT_WINDOW_RADIUS = 40;
-
-type SwipeDirection = -1 | 1;
 
 type SwipeStart = {
   x: number;
@@ -51,12 +48,6 @@ const shouldIgnoreSwipeTarget = (target: EventTarget | null) => {
 
 const clampSwipeDrag = (value: number) => {
   return Math.max(-SWIPE_MAX_DRAG, Math.min(SWIPE_MAX_DRAG, value));
-};
-
-const cardVariants = {
-  enter: (direction: SwipeDirection) => ({ opacity: 0, x: direction * CARD_TRANSITION_OFFSET }),
-  center: { opacity: 1, x: 0 },
-  exit: (direction: SwipeDirection) => ({ opacity: 0, x: direction * -CARD_TRANSITION_OFFSET }),
 };
 
 const getProgressDotClass = ({
@@ -284,9 +275,7 @@ export default function Quiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [transitionDirection, setTransitionDirection] = useState<SwipeDirection>(1);
   const dragX = useMotionValue(0);
-  const dragOpacity = useTransform(dragX, (value) => Math.max(0.86, 1 - Math.abs(value) / 500));
   const dragXRef = useRef(0);
   const swipeStartRef = useRef<SwipeStart | null>(null);
 
@@ -298,97 +287,90 @@ export default function Quiz() {
       return;
     }
 
-    const currentQ = practice.questions[currentIndex];
-    if (currentQ && practice.answers[currentQ.id] !== undefined) {
-      setSelectedAnswer(practice.answers[currentQ.id]);
-      setShowResult(true);
-    } else {
-      setSelectedAnswer(null);
-      setShowResult(false);
+    const answersLength = Object.keys(practice.answers).length;
+    if (answersLength >= practice.questions.length) {
+      return;
     }
-  }, [currentIndex, navigate]);
 
-  const startTime = practice?.startTime;
-  const isFinished = practice?.isFinished ?? false;
+    const question = practice.questions[currentIndex];
+    if (question && practice.answers[question.id] !== undefined) {
+      setSelectedAnswer(practice.answers[question.id]);
+      setShowResult(true);
+    }
+  }, [practice, currentIndex, navigate]);
 
+  // 定时器
   useEffect(() => {
-    if (!startTime || isFinished) return;
-
+    if (!practice || isFinished) return;
+    
     const timer = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      setElapsedTime(prev => prev + 1);
     }, 1000);
-
+    
     return () => clearInterval(timer);
-  }, [startTime, isFinished]);
+  }, [practice?.startTime]);
+
+  const currentQuestion = practice?.questions[practice?.currentIndex];
+  const progress = practice ? ((practice.currentIndex + 1) / practice.questions.length) * 100 : 0;
   
-  if (!practice) return null;
-
-  const currentQuestion = practice.questions[practice.currentIndex];
-  if (!currentQuestion) return null;
-
-  const progress = ((practice.currentIndex + 1) / practice.questions.length) * 100;
-
-  const result = practice.answers[currentQuestion.id] !== undefined
+  const result = currentQuestion
     ? {
-        correct: practice.results[currentQuestion.id],
-        correctAnswer: practice.correctAnswers[currentQuestion.id],
-        analysis: practice.analyses[currentQuestion.id],
+        correct: practice.results[currentQuestion.id] ?? null,
+        correctAnswer: practice.questions[practice.currentIndex]?.correctAnswer,
+        analysis: practice.questions[practice.currentIndex]?.analysis,
       }
     : null;
-  
+
   const handleOptionSelect = (index: number) => {
     if (showResult) return;
-    
-    if (currentQuestion.type === 'multi') {
-      // 多选题：切换选择
-      const current = (selectedAnswer as number[]) || [];
+
+    if (currentQuestion?.type === 'multi') {
+      const current = selectedAnswer as number[] || [];
       const newAnswer = current.includes(index)
-        ? current.filter((i) => i !== index)
-        : [...current, index].sort();
+        ? current.filter(i => i !== index)
+        : [...current, index];
       setSelectedAnswer(newAnswer);
     } else {
-      // 单选题：直接提交
       setSelectedAnswer(index);
       submitAnswer(index);
     }
   };
-  
+
   const handleJudgeSelect = (value: boolean) => {
     if (showResult) return;
     setSelectedAnswer(value);
     submitAnswer(value);
   };
-  
-  const submitAnswer = (answer: any) => {
-    if (!currentBank || !currentQuestion) return;
 
+  const submitAnswer = async (answer: any) => {
+    if (!practice || !currentQuestion) return;
     const questionId = currentQuestion.id;
-    const localCorrectAnswer = currentQuestion.answer;
+    
+    const localCorrectAnswer = currentQuestion.correctAnswer;
     const localIsCorrect = isAnswerCorrect(answer, localCorrectAnswer, currentQuestion.type);
-
+    
+    answerQuestion(questionId, answer);
     setShowResult(true);
-    answerQuestion({
-      questionId,
-      answer,
-      isCorrect: localIsCorrect,
-      correctAnswer: localCorrectAnswer,
-      analysis: currentQuestion.analysis,
-    });
-
-    void practiceApi.submitAnswer(currentBank, questionId, answer)
-      .then((res) => {
-        // 以后如果后端隐藏答案或规则调整，以后端结果为准进行一次轻量校正。
-        answerQuestion({
-          questionId,
-          answer,
-          isCorrect: res.correct,
-          correctAnswer: res.correct_answer,
-          analysis: res.analysis,
-        });
-      })
-      .catch((error) => {
-        console.error('同步答题统计失败:', error);
+    
+    try {
+      const res = await practiceApi.answer({
+        questionId,
+        answer,
+        practiceId: practice.id,
+        bankKey: currentBank ?? undefined,
       });
+      
+      const isCorrect = res.correct ?? localIsCorrect;
+      const correctAnswer = res.correctAnswer ?? localCorrectAnswer;
+      const analysis = res.analysis ?? '';
+      
+      setShowResult(true);
+    } catch (error) {
+      // 离线模式使用本地判断
+      const isCorrect = localIsCorrect;
+      const correctAnswer = localCorrectAnswer;
+      const analysis = '';
+    }
   };
 
   const handleMultiSubmit = () => {
@@ -417,7 +399,6 @@ export default function Quiz() {
   
   const handleNext = () => {
     resetSwipeState(false);
-    setTransitionDirection(1);
     if (practice.currentIndex < practice.questions.length - 1) {
       nextQuestion();
       setSelectedAnswer(null);
@@ -430,7 +411,6 @@ export default function Quiz() {
   
   const handlePrev = () => {
     resetSwipeState(false);
-    setTransitionDirection(-1);
     prevQuestion();
   };
 
@@ -519,6 +499,14 @@ export default function Quiz() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
   
+  if (!practice || !currentQuestion) {
+    return (
+      <div className="max-w-3xl mx-auto text-center py-20">
+        <p className="text-gray-500">加载中...</p>
+      </div>
+    );
+  }
+  
   const starred = starredQuestions.includes(currentQuestion.id);
   const difficulty = currentQuestion.stats 
     ? getDifficultyLabel(currentQuestion.stats.rate)
@@ -555,166 +543,160 @@ export default function Quiz() {
       </div>
       
       {/* 题目卡片 */}
-      <AnimatePresence custom={transitionDirection} mode="wait">
+      <AnimatePresence mode="wait">
         <motion.div
           key={currentQuestion.id}
-          custom={transitionDirection}
-          variants={cardVariants}
-          initial="enter"
-          animate="center"
-          exit="exit"
-          transition={{ duration: 0.16, ease: 'easeOut' }}
+          initial={{ scale: 0.96 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.1, ease: 'easeOut' }}
+          style={{ x: dragX }}
+          onTouchStart={handleCardTouchStart}
+          onTouchMove={handleCardTouchMove}
+          onTouchEnd={handleCardTouchEnd}
+          onTouchCancel={() => resetSwipeState()}
+          className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform"
         >
-          <motion.div
-            style={{ x: dragX, opacity: dragOpacity }}
-            onTouchStart={handleCardTouchStart}
-            onTouchMove={handleCardTouchMove}
-            onTouchEnd={handleCardTouchEnd}
-            onTouchCancel={() => resetSwipeState()}
-            className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform"
-          >
-            {/* 题目信息 */}
-            <div className="flex items-center gap-2 mb-4">
-              <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(currentQuestion.type)}`}>
-                {formatQuestionType(currentQuestion.type)}
+          {/* 题目信息 */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(currentQuestion.type)}`}>
+              {formatQuestionType(currentQuestion.type)}
+            </span>
+            {difficulty && (
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}>
+                {difficulty.label} · 正确率 {currentQuestion.stats?.rate}%
               </span>
-              {difficulty && (
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}>
-                  {difficulty.label} · 正确率 {currentQuestion.stats?.rate}%
-                </span>
-              )}
-              <span className="text-xs text-gray-400">{currentQuestion.chapter}</span>
-            </div>
-            
-            {/* 题目内容 */}
-            <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
-              {currentQuestion.content}
-            </h2>
-            
-            {/* 选项区域 */}
-            <div className="space-y-3 mb-6">
-              {currentQuestion.type === 'judge' ? (
-                <JudgeButtons
-                  selected={selectedAnswer}
-                  correct={result?.correctAnswer}
-                  showResult={showResult}
-                  onSelect={handleJudgeSelect}
-                />
-              ) : (
-                currentQuestion.options?.map((option, index) => {
-                  const isSelected = currentQuestion.type === 'multi'
-                    ? (selectedAnswer as number[])?.includes(index)
-                    : selectedAnswer === index;
-
-                  const isCorrect = showResult
-                    ? currentQuestion.type === 'multi'
-                      ? (result?.correctAnswer as number[])?.includes(index)
-                      : result?.correctAnswer === index
-                    : undefined;
-
-                  const isMissed = Boolean(
-                    showResult &&
-                    currentQuestion.type === 'multi' &&
-                    isCorrect &&
-                    !isSelected
-                  );
-
-                  return (
-                    <OptionButton
-                      key={index}
-                      label={String.fromCharCode(65 + index)}
-                      text={option}
-                      selected={Boolean(isSelected)}
-                      correct={isCorrect}
-                      missed={isMissed}
-                      showResult={showResult}
-                      onClick={() => handleOptionSelect(index)}
-                    />
-                  );
-                })
-              )}
-            </div>
-            
-            {/* 多选题提交按钮 */}
-            {currentQuestion.type === 'multi' && !showResult && (
-              <button
-                onClick={handleMultiSubmit}
-                disabled={!selectedAnswer || (selectedAnswer as number[]).length === 0}
-                className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
-              >
-                提交答案
-              </button>
             )}
-            
-            {/* 结果展示 */}
-            {showResult && result && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`rounded-xl p-4 mb-4 ${result.correct ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'}`}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  {result.correct ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5 text-green-500" />
-                      <span className="font-medium text-green-800">回答正确！</span>
-                    </>
-                  ) : (
-                    <>
-                      <XCircle className="w-5 h-5 text-red-500" />
-                      <span className="font-medium text-red-800">回答错误</span>
-                    </>
-                  )}
-                </div>
-                
-                {!result.correct && (
-                  <div className="text-sm text-gray-700 mb-2">
-                    正确答案：<span className="font-medium text-green-700">
-                      {formatAnswer(result.correctAnswer, currentQuestion.type)}
-                    </span>
-                  </div>
-                )}
-                
-                {result.analysis && (
-                  <div className="mt-3 pt-3 border-t border-gray-200/50">
-                    <div className="text-sm font-medium text-gray-700 mb-1">解析</div>
-                    <div className="text-sm text-gray-600 leading-relaxed">{result.analysis}</div>
-                  </div>
-                )}
-              </motion.div>
+            <span className="text-xs text-gray-400">{currentQuestion.chapter}</span>
+          </div>
+          
+          {/* 题目内容 */}
+          <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
+            {currentQuestion.content}
+          </h2>
+          
+          {/* 选项区域 */}
+          <div className="space-y-3 mb-6">
+            {currentQuestion.type === 'judge' ? (
+              <JudgeButtons
+                selected={selectedAnswer}
+                correct={result?.correctAnswer}
+                showResult={showResult}
+                onSelect={handleJudgeSelect}
+              />
+            ) : (
+              currentQuestion.options?.map((option, index) => {
+                const isSelected = currentQuestion.type === 'multi'
+                  ? (selectedAnswer as number[])?.includes(index)
+                  : selectedAnswer === index;
+
+                const isCorrect = showResult
+                  ? currentQuestion.type === 'multi'
+                    ? (result?.correctAnswer as number[])?.includes(index)
+                    : result?.correctAnswer === index
+                  : undefined;
+
+                const isMissed = Boolean(
+                  showResult &&
+                  currentQuestion.type === 'multi' &&
+                  isCorrect &&
+                  !isSelected
+                );
+
+                return (
+                  <OptionButton
+                    key={index}
+                    label={String.fromCharCode(65 + index)}
+                    text={option}
+                    selected={Boolean(isSelected)}
+                    correct={isCorrect}
+                    missed={isMissed}
+                    showResult={showResult}
+                    onClick={() => handleOptionSelect(index)}
+                  />
+                );
+              })
             )}
-            
-            {/* 导航按钮 */}
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center justify-between gap-2">
-                <button
-                  onClick={handlePrev}
-                  disabled={practice.currentIndex === 0}
-                  className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                  上一题
-                </button>
-                
-                <button
-                  onClick={handleNext}
-                  className="flex items-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex-shrink-0"
-                >
-                  {practice.currentIndex === practice.questions.length - 1 ? '查看结果' : '下一题'}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+          </div>
+          
+          {/* 多选题提交按钮 */}
+          {currentQuestion.type === 'multi' && !showResult && (
+            <button
+              onClick={handleMultiSubmit}
+              disabled={!selectedAnswer || (selectedAnswer as number[]).length === 0}
+              className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-4"
+            >
+              提交答案
+            </button>
+          )}
+          
+          {/* 结果展示 */}
+          {showResult && result && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`rounded-xl p-4 mb-4 ${result.correct ? 'bg-green-50 border border-green-100' : 'bg-red-50 border border-red-100'}`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                {result.correct ? (
+                  <>
+                    <CheckCircle2 className="w-5 h-5 text-green-500" />
+                    <span className="font-medium text-green-800">回答正确！</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="w-5 h-5 text-red-500" />
+                    <span className="font-medium text-red-800">回答错误</span>
+                  </>
+                )}
               </div>
               
-              <ProgressDots
-                questions={practice.questions}
-                currentIndex={practice.currentIndex}
-                answers={practice.answers}
-                results={practice.results}
-                starredQuestions={starredQuestions}
-                onJump={jumpToQuestion}
-              />
+              {!result.correct && (
+                <div className="text-sm text-gray-700 mb-2">
+                  正确答案：<span className="font-medium text-green-700">
+                    {formatAnswer(result.correctAnswer, currentQuestion.type)}
+                  </span>
+                </div>
+              )}
+              
+              {result.analysis && (
+                <div className="mt-3 pt-3 border-t border-gray-200/50">
+                  <div className="text-sm font-medium text-gray-700 mb-1">解析</div>
+                  <div className="text-sm text-gray-600 leading-relaxed">{result.analysis}</div>
+                </div>
+              )}
+            </motion.div>
+          )}
+          
+          {/* 导航按钮 */}
+          <div className="pt-4 border-t border-gray-100">
+            <div className="flex items-center justify-between gap-2">
+              <button
+                onClick={handlePrev}
+                disabled={practice.currentIndex === 0}
+                className="flex items-center gap-1 px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+              >
+                <ChevronLeft className="w-5 h-5" />
+                上一题
+              </button>
+              
+              <button
+                onClick={handleNext}
+                className="flex items-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors flex-shrink-0"
+              >
+                {practice.currentIndex === practice.questions.length - 1 ? '查看结果' : '下一题'}
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
-          </motion.div>
+            
+            <ProgressDots
+              questions={practice.questions}
+              currentIndex={practice.currentIndex}
+              answers={practice.answers}
+              results={practice.results}
+              starredQuestions={starredQuestions}
+              onJump={jumpToQuestion}
+            />
+          </div>
         </motion.div>
       </AnimatePresence>
     </div>
