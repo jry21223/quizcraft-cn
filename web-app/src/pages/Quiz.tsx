@@ -337,22 +337,27 @@ export default function Quiz() {
   const swipeStartRef = useRef<SwipeStart | null>(null);
 
   const currentIndex = practice?.currentIndex ?? -1;
+  const hasPractice = Boolean(practice);
+  const activeQuestion = practice?.questions[currentIndex];
+  const activeQuestionId = activeQuestion?.id;
+  const activeAnswer = activeQuestionId
+    ? practice?.answers[activeQuestionId]
+    : undefined;
 
   useEffect(() => {
-    if (!practice) {
+    if (!hasPractice) {
       navigate("/practice");
       return;
     }
 
-    const currentQ = practice.questions[currentIndex];
-    if (currentQ && practice.answers[currentQ.id] !== undefined) {
-      setSelectedAnswer(practice.answers[currentQ.id]);
+    if (activeAnswer !== undefined) {
+      setSelectedAnswer(activeAnswer);
       setShowResult(true);
     } else {
       setSelectedAnswer(null);
       setShowResult(false);
     }
-  }, [practice, currentIndex, navigate]);
+  }, [hasPractice, activeQuestionId, activeAnswer, navigate]);
 
   const startTime = practice?.startTime;
   const isFinished = practice?.isFinished ?? false;
@@ -367,27 +372,24 @@ export default function Quiz() {
     return () => clearInterval(timer);
   }, [startTime, isFinished]);
 
-  if (!practice) return null;
-
-  const currentQuestion = practice.questions[practice.currentIndex];
-  if (!currentQuestion) return null;
+  if (!hasPractice || !activeQuestion) return null;
 
   const progress =
     ((practice.currentIndex + 1) / practice.questions.length) * 100;
 
   const result =
-    practice.answers[currentQuestion.id] !== undefined
+    practice.answers[activeQuestion.id] !== undefined
       ? {
-          correct: practice.results[currentQuestion.id],
-          correctAnswer: practice.correctAnswers[currentQuestion.id],
-          analysis: practice.analyses[currentQuestion.id],
+          correct: practice.results[activeQuestion.id],
+          correctAnswer: practice.correctAnswers[activeQuestion.id],
+          analysis: practice.analyses[activeQuestion.id],
         }
       : null;
 
   const handleOptionSelect = (index: number) => {
     if (showResult) return;
 
-    if (currentQuestion.type === "multi") {
+    if (activeQuestion.type === "multi") {
       // 多选题：切换选择
       const current = (selectedAnswer as number[]) || [];
       const newAnswer = current.includes(index)
@@ -408,14 +410,14 @@ export default function Quiz() {
   };
 
   const submitAnswer = (answer: any) => {
-    if (!currentBank || !currentQuestion) return;
+    if (!currentBank || !activeQuestion) return;
 
-    const questionId = currentQuestion.id;
-    const localCorrectAnswer = currentQuestion.answer;
+    const questionId = activeQuestion.id;
+    const localCorrectAnswer = activeQuestion.answer;
     const localIsCorrect = isAnswerCorrect(
       answer,
       localCorrectAnswer,
-      currentQuestion.type,
+      activeQuestion.type,
     );
 
     setShowResult(true);
@@ -424,7 +426,7 @@ export default function Quiz() {
       answer,
       isCorrect: localIsCorrect,
       correctAnswer: localCorrectAnswer,
-      analysis: currentQuestion.analysis,
+      analysis: activeQuestion.analysis,
     });
 
     void practiceApi
@@ -579,9 +581,9 @@ export default function Quiz() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const starred = starredQuestions.includes(currentQuestion.id);
-  const difficulty = currentQuestion.stats
-    ? getDifficultyLabel(currentQuestion.stats.rate)
+  const starred = starredQuestions.includes(activeQuestion.id);
+  const difficulty = activeQuestion.stats
+    ? getDifficultyLabel(activeQuestion.stats.rate)
     : null;
 
   return (
@@ -601,7 +603,7 @@ export default function Quiz() {
               <span>{formatTime(elapsedTime)}</span>
             </div>
             <button
-              onClick={() => toggleStar(currentQuestion.id)}
+              onClick={() => toggleStar(activeQuestion.id)}
               className={`p-1.5 rounded-lg transition-colors ${starred ? "text-yellow-500 bg-yellow-50" : "text-gray-400 hover:bg-gray-100"}`}
             >
               <Flag className={`w-4 h-4 ${starred ? "fill-current" : ""}`} />
@@ -619,7 +621,7 @@ export default function Quiz() {
       {/* 题目卡片 */}
       <AnimatePresence custom={transitionDirection} mode="wait">
         <motion.div
-          key={currentQuestion.id}
+          key={activeQuestion.id}
           custom={transitionDirection}
           variants={cardVariants}
           initial="enter"
@@ -638,30 +640,30 @@ export default function Quiz() {
             {/* 题目信息 */}
             <div className="flex items-center gap-2 mb-4">
               <span
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(currentQuestion.type)}`}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(activeQuestion.type)}`}
               >
-                {formatQuestionType(currentQuestion.type)}
+                {formatQuestionType(activeQuestion.type)}
               </span>
               {difficulty && (
                 <span
                   className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}
                 >
-                  {difficulty.label} · 正确率 {currentQuestion.stats?.rate}%
+                  {difficulty.label} · 正确率 {activeQuestion.stats?.rate}%
                 </span>
               )}
               <span className="text-xs text-gray-400">
-                {currentQuestion.chapter}
+                {activeQuestion.chapter}
               </span>
             </div>
 
             {/* 题目内容 */}
             <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
-              {currentQuestion.content}
+              {activeQuestion.content}
             </h2>
 
             {/* 选项区域 */}
             <div className="space-y-3 mb-6">
-              {currentQuestion.type === "judge" ? (
+              {activeQuestion.type === "judge" ? (
                 <JudgeButtons
                   selected={selectedAnswer}
                   correct={result?.correctAnswer}
@@ -669,21 +671,21 @@ export default function Quiz() {
                   onSelect={handleJudgeSelect}
                 />
               ) : (
-                currentQuestion.options?.map((option, index) => {
+                activeQuestion.options?.map((option, index) => {
                   const isSelected =
-                    currentQuestion.type === "multi"
+                    activeQuestion.type === "multi"
                       ? (selectedAnswer as number[])?.includes(index)
                       : selectedAnswer === index;
 
                   const isCorrect = showResult
-                    ? currentQuestion.type === "multi"
+                    ? activeQuestion.type === "multi"
                       ? (result?.correctAnswer as number[])?.includes(index)
                       : result?.correctAnswer === index
                     : undefined;
 
                   const isMissed = Boolean(
                     showResult &&
-                    currentQuestion.type === "multi" &&
+                    activeQuestion.type === "multi" &&
                     isCorrect &&
                     !isSelected,
                   );
@@ -705,7 +707,7 @@ export default function Quiz() {
             </div>
 
             {/* 多选题提交按钮 */}
-            {currentQuestion.type === "multi" && !showResult && (
+            {activeQuestion.type === "multi" && !showResult && (
               <button
                 onClick={handleMultiSubmit}
                 disabled={
@@ -744,7 +746,7 @@ export default function Quiz() {
                   <div className="text-sm text-gray-700 mb-2">
                     正确答案：
                     <span className="font-medium text-green-700">
-                      {formatAnswer(result.correctAnswer, currentQuestion.type)}
+                      {formatAnswer(result.correctAnswer, activeQuestion.type)}
                     </span>
                   </div>
                 )}
