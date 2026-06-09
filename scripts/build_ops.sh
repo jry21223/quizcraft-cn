@@ -15,4 +15,8 @@ if [ -n "${STATIC_DEPLOY_DIR}" ]; then
   cp -f dist/index.html "${STATIC_DEPLOY_DIR}/"
   mkdir -p "${STATIC_DEPLOY_DIR}/assets"
   cp -rf dist/assets/. "${STATIC_DEPLOY_DIR}/assets/"
+  if [ -f dist/wechat-receive-qrcode.jpg ]; then
+    cp -f dist/wechat-receive-qrcode.jpg "${STATIC_DEPLOY_DIR}/"
+  fi
+  chmod 644 "${STATIC_DEPLOY_DIR}/wechat-receive-qrcode.jpg" 2>/dev/null || true
 fi
