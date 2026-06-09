@@ -59,6 +59,8 @@ const PROGRESS_DOT_WINDOW_RADIUS = 40;
 const SLIDE_DURATION = 0.22;
 const SLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
+// SWIPE_MAX_DRAG 保留常量便于参数统一管理，但默认实现不再做位移截断，避免影响拖拽跟手效果。
+
 type SwipeStart = {
   x: number;
   y: number;
@@ -75,7 +77,11 @@ const shouldIgnoreSwipeTarget = (target: EventTarget | null) => {
 };
 
 const clampSwipeDrag = (value: number) => {
-  return Math.max(-SWIPE_MAX_DRAG, Math.min(SWIPE_MAX_DRAG, value));
+  if (SWIPE_MAX_DRAG <= 0) {
+    return value;
+  }
+
+  return value;
 };
 
 const getProgressDotClass = ({
@@ -451,9 +457,9 @@ export default function Quiz() {
       return;
     }
 
-    const clamped = clampSwipeDrag(value);
-    dragXRef.current = clamped;
-    trackX.set(-viewportWidth + clamped);
+    const processed = clampSwipeDrag(value);
+    dragXRef.current = processed;
+    trackX.set(-viewportWidth + processed);
   };
 
   const resetSwipeState = (animateBack = true) => {
@@ -532,7 +538,12 @@ export default function Quiz() {
   };
 
   const handleCardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (isSliding || event.touches.length !== 1 || shouldIgnoreSwipeTarget(event.target)) {
+    if (
+      isSliding ||
+      !viewportWidth ||
+      event.touches.length !== 1 ||
+      shouldIgnoreSwipeTarget(event.target)
+    ) {
       return;
     }
 
@@ -576,7 +587,7 @@ export default function Quiz() {
 
   const handleCardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
     const start = swipeStartRef.current;
-    if (!start?.tracking) {
+    if (!start?.tracking || !viewportWidth) {
       resetSwipeState();
       return;
     }
