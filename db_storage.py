@@ -586,11 +586,11 @@ def load_question_banks() -> Dict[str, Dict[str, Any]]:
     return banks
 
 
-def get_ranking(limit: int = 50) -> List[Dict[str, Any]]:
+def get_ranking(limit: Optional[int] = None) -> List[Dict[str, Any]]:
     with connect() as conn:
         with conn.cursor() as cur:
-            cur.execute(
-                """
+            if isinstance(limit, int) and limit > 0:
+                query = """
                 SELECT u.user_id, u.display_name, s.correct, s.total
                 FROM user_stats s
                 JOIN users u ON u.user_id = s.user_id
@@ -598,9 +598,18 @@ def get_ranking(limit: int = 50) -> List[Dict[str, Any]]:
                 ORDER BY s.correct DESC,
                          CASE WHEN s.total > 0 THEN s.correct::float / s.total ELSE 0 END DESC
                 LIMIT %s
-                """,
-                (limit,),
-            )
+                """
+                cur.execute(query, (limit,))
+            else:
+                query = """
+                SELECT u.user_id, u.display_name, s.correct, s.total
+                FROM user_stats s
+                JOIN users u ON u.user_id = s.user_id
+                WHERE s.total > 0
+                ORDER BY s.correct DESC,
+                         CASE WHEN s.total > 0 THEN s.correct::float / s.total ELSE 0 END DESC
+                """
+                cur.execute(query)
             rows = cur.fetchall()
     return [
         {

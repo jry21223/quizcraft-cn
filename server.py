@@ -1414,7 +1414,7 @@ async def set_user(request: UserRequest):
 async def get_ranking():
     """获取排行榜"""
     if db_runtime_enabled():
-        return {"ranking": db_storage.get_ranking(50)}
+        return {"ranking": db_storage.get_ranking()}
 
     ranking = []
     for user_id, stats in USER_STATS.items():
@@ -1426,9 +1426,9 @@ async def get_ranking():
                 "total": stats["total"],
                 "accuracy": round(stats["correct"] / stats["total"] * 100, 1)
             })
-    
+
     ranking.sort(key=lambda x: (-x["correct"], -x["accuracy"]))
-    return {"ranking": ranking[:50]}
+    return {"ranking": ranking}
 
 
 @app.post("/api/feedback")
