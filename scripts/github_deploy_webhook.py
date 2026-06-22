@@ -47,13 +47,26 @@ def verify_signature(secret: str, body: bytes, signature_header: str | None) -> 
 
 
 def run_deploy(delivery: str, pushed_ref: str, before: str, after: str) -> None:
-    deploy_script = f"""
+deploy_script = f"""
 set -euo pipefail
 cd {shell_quote(REPO_DIR)}
 
 echo "[deploy] delivery={delivery} ref={pushed_ref} before={before} after={after}"
 start_head="$(git rev-parse HEAD)"
 echo "[deploy] start_head=${{start_head}}"
+
+timestamp="$(date -u +\"%Y%m%d%H%M%S\")"
+backup_dir="/root/quizcraft-pre-webhook-${{timestamp}}"
+dirty_state="$(git status --short || true)"
+if [ -n "${{dirty_state}}" ]; then
+  echo "[deploy] dirty working tree detected, backup_dir=${{backup_dir}}"
+  mkdir -p "${{backup_dir}}"
+  git status --short > "${{backup_dir}}/git_status.txt"
+  git diff > "${{backup_dir}}/git_diff.txt"
+  git diff --cached > "${{backup_dir}}/git_diff_cached.txt"
+  git stash push -u -m "pre-webhook server dirty state ${timestamp}"
+  echo "[deploy] stashed dirty changes into git stash"
+fi
 
 git fetch --all --prune
 git checkout {shell_quote(BRANCH)}
