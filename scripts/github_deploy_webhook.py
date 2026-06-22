@@ -64,7 +64,7 @@ if [ -n "${{dirty_state}}" ]; then
   git status --short > "${{backup_dir}}/git_status.txt"
   git diff > "${{backup_dir}}/git_diff.txt"
   git diff --cached > "${{backup_dir}}/git_diff_cached.txt"
-  git stash push -u -m "pre-webhook server dirty state ${timestamp}"
+  git stash push -u -m "pre-webhook server dirty state ${{timestamp}}"
   echo "[deploy] stashed dirty changes into git stash"
 fi
 
