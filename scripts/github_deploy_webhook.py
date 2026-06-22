@@ -47,7 +47,7 @@ def verify_signature(secret: str, body: bytes, signature_header: str | None) -> 
 
 
 def run_deploy(delivery: str, pushed_ref: str, before: str, after: str) -> None:
-deploy_script = f"""
+    deploy_script = f"""
 set -euo pipefail
 cd {shell_quote(REPO_DIR)}
 
