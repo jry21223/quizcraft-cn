@@ -186,10 +186,11 @@ export default function FoodWheel() {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
         setSpinning(false);
-        // Determine which item is selected (top = -PI/2 direction)
+        // Match the canvas drawing: item 0 starts at the top pointer and the
+        // wheel rotates clockwise as rotation increases.
         const normalized = (-currentRotation % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
         const arc = (2 * Math.PI) / items.length;
-        const index = Math.floor(((2 * Math.PI - normalized + Math.PI / 2 + arc / 2) % (2 * Math.PI)) / arc);
+        const index = Math.min(items.length - 1, Math.floor(normalized / arc));
         setResult(items[index]);
       }
     };
