@@ -49,12 +49,14 @@ export interface PracticeSettings {
 
 // 练习状态
 export interface PracticeState {
+  bankKey: string;
   questions: Question[];
   currentIndex: number;
   answers: Record<string, any>;  // questionId -> answer
   results: Record<string, boolean>;  // questionId -> isCorrect
   correctAnswers: Record<string, any>;  // questionId -> correctAnswer
   analyses: Record<string, string>;  // questionId -> analysis
+  createdAt: number;
   startTime: number;
   isFinished: boolean;
 }

@@ -145,6 +145,8 @@ class FeedbackRequest(BaseModel):
     suggestion: str
     source_page: str = "quiz"
     question_bank: Optional[str] = None
+    question_id: Optional[str] = None
+    question_content: Optional[str] = None
 
 
 class UserRequest(BaseModel):
@@ -861,6 +863,8 @@ def save_feedback_fallback(
     question_index: int,
     suggestion: str,
     question_bank: Optional[str] = None,
+    question_id: Optional[str] = None,
+    question_content: Optional[str] = None,
     source_page: str = "quiz",
 ) -> Dict[str, Any]:
     normalized_suggestion = _normalize_feedback_suggestion(suggestion)
@@ -891,6 +895,8 @@ def save_feedback_fallback(
     record = {
         "feedback_id": next_id,
         "question_index": int(question_index),
+        "question_id": (question_id or "").strip() or None,
+        "question_content": (question_content or "").strip() or None,
         "suggestion": normalized_suggestion,
         "user_id": None,
         "question_bank": _normalize_feedback_bank(question_bank),
@@ -1638,6 +1644,8 @@ async def update_food_wheel(request: FoodWheelRequest):
 async def create_feedback(request: FeedbackRequest):
     question_index = request.question_index
     suggestion = _normalize_feedback_suggestion(request.suggestion)
+    question_id = (request.question_id or "").strip() or None
+    question_content = (request.question_content or "").strip() or None
 
     if question_index <= 0:
         raise HTTPException(status_code=422, detail="题目索引必须是大于 0 的整数")
@@ -1645,6 +1653,8 @@ async def create_feedback(request: FeedbackRequest):
         raise HTTPException(status_code=422, detail="建议改正内容不能为空")
     if len(suggestion) > 2000:
         raise HTTPException(status_code=422, detail="建议改正内容不能超过 2000 字符")
+    if question_content and len(question_content) > 2000:
+        question_content = question_content[:2000]
 
     source_page = (request.source_page or "quiz").strip() or "quiz"
     question_bank = _normalize_feedback_bank(request.question_bank)
@@ -1655,12 +1665,15 @@ async def create_feedback(request: FeedbackRequest):
                 question_index=question_index,
                 suggestion=suggestion,
                 question_bank=question_bank,
+                question_id=question_id,
+                question_content=question_content,
                 source_page=source_page,
             )
             return {
                 "ok": True,
                 "feedback_id": result["feedback_id"],
                 "question_index": result["question_index"],
+                "question_id": result.get("question_id"),
                 "question_bank": result.get("question_bank"),
                 "created_at": result["created_at"],
             }
@@ -1671,12 +1684,15 @@ async def create_feedback(request: FeedbackRequest):
         question_index=question_index,
         suggestion=suggestion,
         question_bank=question_bank,
+        question_id=question_id,
+        question_content=question_content,
         source_page=source_page,
     )
     return {
         "ok": True,
         "feedback_id": result["feedback_id"],
         "question_index": result["question_index"],
+        "question_id": result.get("question_id"),
         "question_bank": result.get("question_bank"),
         "created_at": result["created_at"],
     }

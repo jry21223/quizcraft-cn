@@ -11,6 +11,8 @@ type FeedbackPayload = {
   question_index: number;
   suggestion: string;
   question_bank?: string;
+  question_id?: string;
+  question_content?: string;
 };
 
 type FeedbackResponse = {

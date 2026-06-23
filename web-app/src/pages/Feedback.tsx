@@ -101,7 +101,12 @@ export default function Feedback() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-6 h-6 text-primary-500" />
-            <h1 className="text-xl font-semibold text-gray-800">题目反馈</h1>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-800">题目反馈</h1>
+              <p className="mt-1 text-xs text-gray-500">
+                推荐从刷题页点击“反馈本题”，可自动带上题目 ID 和题干快照。
+              </p>
+            </div>
           </div>
           <button
             type="button"

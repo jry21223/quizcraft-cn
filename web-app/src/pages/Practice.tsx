@@ -106,7 +106,7 @@ export default function Practice() {
         threshold: mode === 'hard' ? threshold : undefined,
       });
       
-      startPractice(result.questions);
+      startPractice(result.questions, currentBank);
       navigate('/quiz');
     } catch (error) {
       alert('开始练习失败: ' + (error as Error).message);

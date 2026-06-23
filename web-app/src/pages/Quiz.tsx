@@ -1,4 +1,5 @@
 import {
+  type FormEvent,
   memo,
   useEffect,
   useLayoutEffect,
@@ -17,9 +18,11 @@ import {
   BookOpen,
   Timer,
   MessageCircle,
+  Send,
+  X,
 } from "lucide-react";
 import { useQuizStore } from "@/stores/quizStore";
-import { practiceApi } from "@/api/client";
+import { feedbackApi, practiceApi } from "@/api/client";
 import {
   formatQuestionType,
   formatAnswer,
@@ -375,11 +378,17 @@ export default function Quiz() {
   const swipeStartRef = useRef<SwipeStart | null>(null);
 
   const [visualCurrentIndex, setVisualCurrentIndex] = useState(0);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackSuggestion, setFeedbackSuggestion] = useState("");
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackError, setFeedbackError] = useState("");
 
   const currentIndex = practice?.currentIndex ?? -1;
   const hasPractice = Boolean(practice);
   const activeQuestion = practice?.questions[currentIndex];
   const activeQuestionId = activeQuestion?.id;
+  const activeBankKey = practice?.bankKey || currentBank;
   const activeAnswer = activeQuestionId
     ? practice?.answers[activeQuestionId]
     : undefined;
@@ -451,12 +460,11 @@ export default function Quiz() {
     return () => clearInterval(timer);
   }, [startTime, isFinished]);
 
-  if (!hasPractice || !activeQuestion) return null;
-
-  const visualIndex = hasPractice
+  const practiceQuestionCount = practice?.questions.length ?? 0;
+  const visualIndex = practice && practiceQuestionCount > 0
     ? Math.min(
       Math.max(visualCurrentIndex, 0),
-      practice.questions.length - 1,
+      practiceQuestionCount - 1,
     )
     : 0;
   const feedbackQuestionIndex = resolveFeedbackQuestionIndex(
@@ -465,7 +473,7 @@ export default function Quiz() {
   );
 
   useEffect(() => {
-    if (!hasPractice || practice.questions.length === 0) {
+    if (!hasPractice || practiceQuestionCount === 0) {
       return;
     }
     try {
@@ -477,7 +485,9 @@ export default function Quiz() {
     } catch {
       // ignore storage errors
     }
-  }, [hasPractice, practice.questions.length, feedbackQuestionIndex]);
+  }, [hasPractice, practiceQuestionCount, feedbackQuestionIndex]);
+
+  if (!hasPractice || !practice || !activeQuestion) return null;
 
   const progress = ((visualIndex + 1) / practice.questions.length) * 100;
 
@@ -495,6 +505,48 @@ export default function Quiz() {
           ? selectedAnswer === true || selectedAnswer === false
           : selectedAnswer !== null && selectedAnswer !== undefined),
   );
+
+  const openFeedbackModal = () => {
+    setFeedbackSuggestion("");
+    setFeedbackMessage("");
+    setFeedbackError("");
+    setFeedbackOpen(true);
+  };
+
+  const closeFeedbackModal = () => {
+    if (feedbackSubmitting) return;
+    setFeedbackOpen(false);
+  };
+
+  const handleFeedbackSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!activeQuestion) return;
+
+    const normalizedSuggestion = feedbackSuggestion.trim();
+    if (!normalizedSuggestion) {
+      setFeedbackError("建议改正内容不能为空");
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+    setFeedbackError("");
+    setFeedbackMessage("");
+    try {
+      await feedbackApi.submit({
+        question_index: feedbackQuestionIndex,
+        question_bank: activeBankKey || undefined,
+        question_id: activeQuestion.id,
+        question_content: activeQuestion.content,
+        suggestion: normalizedSuggestion,
+      });
+      setFeedbackMessage("反馈提交成功，感谢你的建议！");
+      setFeedbackSuggestion("");
+    } catch (error) {
+      setFeedbackError((error as Error).message || "提交失败");
+    } finally {
+      setFeedbackSubmitting(false);
+    }
+  };
 
   const alignTrackToCenter = (animateBack = true) => {
     if (!viewportWidth) {
@@ -873,7 +925,7 @@ export default function Quiz() {
   };
 
   const submitAnswer = (answer: any) => {
-    if (!currentBank || !activeQuestion) return;
+    if (!activeBankKey || !activeQuestion) return;
 
     const questionId = activeQuestion.id;
     const localCorrectAnswer = activeQuestion.answer;
@@ -893,7 +945,7 @@ export default function Quiz() {
     });
 
     void practiceApi
-      .submitAnswer(currentBank, questionId, answer)
+      .submitAnswer(activeBankKey, questionId, answer)
       .then((res) => {
         // 以后如果后端隐藏答案或规则调整，以后端结果为准进行一次轻量校正。
         answerQuestion({
@@ -924,6 +976,79 @@ export default function Quiz() {
 
   return (
       <div className="max-w-3xl mx-auto">
+      {feedbackOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={closeFeedbackModal}
+        >
+          <div
+            className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+            data-swipe-ignore="true"
+          >
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">反馈本题</h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  {activeBankKey} · 第 {feedbackQuestionIndex} 题 · {activeQuestion.id}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeFeedbackModal}
+                disabled={feedbackSubmitting}
+                className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-50"
+                aria-label="关闭反馈弹窗"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm leading-relaxed text-gray-600">
+              {activeQuestion.content}
+            </div>
+
+            <form onSubmit={handleFeedbackSubmit} className="space-y-3">
+              <textarea
+                rows={6}
+                value={feedbackSuggestion}
+                onChange={(event) => setFeedbackSuggestion(event.target.value)}
+                placeholder="例如：正确答案应为 B；选项 C 有错别字；解析和答案不一致..."
+                className="w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+                maxLength={2000}
+                disabled={feedbackSubmitting}
+                autoFocus
+              />
+              <div className="flex items-center justify-between text-xs text-gray-400">
+                <span>最多 2000 字，提交后不会离开当前刷题进度</span>
+                <span>{feedbackSuggestion.length}/2000</span>
+              </div>
+
+              {feedbackError && <p className="text-sm text-red-600">{feedbackError}</p>}
+              {feedbackMessage && <p className="text-sm text-green-600">{feedbackMessage}</p>}
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={closeFeedbackModal}
+                  disabled={feedbackSubmitting}
+                  className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+                >
+                  继续刷题
+                </button>
+                <button
+                  type="submit"
+                  disabled={feedbackSubmitting || !feedbackSuggestion.trim()}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <Send className="h-4 w-4" />
+                  {feedbackSubmitting ? "提交中..." : "提交反馈"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* 顶部进度条 */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-4 px-4 py-3 mb-6">
         <div className="flex items-center justify-between mb-2">
@@ -935,18 +1060,7 @@ export default function Quiz() {
           </div>
           <div className="flex items-center gap-3">
             <button
-              onClick={() => {
-                const queryBank = encodeURIComponent(currentBank || "");
-                const feedbackQuery = `/feedback?questionIndex=${feedbackQuestionIndex}${
-                  currentBank ? `&questionBank=${queryBank}` : ""
-                }`;
-                navigate(feedbackQuery, {
-                  state: {
-                    questionIndex: feedbackQuestionIndex,
-                    questionBank: currentBank,
-                  },
-                });
-              }}
+              onClick={openFeedbackModal}
               className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
               aria-label="反馈本题"
             >

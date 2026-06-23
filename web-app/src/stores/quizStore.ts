@@ -22,7 +22,7 @@ interface QuizState {
   
   // 练习状态
   practice: PracticeState | null;
-  startPractice: (questions: Question[]) => void;
+  startPractice: (questions: Question[], bankKey: string) => void;
   answerQuestion: (payload: { questionId: string; answer: any; isCorrect: boolean; correctAnswer?: any; analysis?: string }) => void;
   nextQuestion: () => void;
   prevQuestion: () => void;
@@ -83,21 +83,26 @@ export const useQuizStore = create<QuizState>()(
               ...user,
               correct: user.correct + correct,
               total: user.total + total,
-              rate: Math.round((user.correct + correct) / (user.total + total) * 100),
+          rate:
+            user.total + total > 0
+              ? Math.round(((user.correct + correct) / (user.total + total)) * 100)
+              : 0,
             },
           });
         }
       },
       
       // 练习操作
-      startPractice: (questions) => set({
+      startPractice: (questions, bankKey) => set({
         practice: {
+          bankKey,
           questions,
           currentIndex: 0,
           answers: {},
           results: {},
           correctAnswers: {},
           analyses: {},
+          createdAt: Date.now(),
           startTime: Date.now(),
           isFinished: false,
         },
@@ -228,6 +233,7 @@ export const useQuizStore = create<QuizState>()(
         history: state.history,
         wrongQuestions: state.wrongQuestions,
         starredQuestions: state.starredQuestions,
+        practice: state.practice,
       }),
     }
   )

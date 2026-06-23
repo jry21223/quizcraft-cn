@@ -115,6 +115,8 @@ def init_schema() -> None:
                 CREATE TABLE IF NOT EXISTS feedbacks (
                     feedback_id BIGSERIAL PRIMARY KEY,
                     question_index INTEGER NOT NULL CHECK (question_index > 0),
+                    question_id TEXT,
+                    question_content TEXT,
                     suggestion TEXT NOT NULL,
                     user_id TEXT,
                     source_page TEXT NOT NULL DEFAULT 'quiz',
@@ -124,6 +126,12 @@ def init_schema() -> None:
             )
             cur.execute(
                 "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS question_bank TEXT"
+            )
+            cur.execute(
+                "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS question_id TEXT"
+            )
+            cur.execute(
+                "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS question_content TEXT"
             )
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_feedbacks_created_at ON feedbacks(created_at DESC)"
@@ -431,11 +439,15 @@ def create_feedback(
     suggestion: str,
     user_id: Optional[str] = None,
     question_bank: Optional[str] = None,
+    question_id: Optional[str] = None,
+    question_content: Optional[str] = None,
     source_page: str = "quiz",
 ) -> Dict[str, Any]:
     normalized_suggestion = str(suggestion or "").strip()
     index_value = int(question_index)
     normalized_bank = (question_bank or "").strip() or None
+    normalized_question_id = (question_id or "").strip() or None
+    normalized_question_content = (question_content or "").strip() or None
 
     with connect() as conn:
         with conn.cursor() as cur:
@@ -443,16 +455,20 @@ def create_feedback(
                 """
                 INSERT INTO feedbacks (
                     question_index,
+                    question_id,
+                    question_content,
                     suggestion,
                     user_id,
                     question_bank,
                     source_page
                 )
-                VALUES (%s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
                 RETURNING feedback_id, created_at
                 """,
                 (
                     index_value,
+                    normalized_question_id,
+                    normalized_question_content,
                     normalized_suggestion,
                     user_id,
                     normalized_bank,
@@ -464,6 +480,8 @@ def create_feedback(
     return {
         "feedback_id": int(feedback_id),
         "question_index": index_value,
+        "question_id": normalized_question_id,
+        "question_content": normalized_question_content,
         "suggestion": normalized_suggestion,
         "created_at": str(created_at),
         "user_id": user_id,
