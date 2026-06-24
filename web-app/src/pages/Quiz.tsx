@@ -56,6 +56,68 @@ const isAnswerCorrect = (
   return Number(answer) === Number(correctAnswer);
 };
 
+const normalizeOptionIndex = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    if (/^[A-Za-z]$/.test(trimmed)) {
+      return trimmed.toUpperCase().charCodeAt(0) - 65;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+};
+
+const isOptionSelected = (
+  answer: unknown,
+  type: QuestionType,
+  optionIndex: number,
+) => {
+  if (type === "multi") {
+    return Array.isArray(answer)
+      ? answer.some((item) => normalizeOptionIndex(item) === optionIndex)
+      : false;
+  }
+
+  return normalizeOptionIndex(answer) === optionIndex;
+};
+
+const normalizeJudgeAnswer = (answer: unknown): boolean | null => {
+  if (typeof answer === "boolean") return answer;
+  if (typeof answer === "string") {
+    const normalized = answer.trim().toLowerCase();
+    if (["true", "1", "yes", "y", "对", "正确"].includes(normalized)) {
+      return true;
+    }
+    if (["false", "0", "no", "n", "错", "错误"].includes(normalized)) {
+      return false;
+    }
+  }
+  if (typeof answer === "number") {
+    if (answer === 1) return true;
+    if (answer === 0) return false;
+  }
+  return null;
+};
+
+const hasSelectedAnswer = (answer: unknown, type: QuestionType) => {
+  if (type === "multi") {
+    return Array.isArray(answer) && answer.length > 0;
+  }
+  if (type === "judge") {
+    return normalizeJudgeAnswer(answer) !== null;
+  }
+  return normalizeOptionIndex(answer) !== null;
+};
+
 const SWIPE_THRESHOLD = 50;
 const SWIPE_DIRECTION_RATIO = 1.25;
 const SWIPE_MAX_DRAG = 120;
@@ -498,12 +560,7 @@ export default function Quiz() {
       : null;
 
   const canSubmitCurrent = Boolean(
-    activeQuestion &&
-      (activeQuestion.type === "multi"
-        ? Array.isArray(selectedAnswer) && selectedAnswer.length > 0
-        : activeQuestion.type === "judge"
-          ? selectedAnswer === true || selectedAnswer === false
-          : selectedAnswer !== null && selectedAnswer !== undefined),
+    activeQuestion && hasSelectedAnswer(selectedAnswer, activeQuestion.type),
   );
 
   const openFeedbackModal = () => {
@@ -744,8 +801,16 @@ export default function Quiz() {
       );
     }
 
+    const savedAnswer = practice.answers[question.id];
+    const hasSavedAnswer = savedAnswer !== undefined;
+    const cardAnswer = isCurrent
+      ? selectedAnswer ?? (hasSavedAnswer ? savedAnswer : null)
+      : hasSavedAnswer
+        ? savedAnswer
+        : null;
+    const cardShowResult = isCurrent ? showResult : hasSavedAnswer;
     const result =
-      practice.answers[question.id] !== undefined
+      hasSavedAnswer
         ? {
             correct: practice.results[question.id],
             correctAnswer: practice.correctAnswers[question.id],
@@ -791,29 +856,29 @@ export default function Quiz() {
           <div className="space-y-3 mb-6">
             {question.type === "judge" ? (
               <JudgeButtons
-                selected={isCurrent ? selectedAnswer : null}
-                correct={isCurrent ? result?.correctAnswer : undefined}
-                showResult={isCurrent && showResult}
+                selected={normalizeJudgeAnswer(cardAnswer)}
+                correct={
+                  cardShowResult
+                    ? normalizeJudgeAnswer(result?.correctAnswer) ?? undefined
+                    : undefined
+                }
+                showResult={cardShowResult}
                 onSelect={isCurrent ? handleJudgeSelect : () => undefined}
               />
             ) : (
               question.options?.map((option, index) => {
-                const isSelected =
-                  isCurrent &&
-                  (question.type === "multi"
-                    ? (selectedAnswer as number[])?.includes(index)
-                    : selectedAnswer === index);
+                const isSelected = isOptionSelected(
+                  cardAnswer,
+                  question.type,
+                  index,
+                );
 
-                const isCorrect =
-                  isCurrent && showResult
-                    ? question.type === "multi"
-                      ? (result?.correctAnswer as number[])?.includes(index)
-                      : result?.correctAnswer === index
-                    : undefined;
+                const isCorrect = cardShowResult
+                  ? isOptionSelected(result?.correctAnswer, question.type, index)
+                  : false;
 
                 const isMissed = Boolean(
-                  isCurrent &&
-                    showResult &&
+                  cardShowResult &&
                     question.type === "multi" &&
                     isCorrect &&
                     !isSelected,
@@ -827,7 +892,7 @@ export default function Quiz() {
                     selected={Boolean(isSelected)}
                     correct={isCorrect}
                     missed={isMissed}
-                    showResult={isCurrent && showResult}
+                    showResult={cardShowResult}
                     onClick={
                       isCurrent ? () => handleOptionSelect(index) : () => undefined
                     }
