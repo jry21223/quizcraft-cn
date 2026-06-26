@@ -12,10 +12,10 @@ import os
 import traceback
 
 from mcp.server.fastmcp import FastMCP
-from fastapi import FastAPI
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.routing import Route
 import uvicorn
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -299,7 +299,7 @@ def _save_feedback_to_file(
     return record
 
 
-def _build_tool_server() -> FastAPI:
+def _build_tool_server():
     host = os.getenv("MCP_HOST", "127.0.0.1").strip() or "127.0.0.1"
     port = os.getenv("MCP_PORT", "10088").strip() or "10088"
     transport = os.getenv("MCP_TRANSPORT", "streamable-http").strip().lower()
@@ -444,15 +444,12 @@ def _build_tool_server() -> FastAPI:
 
     mcp_app.add_middleware(MCPAuthMiddleware)
 
-    app = FastAPI()
+    async def healthz(_request: Request) -> JSONResponse:
+        return JSONResponse({"ok": True})
 
-    @app.get("/healthz")
-    def healthz() -> dict[str, Any]:
-        return {"ok": True}
+    mcp_app.router.routes.append(Route("/healthz", healthz))
 
-    app.mount("", mcp_app)
-
-    return app, host, host_port
+    return mcp_app, host, host_port
 
 
 def main() -> int:
