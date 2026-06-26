@@ -34,6 +34,8 @@ export default function Layout() {
   const location = useLocation();
   const [showDonateModal, setShowDonateModal] = useState(false);
   const [qrLoadFailed, setQrLoadFailed] = useState(false);
+  const announcementMessage = (import.meta.env.VITE_ANNOUNCEMENT_MESSAGE || '').trim();
+  const announcementQq = (import.meta.env.VITE_ANNOUNCEMENT_QQ || '').trim();
 
   useEffect(() => {
     if (!showDonateModal) {
@@ -51,6 +53,9 @@ export default function Layout() {
       window.removeEventListener('keydown', onKeyDown);
     };
   }, [showDonateModal]);
+
+  const shouldShowAnnouncement =
+    announcementMessage.length > 0 || announcementQq.length > 0;
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-gray-50 to-white">
@@ -85,6 +90,22 @@ export default function Layout() {
           </nav>
         </div>
       </header>
+      {shouldShowAnnouncement && (
+        <section className="border-b border-emerald-100 bg-emerald-50">
+          <div className="max-w-5xl mx-auto px-4 py-2 text-sm text-emerald-800">
+            <p className="text-center font-medium">
+              {announcementMessage || '祝同学们考试顺利，今天下午加油！'}
+              {announcementQq && (
+                <>
+                  {' '}
+                  有问题可加入QQ群：
+                  <span className="font-bold">{announcementQq}</span>
+                </>
+              )}
+            </p>
+          </div>
+        </section>
+      )}
       
       {/* 主内容区 */}
       <main className="w-full max-w-5xl mx-auto px-4 py-6 flex-1">
