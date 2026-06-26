@@ -98,7 +98,7 @@ export default function Layout() {
               {announcementQq && (
                 <>
                   {' '}
-                  有问题可加入QQ群：
+                  个人维护项目，反馈修复不及时请多担待，也可加入QQ群助力共建（或者暴打群主）：
                   <span className="font-bold">{announcementQq}</span>
                 </>
               )}
