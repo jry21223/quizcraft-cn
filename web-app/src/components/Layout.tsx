@@ -30,6 +30,10 @@ const navItems = IS_OPS_MODE
 const donateQrUrl =
   (import.meta.env.VITE_DONATE_QR_URL?.trim()) || '/wechat-receive-qrcode.jpg';
 
+const defaultAnnouncementMessage =
+  '考试已经结束啦，感谢大家这段时间的使用和反馈。后面网站还会继续升级，包括题库修复、功能优化和一些新功能。为了防止后续维护、换地址或更新时找不到入口，建议大家先加一下 QQ 群。之后题库更新、问题反馈和站点通知都会在群里同步。';
+const defaultAnnouncementQqText = 'QQ群：';
+
 export default function Layout() {
   const location = useLocation();
   const [showDonateModal, setShowDonateModal] = useState(false);
@@ -94,11 +98,11 @@ export default function Layout() {
         <section className="border-b border-emerald-100 bg-emerald-50">
           <div className="max-w-5xl mx-auto px-4 py-2 text-sm text-emerald-800">
             <p className="text-center font-medium">
-              {announcementMessage || '祝同学们考试顺利，今天下午加油！'}
+              {announcementMessage || defaultAnnouncementMessage}
               {announcementQq && (
                 <>
                   {' '}
-                  个人维护项目，反馈修复不及时请多担待，也可加入QQ群助力共建（或者暴打群主）：
+                  {defaultAnnouncementQqText}
                   <span className="font-bold">{announcementQq}</span>
                 </>
               )}
