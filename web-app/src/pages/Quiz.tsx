@@ -30,6 +30,7 @@ import {
   getTypeColor,
   getDifficultyLabel,
 } from "@/utils/format";
+import { getQuestionOptionKey } from "./quizCardState";
 import type { Question, QuestionType } from "@/types";
 
 const isAnswerCorrect = (
@@ -889,7 +890,7 @@ export default function Quiz() {
 
                 return (
                   <OptionButton
-                    key={index}
+                    key={getQuestionOptionKey(question.id, index)}
                     label={String.fromCharCode(65 + index)}
                     text={option}
                     selected={Boolean(isSelected)}
