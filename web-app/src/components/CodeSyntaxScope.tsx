@@ -153,7 +153,7 @@ const KEYWORDS: Record<CodeLanguage, string[]> = {
   text: [],
 };
 
-const CODE_FENCE_PATTERN = /```([A-Za-z0-9_-]+)?[ \t]*\r?\n?([\s\S]*?)```/g;
+const CODE_FENCE_PATTERN = /```[ \t]*([A-Za-z0-9_-]+)?[ \t]*\r?\n?([\s\S]*?)```/g;
 const INLINE_CODE_PATTERN = /`([^`\n]+)`/g;
 
 function escapeHtml(value: string) {
@@ -167,6 +167,11 @@ function escapeHtml(value: string) {
 
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function testInlineCode(text: string) {
+  INLINE_CODE_PATTERN.lastIndex = 0;
+  return INLINE_CODE_PATTERN.test(text);
 }
 
 function normalizeLanguage(language: string | undefined, code = ""): CodeLanguage {
@@ -335,7 +340,7 @@ function highlightTextToken(value: string, language: CodeLanguage) {
 
   if (language === "html") {
     html = html.replace(
-      /(&lt;\/?)([A-Za-z][\w:-]*)([^&]*?&gt;)/g,
+      /(&lt;\/?)([A-Za-z][\w:-]*)([\s\S]*?&gt;)/g,
       (_match, open: string, tag: string, rest: string) => {
         const highlightedRest = rest.replace(
           /([A-Za-z_:][-A-Za-z0-9_:.]*)(=)/g,
@@ -400,11 +405,7 @@ function shouldEnhanceElement(element: Element) {
   const currentSource = element.getAttribute("data-qc-code-source");
   if (currentSource === text) return false;
 
-  return (
-    text.includes("```") ||
-    INLINE_CODE_PATTERN.test(text) ||
-    splitLooseCode(text) !== null
-  );
+  return text.includes("```") || testInlineCode(text) || splitLooseCode(text) !== null;
 }
 
 function enhanceCodeBlocks(scope: HTMLElement) {
