@@ -25,7 +25,6 @@ def main() -> int:
 
     db_storage.init_schema()
     server.load_question_banks()
-    server.sync_question_banks_to_db()
     db_snapshot = db_storage.bank_consistency_snapshot()
 
     errors = []

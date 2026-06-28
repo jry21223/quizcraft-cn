@@ -53,6 +53,11 @@ def get_disabled_bank_keys() -> Set[str]:
     }
 
 
+def should_sync_local_banks_to_db() -> bool:
+    raw = os.getenv("QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB", "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
 def is_bank_enabled(bank_key: str) -> bool:
     return bank_key not in get_disabled_bank_keys()
 
@@ -625,6 +630,9 @@ def sync_question_bank_to_db(key: str, bank: Dict[str, Any]) -> bool:
 
 def sync_question_banks_to_db():
     if not db_runtime_enabled():
+        return
+    if not should_sync_local_banks_to_db():
+        print("ℹ️ 已跳过本地题库同步到 PostgreSQL；如需一次性迁移请设置 QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB=1")
         return
     synced = 0
     for key, bank in QUESTION_BANKS.items():

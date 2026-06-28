@@ -181,3 +181,20 @@ def test_build_standard_bank_data_uses_group_as_chapter_alias():
     question = bank["questions"][0]
     assert question["chapter"] == "3"
     assert question["chapter_id"] == "ch01"
+
+
+@pytest.mark.parametrize("value", ["1", "true", "TRUE", "yes", "on"])
+def test_local_bank_db_sync_requires_explicit_truthy_env(monkeypatch, value):
+    monkeypatch.setenv("QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB", value)
+
+    assert server.should_sync_local_banks_to_db() is True
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "no", "off", "random"])
+def test_local_bank_db_sync_defaults_off(monkeypatch, value):
+    if value:
+        monkeypatch.setenv("QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB", value)
+    else:
+        monkeypatch.delenv("QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB", raising=False)
+
+    assert server.should_sync_local_banks_to_db() is False

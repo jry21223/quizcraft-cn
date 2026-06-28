@@ -95,11 +95,13 @@ CORS_ORIGINS=https://your-domain.example
 DATABASE_URL=postgresql://quizcraft:change-me@127.0.0.1:5432/quizcraft
 ADMIN_TOKEN=change-me
 DISABLED_BANK_KEYS=h3c_2026_team_mock,h3cne
+QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB=0
 VITE_DONATE_QR_URL=https://your-qrcode.example/wechat-receive.png
 ```
 
 生产环境必须配置 `ADMIN_TOKEN`，并用 `CORS_ORIGINS` 显式写出允许访问的前端来源。默认 CORS 只允许本地开发地址，不再使用 `*`。
 `DISABLED_BANK_KEYS` 可用于临时隐藏题库，隐藏后的题库不会出现在列表中，也不能开始练习或提交答案；PostgreSQL 中的数据不会被删除。
+生产题库以 PostgreSQL 为准，默认不会在启动时把本地 `tiku/*.json` 同步回数据库；只有一次性迁移旧 JSON 题库时才临时设置 `QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB=1`。
 
 部署示例在 `deploy/`：
 
