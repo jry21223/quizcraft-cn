@@ -34,6 +34,7 @@ export const formatQuestionType = (type: QuestionType): string => {
     single: '单选题',
     multi: '多选题',
     judge: '判断题',
+    blank: '填空题',
   };
   return map[type];
 };
@@ -44,6 +45,7 @@ export const getTypeColor = (type: QuestionType): string => {
     single: 'bg-blue-100 text-blue-700',
     multi: 'bg-purple-100 text-purple-700',
     judge: 'bg-orange-100 text-orange-700',
+    blank: 'bg-green-100 text-green-700',
   };
   return map[type];
 };
@@ -91,6 +93,9 @@ export const formatAnswer = (answer: any, type: QuestionType): string => {
     if (normalized === false) return '错';
     return String(answer);
   }
+  if (type === 'blank') {
+    return String(answer ?? '');
+  }
   if (type === 'multi' && Array.isArray(answer)) {
     return answer.map(indexToOption).join('');
   }
@@ -105,6 +110,9 @@ export const parseAnswer = (input: string, type: QuestionType): any => {
   if (type === 'judge') {
     const normalized = input.trim().toLowerCase();
     return normalized === 'y' || normalized === '对' || normalized === 'true';
+  }
+  if (type === 'blank') {
+    return input.trim();
   }
   if (type === 'multi') {
     return input.split('').map(optionToIndex);

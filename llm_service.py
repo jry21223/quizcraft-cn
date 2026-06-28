@@ -7,6 +7,7 @@ LLM 服务 - 高并发版本
 
 import os
 import asyncio
+import re
 from typing import List, Dict, Optional, Callable, Awaitable, Tuple
 from dataclasses import dataclass
 import httpx
@@ -195,12 +196,50 @@ class LLMService:
         content = question.get("content", "")
         options = question.get("options", [])
         answer = question.get("answer", "")
+        global_context = str(
+            question.get("global_context")
+            or question.get("full_context")
+            or question.get("lecture_context")
+            or ""
+        ).strip()
+        rag_context = question.get("rag_context") or question.get("ragContexts") or []
         
         type_names = {
             "single": "单选题",
             "multi": "多选题", 
             "judge": "判断题"
         }
+
+        def format_answer() -> str:
+            if q_type == "judge":
+                if isinstance(answer, bool):
+                    return "对" if answer else "错"
+                return str(answer)
+
+            if not options:
+                return str(answer)
+
+            def format_index(value) -> str:
+                if isinstance(value, str) and len(value.strip()) == 1 and value.strip().isalpha():
+                    index = ord(value.strip().upper()) - 65
+                    if 0 <= index < len(options):
+                        return f"{chr(65 + index)}. {options[index]}"
+                    return value
+                try:
+                    index = int(value)
+                except (TypeError, ValueError):
+                    return str(value)
+                if 0 <= index < len(options):
+                    return f"{chr(65 + index)}. {options[index]}"
+                return str(value)
+
+            if isinstance(answer, list):
+                return "、".join(format_index(item) for item in answer)
+
+            if isinstance(answer, str) and re.fullmatch(r"[A-Za-z]+", answer.strip()) and len(answer.strip()) > 1:
+                return "、".join(format_index(item) for item in answer.strip())
+
+            return format_index(answer)
         
         prompt = f"""请为以下{type_names.get(q_type, '选择题')}生成解析：
 
@@ -209,11 +248,31 @@ class LLMService:
         if options:
             for i, opt in enumerate(options):
                 prompt += f"{chr(65+i)}. {opt}\n"
+
+        if global_context:
+            prompt += f"""
+完整讲义参考：
+{global_context[:120000]}
+"""
+
+        if isinstance(rag_context, list) and rag_context:
+            context_lines = []
+            for item in rag_context[:3]:
+                if isinstance(item, dict):
+                    text = str(item.get("text") or "").strip()
+                    label = str(item.get("chapter") or item.get("id") or "讲义").strip()
+                else:
+                    text = str(item).strip()
+                    label = "讲义"
+                if text:
+                    context_lines.append(f"- {label}: {text[:500]}")
+            if context_lines:
+                prompt += "\n讲义参考：\n" + "\n".join(context_lines) + "\n"
         
         prompt += f"""
-正确答案：{answer}
+正确答案：{format_answer()}
 
-请生成一段简洁的解析（50-100字），说明为什么这个答案是正确的。直接给出解析内容，不要加"解析："前缀。"""
+请严格围绕上面给出的正确答案生成一段简洁解析（50-100字），优先参考完整讲义参考，其次参考讲义参考中的命中片段；如果参考内容不相关，则只依据题目和正确答案解释。不要自行改判答案。直接给出解析内容，不要加"解析："前缀。"""
         
         return prompt
     

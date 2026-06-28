@@ -57,6 +57,7 @@ const QUESTION_TYPE_OPTIONS: Array<{ value: QuestionType; label: string }> = [
   { value: 'single', label: '单选题' },
   { value: 'multi', label: '多选题' },
   { value: 'judge', label: '判断题' },
+  { value: 'blank', label: '填空题' },
 ];
 
 const createQuestionId = () =>
@@ -119,6 +120,9 @@ const indexesToAnswerText = (indexes: number[]) =>
     .join('');
 
 const normalizeAnswerText = (value: unknown, type: QuestionType) => {
+  if (type === 'blank') {
+    return String(value ?? '').replace(/\s+/g, ' ').trim();
+  }
   if (type === 'judge') {
     return normalizeJudgeAnswerText(value);
   }
@@ -153,10 +157,12 @@ const normalizeEditableQuestion = (
   index: number
 ): EditableQuestion => {
   const type: QuestionType =
-    raw.type === 'multi' || raw.type === 'judge' ? raw.type : 'single';
+    raw.type === 'multi' || raw.type === 'judge' || raw.type === 'blank'
+      ? raw.type
+      : 'single';
 
   const options =
-    type === 'judge'
+    type === 'judge' || type === 'blank'
       ? []
       : Array.isArray(raw.options) && raw.options.length > 0
         ? raw.options.map((option) => String(option ?? ''))
@@ -207,6 +213,7 @@ const mergeAnalyzedQuestions = (
 const getTypeBadgeClass = (type: QuestionType) => {
   if (type === 'single') return 'bg-blue-100 text-blue-700';
   if (type === 'multi') return 'bg-purple-100 text-purple-700';
+  if (type === 'judge') return 'bg-orange-100 text-orange-700';
   return 'bg-green-100 text-green-700';
 };
 
@@ -431,6 +438,15 @@ export default function Extract() {
         };
       }
 
+      if (nextType === 'blank') {
+        return {
+          ...question,
+          type: 'blank',
+          options: [],
+          answer: normalizeAnswerText(question.answer, 'blank'),
+        };
+      }
+
       const currentIndexes = extractChoiceIndexes(question.answer);
       const options =
         question.options && question.options.length >= 2
@@ -521,6 +537,13 @@ export default function Extract() {
     }));
   };
 
+  const setBlankAnswer = (questionId: string, value: string) => {
+    updateQuestion(questionId, (question) => ({
+      ...question,
+      answer: value,
+    }));
+  };
+
   const validateBeforePersist = () => {
     if (!bankName.trim()) {
       setError('请先填写题库名称');
@@ -528,6 +551,14 @@ export default function Extract() {
     }
     if (questions.length === 0) {
       setError('题库里至少需要 1 道题目');
+      return false;
+    }
+    const missingBlankAnswer = questions.find(
+      (question) =>
+        question.type === 'blank' && !String(question.answer ?? '').trim()
+    );
+    if (missingBlankAnswer) {
+      setError(`第 ${missingBlankAnswer.number} 题填空题答案不能为空`);
       return false;
     }
     return true;
@@ -680,6 +711,7 @@ export default function Extract() {
   const singleCount = questions.filter((question) => question.type === 'single').length;
   const multiCount = questions.filter((question) => question.type === 'multi').length;
   const judgeCount = questions.filter((question) => question.type === 'judge').length;
+  const blankCount = questions.filter((question) => question.type === 'blank').length;
   const estimatedTime = progress ? Math.ceil((progress.total - progress.current) * 2) : 0;
 
   return (
@@ -903,6 +935,9 @@ export default function Extract() {
                   多选 {multiCount}
                 </span>
                 <span className="px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm">
+                  填空 {blankCount}
+                </span>
+                <span className="px-3 py-1 rounded-full bg-orange-100 text-orange-700 text-sm">
                   判断 {judgeCount}
                 </span>
               </div>
@@ -1210,7 +1245,20 @@ export default function Extract() {
                             />
                           </div>
 
-                          {question.type !== 'judge' ? (
+                          {question.type === 'blank' ? (
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                正确答案
+                              </label>
+                              <input
+                                type="text"
+                                value={String(question.answer ?? '')}
+                                onChange={(event) => setBlankAnswer(question.id, event.target.value)}
+                                placeholder="请输入填空题答案"
+                                className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+                              />
+                            </div>
+                          ) : question.type !== 'judge' ? (
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <label className="block text-sm font-medium text-gray-700">

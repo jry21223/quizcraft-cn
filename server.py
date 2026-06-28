@@ -412,7 +412,15 @@ def build_standard_bank_data(name: str, questions: List[Dict], color: Optional[s
         if not content:
             raise HTTPException(status_code=400, detail=f"第 {idx} 题题干不能为空")
 
-        chapter_name = str(raw.get("chapter") or "默认章节").strip() or "默认章节"
+        chapter_name = str(
+            raw.get("chapter")
+            or raw.get("chapterName")
+            or raw.get("section")
+            or raw.get("group")
+            or raw.get("章节")
+            or raw.get("组别")
+            or "默认章节"
+        ).strip() or "默认章节"
         chapter_id = str(raw.get("chapter_id") or "").strip()
         if not chapter_id:
             chapter_id = chapter_to_id.setdefault(chapter_name, f"ch{len(chapter_to_id) + 1:02d}")
@@ -434,6 +442,15 @@ def build_standard_bank_data(name: str, questions: List[Dict], color: Optional[s
                 "rate": 0,
             },
         }
+
+        if q_type == "blank":
+            normalized_answer = normalize_blank_answer_value(raw.get("answer"))
+            if not normalized_answer:
+                raise HTTPException(status_code=400, detail=f"第 {idx} 题填空题答案不能为空")
+            question["answer"] = normalized_answer
+            question["options"] = None
+            normalized_questions.append(question)
+            continue
 
         if q_type == "judge":
             normalized_answer = normalize_judge_answer(raw.get("answer"))
@@ -1119,6 +1136,41 @@ def normalize_judge_answer(value: Any) -> Optional[bool]:
     return None
 
 
+def normalize_blank_answer(value: Any) -> str:
+    """将填空题答案统一为便于判分的文本。"""
+    if value is None:
+        return ""
+    text = str(value)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def normalize_blank_answer_value(value: Any) -> Any:
+    if isinstance(value, list):
+        normalized = [
+            normalize_blank_answer(item)
+            for item in value
+            if normalize_blank_answer(item)
+        ]
+        return normalized
+    return normalize_blank_answer(value)
+
+
+def is_blank_answer_correct(user_answer: Any, correct_answer: Any) -> bool:
+    normalized_user = normalize_blank_answer(user_answer).casefold()
+    if not normalized_user:
+        return False
+
+    if isinstance(correct_answer, list):
+        candidates = correct_answer
+    else:
+        candidates = [correct_answer]
+
+    return any(
+        normalized_user == normalize_blank_answer(candidate).casefold()
+        for candidate in candidates
+    )
+
+
 def infer_judge_answer_from_analysis(analysis: Any, allow_positive_fallback: bool = False) -> Optional[bool]:
     """从解析文本中推断判断题答案。"""
     if not isinstance(analysis, str):
@@ -1295,13 +1347,18 @@ def parse_question_bank(data: Dict, bank_key: str) -> List[Dict]:
             if not isinstance(raw_q, dict):
                 continue
             q = dict(raw_q)
-            q_type = str(q.get("type", "single")).lower()
+            q_type = _normalize_q_type(
+                q.get("type", "single"),
+                _answer_to_text(q.get("answer"), "single"),
+            )
             q["type"] = q_type
             chapter_name = (
                 q.get("chapter")
                 or q.get("chapterName")
                 or q.get("section")
+                or q.get("group")
                 or q.get("章节")
+                or q.get("组别")
             )
             chapter_id = q.get("chapter_id")
 
@@ -1328,6 +1385,14 @@ def parse_question_bank(data: Dict, bank_key: str) -> List[Dict]:
                 q["options"] = None
 
             answer_is_blank = answer is None or (isinstance(answer, str) and not answer.strip())
+
+            if q_type == "blank":
+                q["options"] = None
+                q["answer"] = normalize_blank_answer_value(answer)
+                if not q["answer"]:
+                    continue
+                normalized.append(q)
+                continue
 
             if q_type in ("single", "multi") and q.get("options"):
                 normalized_type, normalized_answer = normalize_choice_answer(
@@ -1389,6 +1454,8 @@ def parse_question_bank(data: Dict, bank_key: str) -> List[Dict]:
                 q_type = "multi"
             elif "判断" in type_name:
                 q_type = "judge"
+            elif "填空" in type_name or "填充" in type_name:
+                q_type = "blank"
             
             for item_text in items:
                 question = parse_question_text(item_text, q_type, chapter_id, chapter_name, qid)
@@ -1425,7 +1492,9 @@ def parse_question_text(text: str, q_type: str, chapter_id: str, chapter_name: s
         if answer_match:
             answer_text = answer_match.group(1).strip()
             
-            if q_type == "judge":
+            if q_type == "blank":
+                answer = normalize_blank_answer(answer_text)
+            elif q_type == "judge":
                 answer = answer_text.lower() in ["对", "正确", "√", "true", "t", "是", "yes", "y"]
             elif q_type == "multi":
                 # 多选答案转为索引数组
@@ -1596,6 +1665,8 @@ async def submit_answer(request: SubmitAnswerRequest):
             and normalized_correct_answer is not None
             and normalized_user_answer == normalized_correct_answer
         )
+    elif q_type == "blank":
+        is_correct = is_blank_answer_correct(user_answer, correct_answer)
     elif q_type == "multi":
         user_sorted = sorted(user_answer) if isinstance(user_answer, list) else []
         correct_sorted = sorted(correct_answer) if isinstance(correct_answer, list) else []
@@ -1978,7 +2049,7 @@ def parse_questions_from_docx(path: str) -> List[Dict]:
     option_pattern = re.compile(r'^(?P<label>[A-F])[、.．]\s*(?P<text>.+)$')
     answer_pattern = re.compile(r'^答案\s*[：:]\s*(?P<answer>.+)$')
     analysis_pattern = re.compile(r'^(?:解析|答案解析)\s*[：:]\s*(?P<analysis>.*)$')
-    type_pattern = re.compile(r'【(?P<type>单选题|多选题|判断题)】')
+    type_pattern = re.compile(r'【(?P<type>单选题|多选题|判断题|填空题)】')
 
     doc = Document(path)
     paragraphs = [re.sub(r'\s+', ' ', p.text).strip() for p in doc.paragraphs if p.text and p.text.strip()]
@@ -2008,7 +2079,7 @@ def parse_questions_from_docx(path: str) -> List[Dict]:
         q_type = "single"
         type_match = type_pattern.search(content)
         if type_match:
-            type_map = {"单选题": "single", "多选题": "multi", "判断题": "judge"}
+            type_map = {"单选题": "single", "多选题": "multi", "判断题": "judge", "填空题": "blank"}
             q_type = type_map[type_match.group("type")]
             content = type_pattern.sub("", content, count=1).strip()
         current = {
@@ -2037,7 +2108,7 @@ def parse_questions_from_docx(path: str) -> List[Dict]:
         if answer_match:
             answer_text = answer_match.group("answer").strip()
             answer_letters = extract_choice_letters(answer_text)
-            if answer_letters:
+            if current["type"] in {"single", "multi"} and answer_letters:
                 current["answer"] = "".join(answer_letters)
                 if len(answer_letters) > 1:
                     current["type"] = "multi"
@@ -2099,12 +2170,16 @@ def _normalize_q_type(raw_type: Any, answer_text: str = "") -> str:
         return "multi"
     if type_text in {"judge", "tf", "truefalse", "boolean"}:
         return "judge"
+    if type_text in {"blank", "fill", "fill_blank", "fill_in", "completion"}:
+        return "blank"
 
     # 中文题型兼容
     if any(k in str(raw_type) for k in ["多选", "多项"]):
         return "multi"
     if any(k in str(raw_type) for k in ["判断", "是非"]):
         return "judge"
+    if any(k in str(raw_type) for k in ["填空", "填充", "补全"]):
+        return "blank"
     if any(k in str(raw_type) for k in ["单选", "单项"]):
         return "single"
 
@@ -2163,7 +2238,16 @@ def _normalize_question_item(raw: Dict, qid: int) -> Dict:
         "options": options or [],
         "answer": answer_text,
         "analysis": str(raw.get("analysis", raw.get("explanation", raw.get("解析", raw.get("答案解析", ""))))).strip(),
-        "chapter": raw.get("chapter", raw.get("chapterName", raw.get("section", raw.get("章节")))),
+        "chapter": raw.get(
+            "chapter",
+            raw.get(
+                "chapterName",
+                raw.get(
+                    "section",
+                    raw.get("group", raw.get("章节", raw.get("组别"))),
+                ),
+            ),
+        ),
     }
 
 
@@ -2679,21 +2763,29 @@ def parse_questions_from_text(text: str) -> List[Dict]:
             "chapter": current_chapter or "默认章节",
             "chapter_id": get_chapter_id(current_chapter or "默认章节"),
         }
+
+        type_match = re.search(r'【(?P<type>单选题|多选题|判断题|填空题)】', content)
+        if type_match:
+            type_map = {"单选题": "single", "多选题": "multi", "判断题": "judge", "填空题": "blank"}
+            question["type"] = type_map[type_match.group("type")]
+            content = re.sub(r'【(?:单选题|多选题|判断题|填空题)】', '', content, count=1).strip()
         
         # 分离答案（在行尾或独立一行）
         answer_patterns = [
-            r'答案\s*[：:]\s*([A-Fa-f]+|[对错]|正确|错误)',
+            r'答案\s*[：:]\s*([^\n]+)',
         ]
         for pattern in answer_patterns:
             answer_match = re.search(pattern, content)
             if answer_match:
                 answer = answer_match.group(1).strip()
-                question["answer"] = answer.upper() if len(answer) <= 4 else answer
+                question["answer"] = answer.upper() if re.fullmatch(r'[A-Fa-f]+', answer) else answer
                 # 从内容中移除答案部分
                 content = content[:answer_match.start()] + content[answer_match.end():]
                 content = content.strip()
                 
-                if answer in ["对", "错", "正确", "错误", "√", "×"]:
+                if question["type"] == "blank":
+                    question["answer"] = normalize_blank_answer(answer)
+                elif answer in ["对", "错", "正确", "错误", "√", "×"]:
                     question["type"] = "judge"
                 elif len(answer) > 1 and all(c.upper() in 'ABCDEF' for c in answer):
                     question["type"] = "multi"
@@ -2747,8 +2839,14 @@ def parse_questions_from_text(text: str) -> List[Dict]:
         question["options"] = options
         
         # 如果仍然没有选项，可能是判断题或格式错误
-        if not options and not question["type"] == "judge":
+        if not options and question["type"] not in {"judge", "blank"}:
             question["content"] = content.strip()
+            if normalize_blank_answer(question.get("answer")) and not re.fullmatch(
+                r"[A-Fa-f]+",
+                str(question.get("answer") or "").strip(),
+            ):
+                question["type"] = "blank"
+                question["answer"] = normalize_blank_answer(question.get("answer"))
         
         questions.append(question)
         qid += 1

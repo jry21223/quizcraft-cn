@@ -38,6 +38,18 @@ const isAnswerCorrect = (
   correctAnswer: any,
   type: QuestionType,
 ) => {
+  if (type === "blank") {
+    const normalized = normalizeBlankAnswer(answer).toLocaleLowerCase();
+    const candidates = Array.isArray(correctAnswer)
+      ? correctAnswer
+      : [correctAnswer];
+    return Boolean(normalized) &&
+      candidates.some(
+        (candidate) =>
+          normalized === normalizeBlankAnswer(candidate).toLocaleLowerCase(),
+      );
+  }
+
   if (type === "judge") {
     return Boolean(answer) === Boolean(correctAnswer);
   }
@@ -57,6 +69,9 @@ const isAnswerCorrect = (
 
   return Number(answer) === Number(correctAnswer);
 };
+
+const normalizeBlankAnswer = (answer: unknown): string =>
+  String(answer ?? "").replace(/\s+/g, " ").trim();
 
 const normalizeOptionIndex = (value: unknown): number | null => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -111,6 +126,9 @@ const normalizeJudgeAnswer = (answer: unknown): boolean | null => {
 };
 
 const hasSelectedAnswer = (answer: unknown, type: QuestionType) => {
+  if (type === "blank") {
+    return normalizeBlankAnswer(answer).length > 0;
+  }
   if (type === "multi") {
     return Array.isArray(answer) && answer.length > 0;
   }
@@ -417,6 +435,47 @@ function JudgeButtons({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function BlankAnswerInput({
+  value,
+  correctAnswer,
+  showResult,
+  onChange,
+}: {
+  value: unknown;
+  correctAnswer?: unknown;
+  showResult: boolean;
+  onChange: (value: string) => void;
+}) {
+  const textValue = typeof value === "string" ? value : "";
+
+  return (
+    <div className="space-y-3" data-swipe-ignore="true">
+      <input
+        type="text"
+        value={textValue}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={showResult}
+        placeholder="请输入答案"
+        className={`w-full rounded-xl border-2 px-4 py-3 text-base outline-none transition-colors ${
+          showResult
+            ? "border-gray-200 bg-gray-50 text-gray-500"
+            : "border-gray-200 bg-white text-gray-800 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+        }`}
+      />
+      {showResult && (
+        <div className="text-sm text-gray-500">
+          你的答案：{normalizeBlankAnswer(value) || "未作答"}
+          {correctAnswer !== undefined && (
+            <span className="ml-3">
+              标准答案：{formatAnswer(correctAnswer, "blank")}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -858,7 +917,14 @@ export default function Quiz() {
           </h2>
 
           <div className="space-y-3 mb-6">
-            {question.type === "judge" ? (
+            {question.type === "blank" ? (
+              <BlankAnswerInput
+                value={cardAnswer}
+                correctAnswer={cardShowResult ? result?.correctAnswer : undefined}
+                showResult={cardShowResult}
+                onChange={isCurrent ? setSelectedAnswer : () => undefined}
+              />
+            ) : question.type === "judge" ? (
               <JudgeButtons
                 selected={normalizeJudgeAnswer(cardAnswer)}
                 correct={
@@ -990,7 +1056,11 @@ export default function Quiz() {
       return;
     }
 
-    submitAnswer(selectedAnswer);
+    submitAnswer(
+      activeQuestion.type === "blank"
+        ? normalizeBlankAnswer(selectedAnswer)
+        : selectedAnswer,
+    );
   };
 
   const submitAnswer = (answer: any) => {

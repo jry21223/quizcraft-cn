@@ -1,5 +1,5 @@
 // 题目类型
-export type QuestionType = 'single' | 'multi' | 'judge';
+export type QuestionType = 'single' | 'multi' | 'judge' | 'blank';
 
 // 题目
 export interface Question {

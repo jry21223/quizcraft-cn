@@ -18,5 +18,9 @@ if [ -n "${STATIC_DEPLOY_DIR}" ]; then
   if [ -f dist/wechat-receive-qrcode.jpg ]; then
     cp -f dist/wechat-receive-qrcode.jpg "${STATIC_DEPLOY_DIR}/"
   fi
+  if [ -f dist/henu-kit-qq-group.png ]; then
+    cp -f dist/henu-kit-qq-group.png "${STATIC_DEPLOY_DIR}/"
+  fi
   chmod 644 "${STATIC_DEPLOY_DIR}/wechat-receive-qrcode.jpg" 2>/dev/null || true
+  chmod 644 "${STATIC_DEPLOY_DIR}/henu-kit-qq-group.png" 2>/dev/null || true
 fi

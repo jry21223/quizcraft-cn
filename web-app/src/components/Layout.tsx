@@ -7,6 +7,7 @@ import {
   Dices,
   Github,
   Heart,
+  MessageCircle,
   MessageSquare,
   X,
 } from 'lucide-react';
@@ -32,26 +33,34 @@ const navItems = IS_OPS_MODE
 
 const donateQrUrl =
   (import.meta.env.VITE_DONATE_QR_URL?.trim()) || '/wechat-receive-qrcode.jpg';
+const qqGroupQrUrl =
+  (import.meta.env.VITE_QQ_GROUP_QR_URL?.trim()) || '/henu-kit-qq-group.png';
 
 const defaultAnnouncementMessage =
-  '考试已经结束啦，感谢大家这段时间的使用和反馈。后面网站还会继续升级，包括题库修复、功能优化和一些新功能。为了防止后续维护、换地址或更新时找不到入口，建议大家先加一下 QQ 群。之后题库更新、问题反馈和站点通知都会在群里同步。';
+  '✨祝大家考试旗开得胜，一切顺利！刷题发现题目错误、功能问题欢迎进群反馈，QQ群：1031855485，后续网站维护、更换网址都会在群内通知';
 const defaultAnnouncementQqText = 'QQ群：';
 
 export default function Layout() {
   const location = useLocation();
   const [showDonateModal, setShowDonateModal] = useState(false);
+  const [showQqGroupModal, setShowQqGroupModal] = useState(false);
   const [qrLoadFailed, setQrLoadFailed] = useState(false);
+  const [qqQrLoadFailed, setQqQrLoadFailed] = useState(false);
   const announcementMessage = (import.meta.env.VITE_ANNOUNCEMENT_MESSAGE || '').trim();
   const announcementQq = (import.meta.env.VITE_ANNOUNCEMENT_QQ || '').trim();
+  const announcementText = announcementMessage || defaultAnnouncementMessage;
+  const shouldAppendAnnouncementQq =
+    announcementQq.length > 0 && !announcementText.includes(announcementQq);
 
   useEffect(() => {
-    if (!showDonateModal) {
+    if (!showDonateModal && !showQqGroupModal) {
       return;
     }
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setShowDonateModal(false);
+        setShowQqGroupModal(false);
       }
     };
 
@@ -59,7 +68,7 @@ export default function Layout() {
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [showDonateModal]);
+  }, [showDonateModal, showQqGroupModal]);
 
   const shouldShowAnnouncement =
     announcementMessage.length > 0 || announcementQq.length > 0;
@@ -100,16 +109,29 @@ export default function Layout() {
       {shouldShowAnnouncement && (
         <section className="border-b border-emerald-100 bg-emerald-50">
           <div className="max-w-5xl mx-auto px-4 py-2 text-sm text-emerald-800">
-            <p className="text-center font-medium">
-              {announcementMessage || defaultAnnouncementMessage}
-              {announcementQq && (
-                <>
-                  {' '}
-                  {defaultAnnouncementQqText}
-                  <span className="font-bold">{announcementQq}</span>
-                </>
-              )}
-            </p>
+            <div className="flex flex-col items-center justify-center gap-2 text-center font-medium sm:flex-row sm:flex-wrap">
+              <span>
+                {announcementText}
+                {shouldAppendAnnouncementQq && (
+                  <>
+                    {' '}
+                    {defaultAnnouncementQqText}
+                    <span className="font-bold">{announcementQq}</span>
+                  </>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowQqGroupModal(true);
+                  setQqQrLoadFailed(false);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/80 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-white"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                <span>扫码进群</span>
+              </button>
+            </div>
           </div>
         </section>
       )}
@@ -124,6 +146,17 @@ export default function Layout() {
         <div className="max-w-5xl mx-auto px-4 py-6 text-center">
           <div className="flex flex-col items-center gap-2 text-sm text-gray-500">
             <p>刷题助手 · Jerry</p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowQqGroupModal(true);
+                setQqQrLoadFailed(false);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+              <span>加入 QQ 群</span>
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -180,6 +213,45 @@ export default function Layout() {
                   alt="微信收款码"
                   className="w-full max-w-[240px] rounded-lg border border-gray-100"
                   onError={() => setQrLoadFailed(true)}
+                />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showQqGroupModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+          onClick={() => setShowQqGroupModal(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800">加入 QQ 群</h2>
+              <button
+                type="button"
+                onClick={() => setShowQqGroupModal(false)}
+                className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
+                aria-label="关闭"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="mb-4 text-sm text-gray-600">扫码加入河大Kit群 · 题库更新和问题反馈都会同步</p>
+            <div className="flex items-center justify-center rounded-xl border border-gray-100 bg-gray-50 p-3">
+              {qqQrLoadFailed ? (
+                <p className="text-center text-xs leading-relaxed text-gray-500">
+                  未配置 QQ 群二维码，请在 VITE_QQ_GROUP_QR_URL 中配置图片链接
+                </p>
+              ) : (
+                <img
+                  src={qqGroupQrUrl}
+                  alt="河大Kit QQ 群二维码"
+                  className="w-full max-w-[260px] rounded-lg border border-gray-100"
+                  onError={() => setQqQrLoadFailed(true)}
                 />
               )}
             </div>

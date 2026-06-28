@@ -71,6 +71,7 @@ def _load_feedback_from_db(
     bank: Optional[str] = None,
     question_index: Optional[int] = None,
     question_id: Optional[str] = None,
+    status: Optional[str] = None,
     source_page: Optional[str] = None,
     user_id: Optional[str] = None,
     start_time: Optional[str] = None,
@@ -93,6 +94,9 @@ def _load_feedback_from_db(
     if question_id:
         clauses.append("f.question_id = %s")
         params.append(str(question_id).strip())
+    if status:
+        clauses.append("COALESCE(f.status, 'pending') = %s")
+        params.append(_normalize_status(status))
     if source_page:
         clauses.append("COALESCE(f.source_page, 'quiz') = %s")
         params.append(str(source_page).strip())
@@ -128,7 +132,10 @@ def _load_feedback_from_db(
             f.user_id,
             COALESCE(u.display_name, '') AS user_name,
             COALESCE(f.source_page, 'quiz') AS source_page,
-            f.created_at
+            f.created_at,
+            COALESCE(f.status, 'pending') AS status,
+            f.resolved_at,
+            COALESCE(f.resolution_note, '') AS resolution_note
         FROM feedbacks f
         LEFT JOIN users u ON u.user_id = f.user_id
         {where_sql}
@@ -156,6 +163,9 @@ def _load_feedback_from_db(
             user_name_value,
             source_page_value,
             created_at_value,
+            status_value,
+            resolved_at_value,
+            resolution_note_value,
         ) = row
 
         records.append(
@@ -170,6 +180,9 @@ def _load_feedback_from_db(
                 "user_name": _coerce_str(user_name_value) or None,
                 "source_page": _coerce_str(source_page_value) or "quiz",
                 "created_at": _serialize_timestamp(created_at_value),
+                "status": _coerce_str(status_value) or "pending",
+                "resolved_at": _serialize_timestamp(resolved_at_value) if resolved_at_value else None,
+                "resolution_note": _coerce_str(resolution_note_value),
             }
         )
     return records
@@ -179,6 +192,7 @@ def _load_feedback_from_file(
     bank: Optional[str] = None,
     question_index: Optional[int] = None,
     question_id: Optional[str] = None,
+    status: Optional[str] = None,
     source_page: Optional[str] = None,
     user_id: Optional[str] = None,
     min_id: Optional[int] = None,
@@ -222,6 +236,8 @@ def _load_feedback_from_file(
             continue
         if question_id and str(item.get("question_id") or "") != str(question_id):
             continue
+        if status and str(item.get("status") or "pending") != _normalize_status(status):
+            continue
         if source_page and str(item.get("source_page") or "quiz") != str(source_page):
             continue
         if user_id and str(item.get("user_id") or "") != str(user_id):
@@ -243,6 +259,9 @@ def _load_feedback_from_file(
                 "user_name": "",
                 "source_page": _coerce_str(item.get("source_page") or "quiz") or "quiz",
                 "created_at": _coerce_str(item.get("created_at")),
+                "status": _coerce_str(item.get("status") or "pending") or "pending",
+                "resolved_at": _coerce_str(item.get("resolved_at")) or None,
+                "resolution_note": _coerce_str(item.get("resolution_note")),
             }
         )
 
@@ -294,10 +313,54 @@ def _save_feedback_to_file(
         "user_id": (user_id or "").strip() or None,
         "source_page": (source_page or "quiz").strip() or "quiz",
         "created_at": now,
+        "status": "pending",
+        "resolved_at": None,
+        "resolution_note": "",
     }
     payload.append(record)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return record
+
+
+def _normalize_status(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"pending", "resolved", "archived"}:
+        return normalized
+    raise ValueError("status must be 'pending', 'resolved', or 'archived'")
+
+
+def _update_feedback_status_file(
+    feedback_id: int,
+    status: str,
+    resolution_note: str = "",
+) -> Optional[dict[str, Any]]:
+    path = Path(FEEDBACK_FILE)
+    if not path.exists():
+        return None
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, list):
+        return None
+
+    normalized_status = _normalize_status(status)
+    target: Optional[dict[str, Any]] = None
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        if _coerce_int(item.get("feedback_id")) != int(feedback_id):
+            continue
+        item["status"] = normalized_status
+        item["resolution_note"] = (resolution_note or "").strip()
+        item["resolved_at"] = datetime.now().isoformat() if normalized_status == "resolved" else None
+        target = item
+        break
+    if target is None:
+        return None
+
+    path.write_text(json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8")
+    return target
 
 
 def _build_tool_server():
@@ -316,6 +379,7 @@ def _build_tool_server():
         bank: Optional[str] = None,
         question_index: Optional[int] = None,
         question_id: Optional[str] = None,
+        status: Optional[str] = None,
         source_page: Optional[str] = None,
         user_id: Optional[str] = None,
         min_id: Optional[int] = None,
@@ -337,6 +401,7 @@ def _build_tool_server():
                     bank=bank,
                     question_index=question_index,
                     question_id=question_id,
+                    status=status,
                     source_page=source_page,
                     user_id=user_id,
                     min_id=min_id,
@@ -350,6 +415,7 @@ def _build_tool_server():
                     bank=bank,
                     question_index=question_index,
                     question_id=question_id,
+                    status=status,
                     source_page=source_page,
                     user_id=user_id,
                     min_id=min_id,
@@ -367,6 +433,37 @@ def _build_tool_server():
             "count": len(items),
             "items": items,
         }
+
+    @mcp.tool()
+    def set_feedback_status(
+        feedback_id: int,
+        status: str,
+        resolution_note: str = "",
+    ) -> dict[str, Any]:
+        item_id = int(feedback_id)
+        normalized_status = _normalize_status(status)
+        note = (resolution_note or "").strip()
+        if len(note) > 1000:
+            raise ValueError("resolution_note is too long")
+
+        if _db_enabled():
+            import db_storage
+
+            item = db_storage.update_feedback_status(
+                feedback_id=item_id,
+                status=normalized_status,
+                resolution_note=note,
+            )
+        else:
+            item = _update_feedback_status_file(
+                feedback_id=item_id,
+                status=normalized_status,
+                resolution_note=note,
+            )
+
+        if not item:
+            return {"ok": False, "found": False, "item": None}
+        return {"ok": True, "found": True, "item": item}
 
     @mcp.tool()
     def get_feedback(feedback_id: int) -> dict[str, Any]:

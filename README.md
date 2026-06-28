@@ -208,6 +208,16 @@ npm run dev
 4. **生成解析**（可选）：配置 API Key，AI 自动生成解析
 5. **导出题库**：下载标准 JSON 格式文件
 
+网页端“题库工坊”是主入口；无浏览器或 WSL 批处理场景可以使用同源命令行封装：
+
+```bash
+python3 scripts/extract_bank_via_api.py source.docx --key my_bank --name "题库名称" --output /tmp/my_bank.parsed.json
+python3 scripts/analyze_bank_via_api.py /tmp/my_bank.parsed.json --key my_bank --save
+python3 scripts/upload_bank_via_api.py /tmp/my_bank.parsed.json --key my_bank
+```
+
+这些脚本调用现有管理接口，不维护独立解析逻辑。原始文件解析失败或报告校验问题时，应先修正源文件或导出的 JSON，再保存到线上题库。
+
 题库提取、AI 解析、导出和保存属于管理操作，需要在页面中配置管理 Token。对应接口会校验请求头 `X-Admin-Token`：
 
 - `POST /api/extract/parse`
