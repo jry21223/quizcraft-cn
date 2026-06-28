@@ -79,6 +79,31 @@ export interface RankItem {
   accuracy: number;
 }
 
+export interface FeedbackBoardItem {
+  feedback_id: number;
+  question_index: number;
+  question_id?: string | null;
+  question_content?: string | null;
+  question_bank?: string | null;
+  suggestion: string;
+  user_id?: string | null;
+  source_page: string;
+  created_at: string;
+  status: 'pending' | 'resolved';
+  resolved_at?: string | null;
+  resolution_note: string;
+}
+
+export interface FeedbackDashboard {
+  summary: {
+    today_total: number;
+    pending_total: number;
+    resolved_total: number;
+  };
+  pending_items: FeedbackBoardItem[];
+  resolved_items: FeedbackBoardItem[];
+}
+
 // 答题记录
 export interface AnswerRecord {
   questionId: string;

@@ -4,7 +4,9 @@ import type {
   Question, 
   PracticeSettings,
   RankItem,
-  UserStats 
+  UserStats,
+  FeedbackDashboard,
+  FeedbackBoardItem,
 } from '@/types';
 
 type FeedbackPayload = {
@@ -279,6 +281,20 @@ export const userApi = {
 export const feedbackApi = {
   submit: (payload: FeedbackPayload): Promise<FeedbackResponse> => {
     return api.post('/feedback', payload);
+  },
+  getDashboard: (): Promise<FeedbackDashboard> => {
+    return api.get('/feedback/dashboard');
+  },
+  updateStatus: (
+    feedbackId: number,
+    payload: {
+      status: 'pending' | 'resolved';
+      resolution_note?: string;
+    },
+  ): Promise<{ ok: boolean; item: FeedbackBoardItem }> => {
+    return api.patch(`/feedback/${feedbackId}/status`, payload, {
+      headers: adminHeaders(),
+    });
   },
 };
 

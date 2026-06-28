@@ -9,6 +9,7 @@ import Result from '@/pages/Result';
 import Ranking from '@/pages/Ranking';
 import Extract from '@/pages/Extract';
 import Feedback from '@/pages/Feedback';
+import FeedbackBoard from '@/pages/FeedbackBoard';
 import FoodWheel from '@/pages/FoodWheel';
 import { IS_OPS_MODE } from '@/config/appMode';
 import './index.css';
@@ -27,6 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           <Route path="result" element={<Result />} />
           <Route path="ranking" element={<Ranking />} />
           <Route path="feedback" element={<Feedback />} />
+          <Route path="feedback-board" element={<FeedbackBoard />} />
           <Route path="wheel" element={<FoodWheel />} />
           <Route
             path="extract"

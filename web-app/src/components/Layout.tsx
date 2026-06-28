@@ -7,6 +7,7 @@ import {
   Dices,
   Github,
   Heart,
+  MessageSquare,
   X,
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -17,6 +18,7 @@ const navItems = IS_OPS_MODE
   ? [
       { path: '/practice', icon: BookOpen, label: '刷题' },
       { path: '/ranking', icon: Trophy, label: '排行榜' },
+      { path: '/feedback-board', icon: MessageSquare, label: '反馈看板' },
       { path: '/wheel', icon: Dices, label: '随机大转盘' },
     ]
   : [
@@ -24,6 +26,7 @@ const navItems = IS_OPS_MODE
       { path: '/practice', icon: BookOpen, label: '刷题' },
       { path: '/extract', icon: FileText, label: '题库工坊' },
       { path: '/ranking', icon: Trophy, label: '排行榜' },
+      { path: '/feedback-board', icon: MessageSquare, label: '反馈看板' },
       { path: '/wheel', icon: Dices, label: '随机大转盘' },
   ];
 

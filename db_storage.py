@@ -134,10 +134,25 @@ def init_schema() -> None:
                 "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS question_content TEXT"
             )
             cur.execute(
+                "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'"
+            )
+            cur.execute(
+                "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ"
+            )
+            cur.execute(
+                "ALTER TABLE feedbacks ADD COLUMN IF NOT EXISTS resolution_note TEXT NOT NULL DEFAULT ''"
+            )
+            cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_feedbacks_created_at ON feedbacks(created_at DESC)"
             )
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_feedbacks_question_index ON feedbacks(question_index)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feedbacks_status ON feedbacks(status)"
+            )
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feedbacks_resolved_at ON feedbacks(resolved_at DESC)"
             )
             cur.execute(
                 """
@@ -488,6 +503,173 @@ def create_feedback(
         "question_bank": normalized_bank,
         "source_page": source_page,
     }
+
+
+def _normalize_feedback_status(status: Optional[str]) -> str:
+    normalized = str(status or "pending").strip().lower()
+    return normalized if normalized in {"pending", "resolved"} else "pending"
+
+
+def _serialize_feedback_row(row: Tuple[Any, ...]) -> Dict[str, Any]:
+    (
+        feedback_id,
+        question_index,
+        question_id,
+        question_content,
+        question_bank,
+        suggestion,
+        user_id,
+        source_page,
+        created_at,
+        status,
+        resolved_at,
+        resolution_note,
+    ) = row
+    return {
+        "feedback_id": int(feedback_id or 0),
+        "question_index": int(question_index or 0),
+        "question_id": str(question_id or "") or None,
+        "question_content": str(question_content or "") or None,
+        "question_bank": str(question_bank or "") or None,
+        "suggestion": str(suggestion or ""),
+        "user_id": str(user_id or "") or None,
+        "source_page": str(source_page or "quiz") or "quiz",
+        "created_at": str(created_at or ""),
+        "status": _normalize_feedback_status(status),
+        "resolved_at": str(resolved_at or "") or None,
+        "resolution_note": str(resolution_note or ""),
+    }
+
+
+def _feedback_select_sql() -> str:
+    return """
+        SELECT
+            feedback_id,
+            question_index,
+            question_id,
+            question_content,
+            question_bank,
+            suggestion,
+            user_id,
+            source_page,
+            created_at,
+            status,
+            resolved_at,
+            resolution_note
+        FROM feedbacks
+    """
+
+
+def get_feedback_dashboard(
+    today_start: Any,
+    today_end: Any,
+    pending_limit: int = 100,
+    resolved_limit: int = 100,
+) -> Dict[str, Any]:
+    pending_limit = max(1, min(int(pending_limit or 100), 500))
+    resolved_limit = max(1, min(int(resolved_limit or 100), 500))
+
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT
+                    COUNT(*) FILTER (WHERE created_at >= %s AND created_at < %s) AS today_total,
+                    COUNT(*) FILTER (WHERE status = 'pending') AS pending_total,
+                    COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_total
+                FROM feedbacks
+                """,
+                (today_start, today_end),
+            )
+            today_total, pending_total, resolved_total = cur.fetchone()
+
+            cur.execute(
+                _feedback_select_sql()
+                + """
+                WHERE status = 'pending'
+                ORDER BY created_at DESC, feedback_id DESC
+                LIMIT %s
+                """,
+                (pending_limit,),
+            )
+            pending_items = [_serialize_feedback_row(row) for row in cur.fetchall()]
+
+            cur.execute(
+                _feedback_select_sql()
+                + """
+                WHERE status = 'resolved'
+                ORDER BY resolved_at DESC NULLS LAST, created_at DESC, feedback_id DESC
+                LIMIT %s
+                """,
+                (resolved_limit,),
+            )
+            resolved_items = [_serialize_feedback_row(row) for row in cur.fetchall()]
+
+    return {
+        "summary": {
+            "today_total": int(today_total or 0),
+            "pending_total": int(pending_total or 0),
+            "resolved_total": int(resolved_total or 0),
+        },
+        "pending_items": pending_items,
+        "resolved_items": resolved_items,
+    }
+
+
+def update_feedback_status(
+    feedback_id: int,
+    status: str,
+    resolution_note: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    normalized_status = _normalize_feedback_status(status)
+    note = str(resolution_note or "").strip()
+    if len(note) > 1000:
+        note = note[:1000]
+
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                _feedback_select_sql()
+                + """
+                WHERE feedback_id = %s
+                FOR UPDATE
+                """,
+                (int(feedback_id),),
+            )
+            existing = cur.fetchone()
+            if not existing:
+                return None
+
+            cur.execute(
+                """
+                UPDATE feedbacks
+                SET
+                    status = %s,
+                    resolution_note = %s,
+                    resolved_at = CASE
+                        WHEN %s = 'resolved' THEN COALESCE(resolved_at, now())
+                        ELSE NULL
+                    END
+                WHERE feedback_id = %s
+                RETURNING
+                    feedback_id,
+                    question_index,
+                    question_id,
+                    question_content,
+                    question_bank,
+                    suggestion,
+                    user_id,
+                    source_page,
+                    created_at,
+                    status,
+                    resolved_at,
+                    resolution_note
+                """,
+                (normalized_status, note, normalized_status, int(feedback_id)),
+            )
+            row = cur.fetchone()
+
+    return _serialize_feedback_row(row) if row else None
 
 
 def increment_user_stats(user_id: str, display_name: Optional[str], is_correct: bool) -> Dict[str, Any]:

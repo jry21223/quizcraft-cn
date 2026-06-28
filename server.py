@@ -14,9 +14,10 @@ import asyncio
 import hashlib
 import time
 from typing import Dict, List, Optional, Any, Set, Tuple
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict
 from contextlib import asynccontextmanager
+from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -147,6 +148,11 @@ class FeedbackRequest(BaseModel):
     question_bank: Optional[str] = None
     question_id: Optional[str] = None
     question_content: Optional[str] = None
+
+
+class FeedbackStatusRequest(BaseModel):
+    status: str
+    resolution_note: Optional[str] = None
 
 
 class UserRequest(BaseModel):
@@ -859,6 +865,144 @@ def _normalize_feedback_bank(value: Optional[str]) -> Optional[str]:
     return text or None
 
 
+def _normalize_feedback_status(value: Optional[str]) -> str:
+    text = (value or "pending").strip().lower()
+    return text if text in {"pending", "resolved"} else "pending"
+
+
+def _feedback_today_range():
+    tz = ZoneInfo("Asia/Shanghai")
+    start = datetime.now(tz).replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=1)
+    return start, end
+
+
+def _parse_feedback_time(value: Any) -> Optional[datetime]:
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
+    return parsed
+
+
+def _serialize_feedback_item(item: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "feedback_id": int(item.get("feedback_id") or 0),
+        "question_index": int(item.get("question_index") or 0),
+        "question_id": (item.get("question_id") or None),
+        "question_content": (item.get("question_content") or None),
+        "question_bank": _normalize_feedback_bank(item.get("question_bank")),
+        "suggestion": str(item.get("suggestion") or ""),
+        "user_id": (item.get("user_id") or None),
+        "source_page": str(item.get("source_page") or "quiz") or "quiz",
+        "created_at": str(item.get("created_at") or ""),
+        "status": _normalize_feedback_status(item.get("status")),
+        "resolved_at": str(item.get("resolved_at") or "") or None,
+        "resolution_note": str(item.get("resolution_note") or ""),
+    }
+
+
+def load_feedback_dashboard_fallback(
+    pending_limit: int = 100,
+    resolved_limit: int = 100,
+) -> Dict[str, Any]:
+    if not os.path.exists(FEEDBACK_FILE):
+        return {
+            "summary": {"today_total": 0, "pending_total": 0, "resolved_total": 0},
+            "pending_items": [],
+            "resolved_items": [],
+        }
+
+    try:
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        raw = []
+
+    start, end = _feedback_today_range()
+    items = [
+        _serialize_feedback_item(item)
+        for item in raw
+        if isinstance(item, dict)
+    ]
+    today_total = 0
+    for item in items:
+        created_at = _parse_feedback_time(item.get("created_at"))
+        if created_at and start <= created_at < end:
+            today_total += 1
+
+    pending_items = [
+        item for item in items if item["status"] == "pending"
+    ]
+    resolved_items = [
+        item for item in items if item["status"] == "resolved"
+    ]
+    pending_items.sort(key=lambda item: (item.get("created_at") or "", item["feedback_id"]), reverse=True)
+    resolved_items.sort(
+        key=lambda item: (
+            item.get("resolved_at") or "",
+            item.get("created_at") or "",
+            item["feedback_id"],
+        ),
+        reverse=True,
+    )
+
+    return {
+        "summary": {
+            "today_total": today_total,
+            "pending_total": len(pending_items),
+            "resolved_total": len(resolved_items),
+        },
+        "pending_items": pending_items[:pending_limit],
+        "resolved_items": resolved_items[:resolved_limit],
+    }
+
+
+def update_feedback_status_fallback(
+    feedback_id: int,
+    status: str,
+    resolution_note: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    if not os.path.exists(FEEDBACK_FILE):
+        return None
+    try:
+        with open(FEEDBACK_FILE, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(raw, list):
+        return None
+
+    normalized_status = _normalize_feedback_status(status)
+    note = (resolution_note or "").strip()[:1000]
+    updated_item = None
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        if int(item.get("feedback_id") or 0) != int(feedback_id):
+            continue
+        item["status"] = normalized_status
+        item["resolution_note"] = note
+        item["resolved_at"] = datetime.now(ZoneInfo("Asia/Shanghai")).isoformat() if normalized_status == "resolved" else None
+        updated_item = _serialize_feedback_item(item)
+        break
+
+    if updated_item is None:
+        return None
+    with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
+        json.dump(raw, f, ensure_ascii=False, indent=2)
+    return updated_item
+
+
 def save_feedback_fallback(
     question_index: int,
     suggestion: str,
@@ -902,6 +1046,9 @@ def save_feedback_fallback(
         "question_bank": _normalize_feedback_bank(question_bank),
         "source_page": (source_page or "quiz").strip() or "quiz",
         "created_at": now,
+        "status": "pending",
+        "resolved_at": None,
+        "resolution_note": "",
     }
     payload.append(record)
     with open(FEEDBACK_FILE, "w", encoding="utf-8") as f:
@@ -1695,6 +1842,61 @@ async def create_feedback(request: FeedbackRequest):
         "question_id": result.get("question_id"),
         "question_bank": result.get("question_bank"),
         "created_at": result["created_at"],
+    }
+
+
+@app.get("/api/feedback/dashboard")
+async def get_feedback_dashboard():
+    pending_limit = 100
+    resolved_limit = 100
+    if db_runtime_enabled():
+        try:
+            today_start, today_end = _feedback_today_range()
+            return db_storage.get_feedback_dashboard(
+                today_start=today_start,
+                today_end=today_end,
+                pending_limit=pending_limit,
+                resolved_limit=resolved_limit,
+            )
+        except Exception as e:
+            print(f"加载反馈看板失败: {e}")
+
+    return load_feedback_dashboard_fallback(
+        pending_limit=pending_limit,
+        resolved_limit=resolved_limit,
+    )
+
+
+@app.patch("/api/feedback/{feedback_id}/status", dependencies=[Depends(require_admin_token)])
+async def update_feedback_status(feedback_id: int, request: FeedbackStatusRequest):
+    status = _normalize_feedback_status(request.status)
+    note = (request.resolution_note or "").strip()
+    if len(note) > 1000:
+        raise HTTPException(status_code=422, detail="处理备注不能超过 1000 字符")
+
+    item = None
+    if db_runtime_enabled():
+        try:
+            item = db_storage.update_feedback_status(
+                feedback_id=feedback_id,
+                status=status,
+                resolution_note=note,
+            )
+        except Exception as e:
+            print(f"更新反馈处理状态失败: {e}")
+            raise HTTPException(status_code=500, detail="更新反馈处理状态失败")
+    else:
+        item = update_feedback_status_fallback(
+            feedback_id=feedback_id,
+            status=status,
+            resolution_note=note,
+        )
+
+    if not item:
+        raise HTTPException(status_code=404, detail="反馈不存在")
+    return {
+        "ok": True,
+        "item": item,
     }
 
 
