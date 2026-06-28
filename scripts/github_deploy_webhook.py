@@ -25,6 +25,12 @@ REPO_DIR = os.getenv("REPO_DIR", "/opt/quizcraft-cn")
 STATIC_DEPLOY_DIR = os.getenv("STATIC_DEPLOY_DIR", "/var/www/quizcraft-cn")
 SERVICE_NAME = os.getenv("SERVICE_NAME", "quizcraft-cn.service")
 LOCK_PATH = os.getenv("DEPLOY_LOCK_PATH", "/run/quizcraft-deploy.lock")
+BUILD_FRONTEND_ON_WEBHOOK = os.getenv("BUILD_FRONTEND_ON_WEBHOOK", "0").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 
 def log(message: str) -> None:
@@ -75,18 +81,45 @@ git pull --ff-only origin {shell_quote(BRANCH)}
 pull_after="$(git rev-parse HEAD)"
 echo "[deploy] pull_before=${{pull_before}} pull_after=${{pull_after}}"
 
-changed_deps="$(git diff --name-only "${{pull_before}}" "${{pull_after}}" -- requirements.txt web-app/package.json web-app/package-lock.json || true)"
-if [ -n "${{changed_deps}}" ]; then
-  echo "[deploy] dependency files changed; running scripts/install_deps.sh"
-  ./scripts/install_deps.sh
-elif [ ! -d "web-app/node_modules" ] || [ ! -f "web-app/node_modules/.bin/vite" ]; then
-  echo "[deploy] node_modules missing or incomplete; running scripts/install_deps.sh"
-  ./scripts/install_deps.sh
+changed_backend_deps="$(git diff --name-only "${{pull_before}}" "${{pull_after}}" -- requirements.txt || true)"
+if [ -n "${{changed_backend_deps}}" ] || [ ! -d ".venv" ]; then
+  echo "[deploy] backend dependencies changed or venv missing; installing Python deps"
+  PYTHON_BIN="${{PYTHON_BIN:-}}"
+  if [ -z "${{PYTHON_BIN}}" ]; then
+    if command -v python3.11 >/dev/null 2>&1; then
+      PYTHON_BIN="$(command -v python3.11)"
+    else
+      PYTHON_BIN="$(command -v python3)"
+    fi
+  fi
+  if [ ! -d ".venv" ]; then
+    "${{PYTHON_BIN}}" -m venv .venv
+  fi
+  .venv/bin/python -m pip install --upgrade pip
+  .venv/bin/python -m pip install -r requirements.txt
 else
-  echo "[deploy] dependency files unchanged; skipping install_deps.sh"
+  echo "[deploy] backend dependencies unchanged; skipping Python install"
 fi
 
-STATIC_DEPLOY_DIR={shell_quote(STATIC_DEPLOY_DIR)} ./scripts/build_ops.sh
+if {str(BUILD_FRONTEND_ON_WEBHOOK).lower()}; then
+  changed_frontend_deps="$(git diff --name-only "${{pull_before}}" "${{pull_after}}" -- web-app/package.json web-app/package-lock.json || true)"
+  if [ -n "${{changed_frontend_deps}}" ] || [ ! -d "web-app/node_modules" ] || [ ! -f "web-app/node_modules/.bin/vite" ]; then
+    echo "[deploy] frontend dependencies changed or missing; installing npm deps"
+    cd web-app
+    if [ -f package-lock.json ]; then
+      npm ci --include=dev
+    else
+      npm install --include=dev
+    fi
+    cd ..
+  else
+    echo "[deploy] frontend dependencies unchanged; skipping npm install"
+  fi
+  STATIC_DEPLOY_DIR={shell_quote(STATIC_DEPLOY_DIR)} ./scripts/build_ops.sh
+else
+  echo "[deploy] skipping frontend build on webhook; deploy web-app/dist from CI or local machine"
+fi
+
 systemctl restart {shell_quote(SERVICE_NAME)}
 systemctl status {shell_quote(SERVICE_NAME)} --no-pager -n 30
 echo "[deploy] success head=$(git rev-parse --short HEAD)"
