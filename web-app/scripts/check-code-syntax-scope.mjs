@@ -27,6 +27,7 @@ assert.equal(typeof renderRichText, "function", "renderRichText must be exported
 const javaBlock = renderRichText("阅读代码：\n```java\nint a = 1;\nSystem.out.println(a);\n```");
 assert.match(javaBlock, /qc-code-block/);
 assert.match(javaBlock, /data-language="JAVA"/);
+assert.match(javaBlock, /data-swipe-ignore="true"/);
 assert.match(javaBlock, /System\.out/);
 
 const backtickInline = renderRichText('已知 `String str = "Java";` 的结果');

@@ -462,7 +462,7 @@ function renderSegment(segment: RichSegment) {
     return `<span class="qc-inline-code">${highlighted}</span>`;
   }
 
-  return `<span class="qc-code-block" data-language="${languageLabel}"><code>${highlighted}</code></span>`;
+  return `<span class="qc-code-block" data-language="${languageLabel}" data-swipe-ignore="true"><code>${highlighted}</code></span>`;
 }
 
 export function renderRichText(text: string) {
