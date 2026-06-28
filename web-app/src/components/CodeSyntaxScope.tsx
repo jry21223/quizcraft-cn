@@ -405,7 +405,7 @@ function shouldEnhanceElement(element: Element) {
   const currentSource = element.getAttribute("data-qc-code-source");
   if (currentSource === text) return false;
 
-  return text.includes("```") || testInlineCode(text) || splitLooseCode(text) !== null;
+  return /[\r\n]/.test(text) || text.includes("```") || testInlineCode(text) || splitLooseCode(text) !== null;
 }
 
 function enhanceCodeBlocks(scope: HTMLElement) {
