@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
+  Archive,
   CheckCircle2,
   ClipboardCheck,
   Clock3,
@@ -16,9 +17,11 @@ const emptyDashboard: FeedbackDashboard = {
     today_total: 0,
     pending_total: 0,
     resolved_total: 0,
+    archived_total: 0,
   },
   pending_items: [],
   resolved_items: [],
+  archived_items: [],
 };
 
 const formatDateTime = (value?: string | null) => {
@@ -74,6 +77,14 @@ const FeedbackCard = ({
               )}
             </div>
           )}
+          {item.status === 'archived' && (
+            <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <div className="font-medium">已归档</div>
+              {item.resolution_note && (
+                <div className="mt-1 text-slate-600">{item.resolution_note}</div>
+              )}
+            </div>
+          )}
         </div>
         {action}
       </div>
@@ -123,6 +134,22 @@ export default function FeedbackBoard() {
     }
   };
 
+  const archiveFeedback = async (item: FeedbackBoardItem) => {
+    setUpdatingId(item.feedback_id);
+    setError('');
+    try {
+      await feedbackApi.updateStatus(item.feedback_id, {
+        status: 'archived',
+        resolution_note: notes[item.feedback_id]?.trim() || '归档，不计入待处理',
+      });
+      await loadDashboard();
+    } catch (err) {
+      setError((err as Error).message || '更新反馈状态失败');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const stats = [
     {
       label: '今日总反馈',
@@ -141,6 +168,12 @@ export default function FeedbackBoard() {
       value: dashboard.summary.resolved_total,
       icon: CheckCircle2,
       color: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+    },
+    {
+      label: '已归档反馈',
+      value: dashboard.summary.archived_total,
+      icon: Archive,
+      color: 'bg-slate-50 text-slate-700 border-slate-100',
     },
   ];
 
@@ -169,7 +202,7 @@ export default function FeedbackBoard() {
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-4">
         {stats.map((item) => (
           <div
             key={item.label}
@@ -234,6 +267,15 @@ export default function FeedbackBoard() {
                         <CheckCircle2 className="h-4 w-4" />
                         {updatingId === item.feedback_id ? '处理中...' : '标记已处理'}
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => archiveFeedback(item)}
+                        disabled={updatingId === item.feedback_id}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                      >
+                        <Archive className="h-4 w-4" />
+                        {updatingId === item.feedback_id ? '处理中...' : '归档'}
+                      </button>
                     </div>
                   ) : undefined
                 }
@@ -266,6 +308,28 @@ export default function FeedbackBoard() {
           <div className="rounded-xl border border-gray-100 bg-white py-10 text-center text-gray-500">
             <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-gray-300" />
             暂无已处理反馈
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-800">已归档反馈</h2>
+        {loading ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-white" />
+            ))}
+          </div>
+        ) : dashboard.archived_items.length > 0 ? (
+          <div className="space-y-3">
+            {dashboard.archived_items.map((item) => (
+              <FeedbackCard key={item.feedback_id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-gray-100 bg-white py-10 text-center text-gray-500">
+            <Archive className="mx-auto mb-2 h-8 w-8 text-gray-300" />
+            暂无已归档反馈
           </div>
         )}
       </section>

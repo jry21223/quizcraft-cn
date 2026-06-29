@@ -4,12 +4,16 @@
 from __future__ import annotations
 
 import json
+import mimetypes
 from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 import os
 import traceback
+import urllib.error
+import urllib.request
+import uuid
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -21,6 +25,76 @@ import uvicorn
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FEEDBACK_FILE = os.getenv("FEEDBACK_FILE", str(PROJECT_ROOT / "feedbacks.json"))
+DEFAULT_QUIZCRAFT_API_BASE_URL = "http://127.0.0.1:10086/api"
+
+
+def _java_append_endpoint(api_base_url: str) -> str:
+    return api_base_url.rstrip("/") + "/banks/java/append-from-markdown"
+
+
+def _post_java_append_markdown(
+    *,
+    api_base_url: str,
+    admin_token: str,
+    markdown_path: Path,
+    key: str,
+    start_number: int,
+    analyze: bool,
+    save: bool,
+    timeout: int,
+) -> dict[str, Any]:
+    if not markdown_path.exists():
+        raise FileNotFoundError(f"markdown file not found: {markdown_path}")
+
+    boundary = f"----QuizCraftBoundary{uuid.uuid4().hex}"
+    fields = {
+        "key": key,
+        "start_number": str(int(start_number)),
+        "analyze": "true" if analyze else "false",
+        "save": "true" if save else "false",
+    }
+    content_type = mimetypes.guess_type(markdown_path.name)[0] or "text/markdown"
+    file_bytes = markdown_path.read_bytes()
+    body_parts: list[bytes] = []
+    for name, value in fields.items():
+        body_parts.extend(
+            [
+                f"--{boundary}\r\n".encode("utf-8"),
+                f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode("utf-8"),
+                str(value).encode("utf-8"),
+                b"\r\n",
+            ]
+        )
+    body_parts.extend(
+        [
+            f"--{boundary}\r\n".encode("utf-8"),
+            (
+                f'Content-Disposition: form-data; name="file"; '
+                f'filename="{markdown_path.name}"\r\n'
+            ).encode("utf-8"),
+            f"Content-Type: {content_type}\r\n\r\n".encode("utf-8"),
+            file_bytes,
+            b"\r\n",
+            f"--{boundary}--\r\n".encode("utf-8"),
+        ]
+    )
+    body = b"".join(body_parts)
+    request = urllib.request.Request(
+        _java_append_endpoint(api_base_url),
+        data=body,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "Content-Length": str(len(body)),
+            "X-Admin-Token": admin_token,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"append Java bank failed: HTTP {exc.code}: {detail}") from exc
 
 
 def _coerce_str(value: Any) -> str:
@@ -526,6 +600,42 @@ def _build_tool_server():
             "question_index": record["question_index"],
             "created_at": record["created_at"],
         }
+
+    @mcp.tool()
+    def append_java_bank_from_markdown(
+        markdown_path: str,
+        key: str = "java_programming",
+        start_number: int = 149,
+        analyze: bool = True,
+        save: bool = True,
+        api_base_url: Optional[str] = None,
+        timeout: int = 1800,
+    ) -> dict[str, Any]:
+        """Upload Java Markdown questions through QuizCraft's existing admin API."""
+        base_url = (
+            api_base_url
+            or os.getenv("QUIZCRAFT_API_BASE_URL")
+            or DEFAULT_QUIZCRAFT_API_BASE_URL
+        )
+        admin_token = (
+            os.getenv("QUIZCRAFT_ADMIN_TOKEN")
+            or os.getenv("ADMIN_TOKEN")
+            or os.getenv("MCP_QUIZCRAFT_ADMIN_TOKEN")
+            or ""
+        ).strip()
+        if not admin_token:
+            raise RuntimeError("ADMIN_TOKEN or QUIZCRAFT_ADMIN_TOKEN is required")
+
+        return _post_java_append_markdown(
+            api_base_url=base_url,
+            admin_token=admin_token,
+            markdown_path=Path(markdown_path).expanduser(),
+            key=key,
+            start_number=int(start_number),
+            analyze=bool(analyze),
+            save=bool(save),
+            timeout=int(timeout),
+        )
 
     mcp_app = mcp.streamable_http_app()
     if transport != "streamable-http":

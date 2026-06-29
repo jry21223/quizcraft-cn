@@ -507,7 +507,7 @@ def create_feedback(
 
 def _normalize_feedback_status(status: Optional[str]) -> str:
     normalized = str(status or "pending").strip().lower()
-    return normalized if normalized in {"pending", "resolved"} else "pending"
+    return normalized if normalized in {"pending", "resolved", "archived"} else "pending"
 
 
 def _serialize_feedback_row(row: Tuple[Any, ...]) -> Dict[str, Any]:
@@ -565,9 +565,11 @@ def get_feedback_dashboard(
     today_end: Any,
     pending_limit: int = 100,
     resolved_limit: int = 100,
+    archived_limit: int = 100,
 ) -> Dict[str, Any]:
     pending_limit = max(1, min(int(pending_limit or 100), 500))
     resolved_limit = max(1, min(int(resolved_limit or 100), 500))
+    archived_limit = max(1, min(int(archived_limit or 100), 500))
 
     with connect() as conn:
         with conn.cursor() as cur:
@@ -576,12 +578,13 @@ def get_feedback_dashboard(
                 SELECT
                     COUNT(*) FILTER (WHERE created_at >= %s AND created_at < %s) AS today_total,
                     COUNT(*) FILTER (WHERE status = 'pending') AS pending_total,
-                    COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_total
+                    COUNT(*) FILTER (WHERE status = 'resolved') AS resolved_total,
+                    COUNT(*) FILTER (WHERE status = 'archived') AS archived_total
                 FROM feedbacks
                 """,
                 (today_start, today_end),
             )
-            today_total, pending_total, resolved_total = cur.fetchone()
+            today_total, pending_total, resolved_total, archived_total = cur.fetchone()
 
             cur.execute(
                 _feedback_select_sql()
@@ -605,14 +608,27 @@ def get_feedback_dashboard(
             )
             resolved_items = [_serialize_feedback_row(row) for row in cur.fetchall()]
 
+            cur.execute(
+                _feedback_select_sql()
+                + """
+                WHERE status = 'archived'
+                ORDER BY created_at DESC, feedback_id DESC
+                LIMIT %s
+                """,
+                (archived_limit,),
+            )
+            archived_items = [_serialize_feedback_row(row) for row in cur.fetchall()]
+
     return {
         "summary": {
             "today_total": int(today_total or 0),
             "pending_total": int(pending_total or 0),
             "resolved_total": int(resolved_total or 0),
+            "archived_total": int(archived_total or 0),
         },
         "pending_items": pending_items,
         "resolved_items": resolved_items,
+        "archived_items": archived_items,
     }
 
 

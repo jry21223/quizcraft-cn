@@ -10,8 +10,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-
-DEFAULT_API_BASE_URL = "http://8.146.200.82/api"
+try:
+    from scripts.admin_api_security import resolve_admin_api_base_url
+except ModuleNotFoundError:
+    from admin_api_security import resolve_admin_api_base_url
 
 
 def load_env_file(path: Path) -> None:
@@ -79,12 +81,13 @@ def main() -> int:
     parser.add_argument("--key", help="Bank key, for example: mayuan.")
     parser.add_argument("--name", help="Display name. Defaults to meta.name.")
     parser.add_argument("--color", help="Theme color, for example: #c62828. Defaults to meta.color.")
-    parser.add_argument("--api-base-url", default=os.getenv("QUIZCRAFT_API_BASE_URL") or DEFAULT_API_BASE_URL)
+    parser.add_argument("--api-base-url", help="Admin API base URL. Defaults to QUIZCRAFT_API_BASE_URL.")
     parser.add_argument("--env", type=Path, default=default_env, help="Env file containing ADMIN_TOKEN.")
     parser.add_argument("--no-overwrite", action="store_true", help="Fail if the bank key already exists.")
     args = parser.parse_args()
 
     load_env_file(args.env.expanduser())
+    api_base_url = resolve_admin_api_base_url(args.api_base_url)
 
     token = os.getenv("ADMIN_TOKEN") or os.getenv("QUIZCRAFT_ADMIN_TOKEN")
     if not token:
@@ -109,7 +112,7 @@ def main() -> int:
         "overwrite": not args.no_overwrite,
     }
 
-    endpoint = args.api_base_url.rstrip("/") + "/banks/save"
+    endpoint = api_base_url + "/banks/save"
     result = post_json(endpoint, token, payload)
     bank = result.get("bank", {})
     print(

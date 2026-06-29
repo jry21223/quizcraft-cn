@@ -11,8 +11,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.admin_api_security import resolve_admin_api_base_url
+except ModuleNotFoundError:
+    from admin_api_security import resolve_admin_api_base_url
 
-DEFAULT_API_BASE_URL = "http://8.146.200.82/api"
 FALLBACK_PREFIXES = (
     "生成解析失败:",
     "本题考查相关知识点的理解。正确答案是",
@@ -134,7 +137,7 @@ def main() -> int:
     parser.add_argument("--api-key", help="LLM API key. Prefer .env instead of CLI history.")
     parser.add_argument("--api-url", help="Custom OpenAI-compatible base URL.")
     parser.add_argument("--model", help="Model name.")
-    parser.add_argument("--api-base-url", default=os.getenv("QUIZCRAFT_API_BASE_URL") or DEFAULT_API_BASE_URL)
+    parser.add_argument("--api-base-url", help="Admin API base URL. Defaults to QUIZCRAFT_API_BASE_URL.")
     parser.add_argument("--env", type=Path, default=default_env, help="Env file containing ADMIN_TOKEN and LLM_API_KEY.")
     parser.add_argument("--output", type=Path, help="Output analyzed JSON path.")
     parser.add_argument("--global-context-file", type=Path, help="Text file prepended to every analysis prompt, not saved back.")
@@ -148,6 +151,7 @@ def main() -> int:
     args = parser.parse_args()
 
     load_env_file(args.env.expanduser())
+    api_base_url = resolve_admin_api_base_url(args.api_base_url)
 
     admin_token = os.getenv("ADMIN_TOKEN") or os.getenv("QUIZCRAFT_ADMIN_TOKEN")
     if not admin_token:
@@ -186,7 +190,7 @@ def main() -> int:
         save_output(output_path, data)
         return 0
 
-    endpoint = args.api_base_url.rstrip("/") + "/extract/analyze"
+    endpoint = api_base_url + "/extract/analyze"
     total = len(pending_indexes)
     started = time.time()
 
@@ -232,7 +236,7 @@ def main() -> int:
 
     if args.save:
         meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
-        save_endpoint = args.api_base_url.rstrip("/") + "/banks/save"
+        save_endpoint = api_base_url + "/banks/save"
         save_payload = {
             "key": args.key or bank_path.stem,
             "name": args.name or meta.get("name") or args.key or bank_path.stem,

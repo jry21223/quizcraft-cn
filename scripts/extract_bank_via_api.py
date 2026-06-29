@@ -14,8 +14,10 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-
-DEFAULT_API_BASE_URL = "http://8.146.200.82/api"
+try:
+    from scripts.admin_api_security import resolve_admin_api_base_url
+except ModuleNotFoundError:
+    from admin_api_security import resolve_admin_api_base_url
 
 
 def load_env_file(path: Path) -> None:
@@ -179,7 +181,7 @@ def main() -> int:
     parser.add_argument("--name", required=True, help="Question bank display name.")
     parser.add_argument("--color", help="Theme color, for example: #c62828.")
     parser.add_argument("--output", type=Path, help="Output parsed bank JSON. Defaults to /tmp/<key>.parsed.json.")
-    parser.add_argument("--api-base-url", default=os.getenv("QUIZCRAFT_API_BASE_URL") or DEFAULT_API_BASE_URL)
+    parser.add_argument("--api-base-url", help="Admin API base URL. Defaults to QUIZCRAFT_API_BASE_URL.")
     parser.add_argument("--env", type=Path, default=default_env, help="Env file containing ADMIN_TOKEN.")
     parser.add_argument("--timeout", type=int, default=180)
     parser.add_argument("--save", action="store_true", help="Save parsed questions to the production bank immediately.")
@@ -188,6 +190,7 @@ def main() -> int:
     args = parser.parse_args()
 
     load_env_file(args.env.expanduser())
+    api_base_url = resolve_admin_api_base_url(args.api_base_url)
 
     admin_token = os.getenv("ADMIN_TOKEN") or os.getenv("QUIZCRAFT_ADMIN_TOKEN")
     if not admin_token:
@@ -197,7 +200,7 @@ def main() -> int:
     if not source_path.exists():
         raise SystemExit(f"Source file not found: {source_path}")
 
-    endpoint = args.api_base_url.rstrip("/") + "/extract/parse"
+    endpoint = api_base_url + "/extract/parse"
     result = post_multipart_file(endpoint, admin_token, "file", source_path, args.timeout)
     questions = result.get("questions")
     if not isinstance(questions, list) or not questions:
@@ -209,7 +212,7 @@ def main() -> int:
         else Path("/tmp") / f"{args.key}.parsed.json"
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    bank = export_standard_bank(args.api_base_url, admin_token, args.name, questions, args.timeout)
+    bank = export_standard_bank(api_base_url, admin_token, args.name, questions, args.timeout)
     meta = bank.get("meta")
     if isinstance(meta, dict):
         meta["key"] = args.key
@@ -235,7 +238,7 @@ def main() -> int:
         raise SystemExit("Validation failed. Re-run with --allow-issues only after manual review.")
 
     if args.save:
-        save_endpoint = args.api_base_url.rstrip("/") + "/banks/save"
+        save_endpoint = api_base_url + "/banks/save"
         save_result = post_json(
             save_endpoint,
             admin_token,

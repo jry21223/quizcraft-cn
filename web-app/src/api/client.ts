@@ -288,7 +288,7 @@ export const feedbackApi = {
   updateStatus: (
     feedbackId: number,
     payload: {
-      status: 'pending' | 'resolved';
+      status: 'pending' | 'resolved' | 'archived';
       resolution_note?: string;
     },
   ): Promise<{ ok: boolean; item: FeedbackBoardItem }> => {

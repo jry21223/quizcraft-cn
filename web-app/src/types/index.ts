@@ -89,7 +89,7 @@ export interface FeedbackBoardItem {
   user_id?: string | null;
   source_page: string;
   created_at: string;
-  status: 'pending' | 'resolved';
+  status: 'pending' | 'resolved' | 'archived';
   resolved_at?: string | null;
   resolution_note: string;
 }
@@ -99,9 +99,11 @@ export interface FeedbackDashboard {
     today_total: number;
     pending_total: number;
     resolved_total: number;
+    archived_total: number;
   };
   pending_items: FeedbackBoardItem[];
   resolved_items: FeedbackBoardItem[];
+  archived_items: FeedbackBoardItem[];
 }
 
 // 答题记录

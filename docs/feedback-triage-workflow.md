@@ -4,20 +4,21 @@ This is the production workflow for QuizCraft feedback handling.
 
 ## Source of truth
 
-- Treat `/opt/quizcraft-cn/tiku/*.json` as the durable question-bank source.
-- PostgreSQL `bank_questions` is a runtime shadow table. Service startup syncs local JSON into PostgreSQL, so direct `bank_questions` edits are not durable unless the JSON source is changed too.
+- Treat `/opt/quizcraft-cn/tiku/*.json` as the durable question-bank file source.
+- PostgreSQL `bank_questions` is the production runtime source when `DATABASE_URL` is configured and `QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB` is not enabled. A durable production repair must keep both the JSON file source and PostgreSQL row in sync.
 - Use `(bank_key, question_id)` as the repair key for a concrete question.
+- Feedback status values are `pending`, `resolved`, and `archived`. Use `archived` for feedback that should be preserved but removed from the active pending queue.
 
 ## Mandatory durable-fix gate
 
 Every feedback repair must follow this order:
 
 1. Fix `/opt/quizcraft-cn/tiku/<bank>.json`.
-2. Restart `quizcraft-cn.service` so the JSON source is reloaded and synced into PostgreSQL.
+2. Apply the same fix to PostgreSQL `bank_questions`, or run an explicit one-time sync with `QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB=1`.
 3. Verify the live PostgreSQL `bank_questions` row and the public page/API behavior.
 4. Mark the feedback `resolved`.
 
-Do not mark feedback as resolved after only editing PostgreSQL. That creates an invalid feedback repair: it can appear fixed temporarily, then disappear after the next service restart because JSON overwrites the runtime shadow table.
+Do not mark feedback as resolved after editing only one side. JSON-only changes may not reach production runtime when startup DB loading is enabled; PostgreSQL-only changes can be lost if a later explicit sync overwrites them from JSON.
 
 ## Processing steps
 
@@ -31,12 +32,12 @@ Do not mark feedback as resolved after only editing PostgreSQL. That creates an 
    - Build an old-to-new `question_id` migration map for every shifted question.
    - Apply the same map to related PostgreSQL tables such as `question_stats` and `feedbacks`.
 5. Run `scripts/validate_question_bank_identity.py` on every touched bank.
-6. Restart `quizcraft-cn.service`, then verify:
+6. Restart `quizcraft-cn.service` when runtime cache needs to reload, then verify:
    - `/api/banks` or practice start can load the bank.
    - `bank_questions` count matches the JSON count.
    - The repaired question can be fetched/submitted by its final `question_id`.
-7. Mark feedback `resolved` only after the durable JSON source and live DB shadow are both verified.
+7. Mark feedback `resolved` only after the durable JSON source, live PostgreSQL row, and runtime API are verified.
 
 ## Common failure mode
 
-If a fix only updates PostgreSQL, it may look correct until the next service restart. On restart, the app reloads `/opt/quizcraft-cn/tiku/*.json` and overwrites `bank_questions`. Always patch JSON first, then verify the synchronized database state.
+If a fix only updates PostgreSQL, it may be overwritten by a later explicit JSON-to-DB sync. If a fix only updates JSON, production may keep serving the old PostgreSQL row because startup sync is disabled by default. Always patch both sources or run a deliberate sync, then verify the runtime API.

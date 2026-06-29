@@ -16,7 +16,8 @@ import time
 from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, timedelta
 from collections import defaultdict
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
@@ -25,6 +26,13 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 import db_storage
+from scripts.java_bank_workflow import (
+    DEFAULT_JAVA_BANK_KEY,
+    DEFAULT_JAVA_START_NUMBER,
+    build_incremental_bank,
+    fill_java_questions_with_deepseek,
+    parse_java_markdown_bank,
+)
 
 
 # CORS 配置辅助函数：读取环境变量 CORS_ORIGINS（逗号分隔），默认只允许本地开发地址
@@ -923,7 +931,7 @@ def _normalize_feedback_bank(value: Optional[str]) -> Optional[str]:
 
 def _normalize_feedback_status(value: Optional[str]) -> str:
     text = (value or "pending").strip().lower()
-    return text if text in {"pending", "resolved"} else "pending"
+    return text if text in {"pending", "resolved", "archived"} else "pending"
 
 
 def _feedback_today_range():
@@ -970,12 +978,19 @@ def _serialize_feedback_item(item: Dict[str, Any]) -> Dict[str, Any]:
 def load_feedback_dashboard_fallback(
     pending_limit: int = 100,
     resolved_limit: int = 100,
+    archived_limit: int = 100,
 ) -> Dict[str, Any]:
     if not os.path.exists(FEEDBACK_FILE):
         return {
-            "summary": {"today_total": 0, "pending_total": 0, "resolved_total": 0},
+            "summary": {
+                "today_total": 0,
+                "pending_total": 0,
+                "resolved_total": 0,
+                "archived_total": 0,
+            },
             "pending_items": [],
             "resolved_items": [],
+            "archived_items": [],
         }
 
     try:
@@ -1002,6 +1017,9 @@ def load_feedback_dashboard_fallback(
     resolved_items = [
         item for item in items if item["status"] == "resolved"
     ]
+    archived_items = [
+        item for item in items if item["status"] == "archived"
+    ]
     pending_items.sort(key=lambda item: (item.get("created_at") or "", item["feedback_id"]), reverse=True)
     resolved_items.sort(
         key=lambda item: (
@@ -1011,15 +1029,18 @@ def load_feedback_dashboard_fallback(
         ),
         reverse=True,
     )
+    archived_items.sort(key=lambda item: (item.get("created_at") or "", item["feedback_id"]), reverse=True)
 
     return {
         "summary": {
             "today_total": today_total,
             "pending_total": len(pending_items),
             "resolved_total": len(resolved_items),
+            "archived_total": len(archived_items),
         },
         "pending_items": pending_items[:pending_limit],
         "resolved_items": resolved_items[:resolved_limit],
+        "archived_items": archived_items[:archived_limit],
     }
 
 
@@ -1959,6 +1980,7 @@ async def create_feedback(request: FeedbackRequest):
 async def get_feedback_dashboard():
     pending_limit = 100
     resolved_limit = 100
+    archived_limit = 100
     if db_runtime_enabled():
         try:
             today_start, today_end = _feedback_today_range()
@@ -1967,6 +1989,7 @@ async def get_feedback_dashboard():
                 today_end=today_end,
                 pending_limit=pending_limit,
                 resolved_limit=resolved_limit,
+                archived_limit=archived_limit,
             )
         except Exception as e:
             print(f"加载反馈看板失败: {e}")
@@ -1974,6 +1997,7 @@ async def get_feedback_dashboard():
     return load_feedback_dashboard_fallback(
         pending_limit=pending_limit,
         resolved_limit=resolved_limit,
+        archived_limit=archived_limit,
     )
 
 
@@ -2946,6 +2970,28 @@ def generate_mock_analysis(q: Dict) -> str:
     return random.choice(templates)
 
 
+async def fill_java_answer_analyses(questions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if not questions:
+        return questions
+    api_key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="DEEPSEEK_API_KEY 未配置，无法生成 Java 题目答案和解析")
+    api_url = os.getenv("DEEPSEEK_BASE_URL", "").strip() or None
+    model = os.getenv("DEEPSEEK_MODEL", "").strip() or "deepseek-chat"
+    timeout = int(os.getenv("DEEPSEEK_TIMEOUT", "120") or "120")
+    try:
+        return await asyncio.to_thread(
+            fill_java_questions_with_deepseek,
+            questions,
+            api_key=api_key,
+            api_url=api_url,
+            model=model,
+            timeout=timeout,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Java 题目答案和解析生成失败: {exc}") from exc
+
+
 # ============== WebSocket 实时进度 ==============
 
 def _split_api_entries(raw: str) -> List[str]:
@@ -3214,6 +3260,79 @@ async def save_bank(request: SaveBankRequest):
         "message": "题库已保存",
         "bank": build_bank_summary(bank_key, QUESTION_BANKS[bank_key]),
         "file": os.path.relpath(output_path, BASE_DIR),
+    }
+
+
+@app.post("/api/banks/java/append-from-markdown", dependencies=[Depends(require_admin_token)])
+async def append_java_bank_from_markdown(
+    file: UploadFile = File(...),
+    key: str = Form(DEFAULT_JAVA_BANK_KEY),
+    start_number: int = Form(DEFAULT_JAVA_START_NUMBER),
+    analyze: bool = Form(True),
+    save: bool = Form(True),
+):
+    """从 Java Markdown 题库中增量追加新题，按题干和选项去重。"""
+    if key not in QUESTION_BANKS:
+        raise HTTPException(status_code=404, detail="题库不存在")
+
+    suffix = os.path.splitext(file.filename or "")[1] or ".md"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        tmp.write(await file.read())
+        tmp_path = tmp.name
+
+    try:
+        incoming_bank = parse_java_markdown_bank(Path(tmp_path))
+    finally:
+        with suppress(OSError):
+            os.unlink(tmp_path)
+
+    existing = QUESTION_BANKS[key].get("data") or {"questions": []}
+    result = build_incremental_bank(
+        existing,
+        incoming_bank,
+        start_number=start_number,
+        id_prefix="java",
+    )
+
+    if analyze and result.added_questions:
+        await fill_java_answer_analyses(result.added_questions)
+    if save:
+        output_path = os.path.join(TIKU_DIR, f"{key}.json")
+        os.makedirs(TIKU_DIR, exist_ok=True)
+        bank_name = result.bank.get("meta", {}).get("name") or QUESTION_BANKS[key].get("name") or "Java程序设计题库"
+        bank_color = result.bank.get("meta", {}).get("color") or QUESTION_BANKS[key].get("color")
+        bank_data = build_standard_bank_data(
+            bank_name,
+            result.bank.get("questions", []),
+            bank_color,
+        )
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(bank_data, f, ensure_ascii=False, indent=2)
+        sync_question_bank_to_db(
+            key,
+            {
+                "name": bank_name,
+                "color": normalize_bank_color(bank_color, key),
+                "file": output_path,
+                "data": bank_data,
+            },
+        )
+        load_question_banks()
+
+    summary_bank = {
+        "key": key,
+        "name": result.bank.get("meta", {}).get("name") or QUESTION_BANKS[key].get("name"),
+        "total": len(result.bank.get("questions", [])),
+    }
+    return {
+        "ok": True,
+        "saved": save,
+        "analyzed": analyze,
+        "added": result.added_count,
+        "skipped_duplicates": result.skipped_duplicate_count,
+        "skipped_before_start": result.skipped_before_start_count,
+        "bank": summary_bank,
+        "added_questions": result.added_questions,
     }
 
 
