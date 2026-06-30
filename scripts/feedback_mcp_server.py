@@ -5,15 +5,15 @@ from __future__ import annotations
 
 import json
 import mimetypes
-from contextlib import suppress
-from datetime import datetime
-from pathlib import Path
-from typing import Any, Optional
 import os
 import traceback
 import urllib.error
 import urllib.request
 import uuid
+from contextlib import suppress
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -22,6 +22,11 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 import uvicorn
+
+try:
+    from admin_api_security import resolve_admin_api_base_url
+except ImportError:  # pragma: no cover - supports module execution from repo root
+    from scripts.admin_api_security import resolve_admin_api_base_url
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FEEDBACK_FILE = os.getenv("FEEDBACK_FILE", str(PROJECT_ROOT / "feedbacks.json"))
@@ -130,6 +135,13 @@ def _serialize_timestamp(value: Any) -> str:
     if isinstance(value, str):
         return value
     return str(value)
+
+
+def _normalize_status(value: Any) -> str:
+    normalized = str(value or "").strip().lower()
+    if normalized in {"pending", "resolved", "archived"}:
+        return normalized
+    raise ValueError("status must be 'pending', 'resolved', or 'archived'")
 
 
 def _db_enabled() -> bool:
@@ -396,13 +408,6 @@ def _save_feedback_to_file(
     return record
 
 
-def _normalize_status(value: Any) -> str:
-    normalized = str(value or "").strip().lower()
-    if normalized in {"pending", "resolved", "archived"}:
-        return normalized
-    raise ValueError("status must be 'pending', 'resolved', or 'archived'")
-
-
 def _update_feedback_status_file(
     feedback_id: int,
     status: str,
@@ -612,11 +617,12 @@ def _build_tool_server():
         timeout: int = 1800,
     ) -> dict[str, Any]:
         """Upload Java Markdown questions through QuizCraft's existing admin API."""
-        base_url = (
+        raw_base_url = (
             api_base_url
             or os.getenv("QUIZCRAFT_API_BASE_URL")
             or DEFAULT_QUIZCRAFT_API_BASE_URL
         )
+        base_url = resolve_admin_api_base_url(raw_base_url)
         admin_token = (
             os.getenv("QUIZCRAFT_ADMIN_TOKEN")
             or os.getenv("ADMIN_TOKEN")
