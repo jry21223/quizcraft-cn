@@ -1010,8 +1010,16 @@ function useQuizController() {
     alignTrackToCenter(animateBack);
   };
 
-  const resetQuestionViewState = () => {
-    setUi({ selectedAnswer: null, showResult: false });
+  const getQuestionViewState = (question: Question | null | undefined) => {
+    const questionId = question?.id;
+    if (!questionId) {
+      return { selectedAnswer: null, showResult: false };
+    }
+
+    const savedAnswer = practice.answers[questionId];
+    return savedAnswer !== undefined
+      ? { selectedAnswer: savedAnswer, showResult: true }
+      : { selectedAnswer: null, showResult: false };
   };
 
   const slideToIndex = (targetIndex: number) => {
@@ -1025,12 +1033,12 @@ function useQuizController() {
 
     if (nextIndex === currentIndex) return;
 
-    resetQuestionViewState();
-
     const viewportWidth = viewportWidthRef.current;
+    const nextQuestion = questions[nextIndex] ?? null;
+    const nextQuestionViewState = getQuestionViewState(nextQuestion);
 
     if (!viewportWidth || Math.abs(nextIndex - currentIndex) > 1) {
-      setUi({ visualCurrentIndex: nextIndex });
+      setUi({ visualCurrentIndex: nextIndex, ...nextQuestionViewState });
       jumpToQuestion(nextIndex);
       trackX.set(-viewportWidth);
       return;
@@ -1047,7 +1055,7 @@ function useQuizController() {
     void controls.then(() => {
       jumpToQuestion(nextIndex);
       trackX.set(-viewportWidth);
-      setUi({ isSliding: false });
+      setUi({ ...nextQuestionViewState, isSliding: false });
     });
   };
 
@@ -1441,8 +1449,14 @@ function QuizTrack({ controller }: { controller: QuizController }) {
   return (
     <div className="overflow-hidden" ref={controller.viewportRef}>
       <m.div style={{ x: controller.trackX }} className="flex">
-        <QuizTrackCard controller={controller} question={controller.prevQuestion} mode={{ kind: "preview" }} />
         <QuizTrackCard
+          key={`prev-${controller.prevQuestion?.id ?? "empty"}`}
+          controller={controller}
+          question={controller.prevQuestion}
+          mode={{ kind: "preview" }}
+        />
+        <QuizTrackCard
+          key={`current-${controller.activeQuestion.id}`}
           controller={controller}
           question={controller.activeQuestion}
           mode={
@@ -1454,7 +1468,12 @@ function QuizTrack({ controller }: { controller: QuizController }) {
                 }
           }
         />
-        <QuizTrackCard controller={controller} question={controller.nextQuestionRef} mode={{ kind: "preview" }} />
+        <QuizTrackCard
+          key={`next-${controller.nextQuestionRef?.id ?? "empty"}`}
+          controller={controller}
+          question={controller.nextQuestionRef}
+          mode={{ kind: "preview" }}
+        />
       </m.div>
     </div>
   );
