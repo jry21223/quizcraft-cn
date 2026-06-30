@@ -1,8 +1,18 @@
-type CodeLanguage = "java" | "html" | "css" | "javascript" | "json" | "text";
-type TextSegment = { kind: "text"; value: string };
-type CodeSegment = { kind: "code"; value: string; language: CodeLanguage; block: boolean };
-type RichSegment = TextSegment | CodeSegment;
+export type CodeLanguage = "java" | "html" | "css" | "javascript" | "json" | "text";
+export type TextSegment = { kind: "text"; value: string };
+export type CodeSegment = { kind: "code"; value: string; language: CodeLanguage; block: boolean };
+export type RichSegment = TextSegment | CodeSegment;
 type TokenKind = "text" | "comment" | "string";
+export type HighlightPartKind =
+  | TokenKind
+  | "attr"
+  | "keyword"
+  | "number"
+  | "tag";
+export type HighlightPart = {
+  kind: HighlightPartKind;
+  value: string;
+};
 
 type Token = {
   kind: TokenKind;
@@ -201,15 +211,6 @@ const HTML_TAG_NAMES = new Set([
   "video",
 ]);
 
-function escapeHtml(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -289,7 +290,7 @@ function splitLooseCode(text: string): RichSegment[] | null {
   ];
 }
 
-function parseRichText(text: string): RichSegment[] {
+export function parseRichText(text: string): RichSegment[] {
   CODE_FENCE_PATTERN.lastIndex = 0;
 
   const segments: RichSegment[] = [];
@@ -413,60 +414,116 @@ function tokenize(code: string): Token[] {
   return tokens;
 }
 
-function highlightTextToken(value: string, language: CodeLanguage) {
-  let html = escapeHtml(value);
+function splitTextParts(
+  parts: HighlightPart[],
+  pattern: RegExp,
+  kind: Exclude<HighlightPartKind, "text" | "comment" | "string">,
+) {
+  const next: HighlightPart[] = [];
 
-  if (language === "html") {
-    html = html.replace(
-      /(&lt;\/?)([A-Za-z][\w:-]*)([\s\S]*?&gt;)/g,
-      (_match, open: string, tag: string, rest: string) => {
-        const highlightedRest = rest.replace(
-          /([A-Za-z_:][-A-Za-z0-9_:.]*)(=)/g,
-          '<span class="qc-code-token qc-code-token--attr">$1</span>$2',
-        );
-        return `${open}<span class="qc-code-token qc-code-token--tag">${tag}</span>${highlightedRest}`;
-      },
-    );
+  for (const part of parts) {
+    if (part.kind !== "text") {
+      next.push(part);
+      continue;
+    }
+
+    let cursor = 0;
+    let match: RegExpExecArray | null;
+    pattern.lastIndex = 0;
+
+    while ((match = pattern.exec(part.value))) {
+      if (match.index > cursor) {
+        next.push({ kind: "text", value: part.value.slice(cursor, match.index) });
+      }
+      next.push({ kind, value: match[1] });
+      cursor = match.index + match[0].length;
+
+      if (match[0].length === 0) {
+        pattern.lastIndex += 1;
+      }
+    }
+
+    if (cursor < part.value.length) {
+      next.push({ kind: "text", value: part.value.slice(cursor) });
+    }
   }
+
+  return next;
+}
+
+function highlightHtmlTextParts(value: string): HighlightPart[] {
+  const parts: HighlightPart[] = [];
+  const tagPattern = /(<\/?)([A-Za-z][\w:-]*)([^>]*>)/g;
+  const attrPattern = /([A-Za-z_:][-A-Za-z0-9_:.]*)(=)/g;
+  let cursor = 0;
+  let tagMatch: RegExpExecArray | null;
+
+  while ((tagMatch = tagPattern.exec(value))) {
+    if (tagMatch.index > cursor) {
+      parts.push({ kind: "text", value: value.slice(cursor, tagMatch.index) });
+    }
+
+    parts.push({ kind: "text", value: tagMatch[1] });
+    parts.push({ kind: "tag", value: tagMatch[2] });
+
+    const rest = tagMatch[3];
+    let restCursor = 0;
+    let attrMatch: RegExpExecArray | null;
+    attrPattern.lastIndex = 0;
+
+    while ((attrMatch = attrPattern.exec(rest))) {
+      if (attrMatch.index > restCursor) {
+        parts.push({ kind: "text", value: rest.slice(restCursor, attrMatch.index) });
+      }
+      parts.push({ kind: "attr", value: attrMatch[1] });
+      parts.push({ kind: "text", value: attrMatch[2] });
+      restCursor = attrMatch.index + attrMatch[0].length;
+    }
+
+    if (restCursor < rest.length) {
+      parts.push({ kind: "text", value: rest.slice(restCursor) });
+    }
+
+    cursor = tagMatch.index + tagMatch[0].length;
+  }
+
+  if (cursor < value.length) {
+    parts.push({ kind: "text", value: value.slice(cursor) });
+  }
+
+  return parts;
+}
+
+function highlightTextParts(value: string, language: CodeLanguage): HighlightPart[] {
+  let parts =
+    language === "html"
+      ? highlightHtmlTextParts(value)
+      : [{ kind: "text" as const, value }];
 
   const keywords = KEYWORDS[language];
   if (keywords.length > 0) {
-    const keywordPattern = new RegExp(`\\b(${keywords.map(escapeRegExp).join("|")})\\b`, "g");
-    html = html.replace(keywordPattern, '<span class="qc-code-token qc-code-token--keyword">$1</span>');
+    parts = splitTextParts(
+      parts,
+      new RegExp(`\\b(${keywords.map(escapeRegExp).join("|")})\\b`, "g"),
+      "keyword",
+    );
   }
 
-  return html.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="qc-code-token qc-code-token--number">$1</span>');
+  return splitTextParts(parts, /\b(\d+(?:\.\d+)?)\b/g, "number");
 }
 
-function highlightCode(code: string, language: CodeLanguage) {
-  return tokenize(code)
-    .map((token) => {
-      if (token.kind === "text") {
-        return highlightTextToken(token.value, language);
-      }
+export function highlightCodeParts(code: string, language: CodeLanguage) {
+  return tokenize(code).flatMap((token): HighlightPart[] => {
+    if (token.kind === "text") {
+      return highlightTextParts(token.value, language);
+    }
 
-      return `<span class="qc-code-token qc-code-token--${token.kind}">${escapeHtml(token.value)}</span>`;
-    })
-    .join("");
+    return [{ kind: token.kind, value: token.value }];
+  });
 }
 
-function renderSegment(segment: RichSegment) {
-  if (segment.kind === "text") {
-    return escapeHtml(segment.value).replace(/\r?\n/g, "<br />");
-  }
-
-  const highlighted = highlightCode(segment.value, segment.language);
-  const languageLabel = segment.language === "javascript" ? "JS" : segment.language.toUpperCase();
-
-  if (!segment.block) {
-    return `<span class="qc-inline-code">${highlighted}</span>`;
-  }
-
-  return `<span class="qc-code-block" data-language="${languageLabel}" data-swipe-ignore="true"><code>${highlighted}</code></span>`;
-}
-
-export function renderRichText(text: string) {
-  return parseRichText(text).map(renderSegment).join("");
+export function getLanguageLabel(language: CodeLanguage) {
+  return language === "javascript" ? "JS" : language.toUpperCase();
 }
 
 export function shouldRenderRichText(text: string) {

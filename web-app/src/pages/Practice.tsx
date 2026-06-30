@@ -1,10 +1,66 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useReducer, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BookOpen, Shuffle, Target, ListOrdered, ChevronRight } from 'lucide-react';
 import { bankApi, practiceApi, userApi } from '@/api/client';
 import { useQuizStore } from '@/stores/quizStore';
 import type { PracticeMode } from '@/types';
 import { IS_OPS_MODE } from '@/config/appMode';
+
+const PRACTICE_MODES = [
+  {
+    key: 'random' as PracticeMode,
+    label: '随机模式',
+    desc: '从题库中随机抽取题目',
+    icon: Shuffle,
+  },
+  {
+    key: 'hard' as PracticeMode,
+    label: '难题模式',
+    desc: '专攻正确率低的题目',
+    icon: Target,
+  },
+  {
+    key: 'chapter' as PracticeMode,
+    label: '章节模式',
+    desc: '按章节进行针对性练习',
+    icon: ListOrdered,
+  },
+];
+
+const readStoredUserId = () => {
+  if (typeof window === 'undefined') return '';
+  return localStorage.getItem('user_id')?.trim() || '';
+};
+
+type PracticeUiState = {
+  mode: PracticeMode;
+  count: number;
+  unlimitedCount: boolean;
+  chapterId: string;
+  threshold: number;
+  loading: boolean;
+  displayUserId: string;
+  userIdInput: string;
+};
+
+const createInitialPracticeUiState = (): PracticeUiState => ({
+  mode: 'random',
+  count: 20,
+  unlimitedCount: false,
+  chapterId: '',
+  threshold: 50,
+  loading: false,
+  displayUserId: IS_OPS_MODE ? '' : readStoredUserId(),
+  userIdInput: IS_OPS_MODE ? readStoredUserId() : '',
+});
+
+const mergePracticeUiState = (
+  state: PracticeUiState,
+  updates: Partial<PracticeUiState>,
+) => ({
+  ...state,
+  ...updates,
+});
 
 export default function Practice() {
   const navigate = useNavigate();
@@ -17,14 +73,21 @@ export default function Practice() {
     startPractice 
   } = useQuizStore();
   
-  const [mode, setMode] = useState<PracticeMode>('random');
-  const [count, setCount] = useState(20);
-  const [unlimitedCount, setUnlimitedCount] = useState(false);
-  const [chapterId, setChapterId] = useState('');
-  const [threshold, setThreshold] = useState(50);
-  const [loading, setLoading] = useState(false);
-  const [displayUserId, setDisplayUserId] = useState('');
-  const [userIdInput, setUserIdInput] = useState('');
+  const [ui, setUi] = useReducer(
+    mergePracticeUiState,
+    undefined,
+    createInitialPracticeUiState,
+  );
+  const {
+    mode,
+    count,
+    unlimitedCount,
+    chapterId,
+    threshold,
+    loading,
+    displayUserId,
+    userIdInput,
+  } = ui;
   
   // 用于处理中文输入法的 composition 状态
   const userIdCompositionRef = useRef(false);
@@ -40,39 +103,8 @@ export default function Practice() {
     });
   }, [setBanks, setCurrentBank]);
 
-  useEffect(() => {
-    // 初始化当前使用中的用户 ID
-    const savedUserId = localStorage.getItem('user_id')?.trim() || '';
-    if (IS_OPS_MODE) {
-      setUserIdInput(savedUserId);
-    } else {
-      setDisplayUserId(savedUserId);
-    }
-  }, []);
-  
   const currentBankData = banks.find((b) => b.key === currentBank);
   const countLabel = mode === 'random' && unlimitedCount ? '不限（全部）' : `${count} 道`;
-  
-  const modes = [
-    {
-      key: 'random' as PracticeMode,
-      label: '随机模式',
-      desc: '从题库中随机抽取题目',
-      icon: Shuffle,
-    },
-    {
-      key: 'hard' as PracticeMode,
-      label: '难题模式',
-      desc: '专攻正确率低的题目',
-      icon: Target,
-    },
-    {
-      key: 'chapter' as PracticeMode,
-      label: '章节模式',
-      desc: '按章节进行针对性练习',
-      icon: ListOrdered,
-    },
-  ];
   
   const handleStart = async () => {
     if (!currentBank) return;
@@ -85,16 +117,18 @@ export default function Practice() {
       }
     }
 
-    setLoading(true);
+    setUi({ loading: true });
     try {
+      const normalizedUserId = userIdInput.trim();
+      const savedUserId = readStoredUserId();
+
       if (IS_OPS_MODE) {
-        localStorage.setItem('user_id', userIdInput.trim());
+        localStorage.setItem('user_id', normalizedUserId);
       } else {
-        const savedUserId = localStorage.getItem('user_id')?.trim();
         if (!savedUserId) {
           const user = await userApi.ensureUser();
           setUser(user);
-          setDisplayUserId(user.userId);
+          setUi({ displayUserId: user.userId });
         }
       }
 
@@ -111,7 +145,7 @@ export default function Practice() {
     } catch (error) {
       alert('开始练习失败: ' + (error as Error).message);
     } finally {
-      setLoading(false);
+      setUi({ loading: false });
     }
   };
   
@@ -139,17 +173,18 @@ export default function Practice() {
       {/* OPS 模式 ID 输入 */}
       {IS_OPS_MODE && (
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="practice-user-id" className="block text-sm font-medium text-gray-700 mb-2">
             输入你的 ID
           </label>
           <input
+            id="practice-user-id"
             type="text"
             value={userIdInput}
             onChange={(e) => {
               if (!userIdCompositionRef.current) {
-                setUserIdInput(e.target.value);
+                setUi({ userIdInput: e.target.value });
               } else {
-                setUserIdInput(e.target.value);
+                setUi({ userIdInput: e.target.value });
               }
             }}
             onCompositionStart={() => {
@@ -157,7 +192,7 @@ export default function Practice() {
             }}
             onCompositionEnd={(e) => {
               userIdCompositionRef.current = false;
-              setUserIdInput((e.target as HTMLInputElement).value);
+              setUi({ userIdInput: (e.target as HTMLInputElement).value });
             }}
             placeholder="请输入学号/工号/自定义ID"
             className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
@@ -170,12 +205,13 @@ export default function Practice() {
       
       {/* 选择题库 */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <div className="block text-sm font-medium text-gray-700 mb-3">
           选择题库
-        </label>
+        </div>
         <div className="grid grid-cols-2 gap-3">
           {banks.map((bank) => (
             <button
+              type="button"
               key={bank.key}
               onClick={() => setCurrentBank(bank.key)}
               className={`p-3 rounded-lg border-2 text-left transition-all ${
@@ -193,14 +229,15 @@ export default function Practice() {
       
       {/* 选择模式 */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <div className="block text-sm font-medium text-gray-700 mb-3">
           练习模式
-        </label>
+        </div>
         <div className="space-y-3">
-          {modes.map((m) => (
+          {PRACTICE_MODES.map((m) => (
             <button
+              type="button"
               key={m.key}
-              onClick={() => setMode(m.key)}
+              onClick={() => setUi({ mode: m.key })}
               className={`w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
                 mode === m.key
                   ? 'border-primary-500 bg-primary-50'
@@ -224,9 +261,9 @@ export default function Practice() {
       
       {/* 模式设置 */}
       <div className="bg-white rounded-xl border border-gray-100 p-5 mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <div className="block text-sm font-medium text-gray-700 mb-3">
           设置
-        </label>
+        </div>
         
         {/* 题目数量 */}
         <div className="mb-4">
@@ -237,7 +274,7 @@ export default function Practice() {
           {mode === 'random' && (
             <button
               type="button"
-              onClick={() => setUnlimitedCount((prev) => !prev)}
+              onClick={() => setUi({ unlimitedCount: !unlimitedCount })}
               className={`mb-3 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
                 unlimitedCount
                   ? 'bg-primary-50 border-primary-500 text-primary-700'
@@ -248,12 +285,13 @@ export default function Practice() {
             </button>
           )}
           <input
+            aria-label="题目数量"
             type="range"
             min={5}
             max={mode === 'random' ? Math.max(5, currentBankData?.total || 100) : 50}
             step={mode === 'random' ? 1 : 5}
             value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
+            onChange={(e) => setUi({ count: Number(e.target.value) })}
             disabled={mode === 'random' && unlimitedCount}
             className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
           />
@@ -262,10 +300,11 @@ export default function Practice() {
         {/* 章节选择 */}
         {mode === 'chapter' && currentBankData && (
           <div className="mb-4">
-            <label className="block text-sm text-gray-600 mb-2">选择章节</label>
+            <label htmlFor="practice-chapter" className="block text-sm text-gray-600 mb-2">选择章节</label>
             <select
+              id="practice-chapter"
               value={chapterId}
-              onChange={(e) => setChapterId(e.target.value)}
+              onChange={(e) => setUi({ chapterId: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="">请选择章节</option>
@@ -284,12 +323,13 @@ export default function Practice() {
               <span className="font-medium text-gray-800">&lt; {threshold}%</span>
             </div>
             <input
+              aria-label="正确率阈值"
               type="range"
               min={30}
               max={70}
               step={5}
               value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value))}
+              onChange={(e) => setUi({ threshold: Number(e.target.value) })}
               className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary-500"
             />
             <p className="text-xs text-gray-500 mt-1">
@@ -301,6 +341,7 @@ export default function Practice() {
       
       {/* 开始按钮 */}
       <button
+        type="button"
         onClick={handleStart}
         disabled={loading || (mode === 'chapter' && !chapterId) || (IS_OPS_MODE && !userIdInput.trim())}
         className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"

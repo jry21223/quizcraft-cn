@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useReducer, useRef } from 'react';
 import {
   Dices,
   Globe,
@@ -126,18 +126,81 @@ function getOwnerLabel(wheel: PublicWheel) {
   };
 }
 
-export default function FoodWheel() {
+async function ensureUserId(): Promise<string> {
+  const cachedUserId = typeof window === 'undefined' ? '' : (localStorage.getItem('user_id')?.trim() || '');
+  if (cachedUserId) {
+    return cachedUserId;
+  }
+
+  const user = await userApi.ensureUser();
+  return user.userId;
+}
+
+const syncDialog = (
+  dialog: HTMLDialogElement | null,
+  open: boolean,
+) => {
+  if (!dialog) return;
+  if (open && !dialog.open) {
+    dialog.showModal();
+  } else if (!open && dialog.open) {
+    dialog.close();
+  }
+};
+
+type FoodWheelUiState = {
+  draftItems: string[];
+  newItem: string;
+  publicWheels: PublicWheel[];
+  loading: boolean;
+  loadingPublic: boolean;
+  spinning: boolean;
+  publishing: boolean;
+  result: string | null;
+  selectedOwner: string;
+  errorMessage: string;
+};
+
+const initialFoodWheelUiState: FoodWheelUiState = {
+  draftItems: [...DEFAULT_ITEMS],
+  newItem: '',
+  publicWheels: [],
+  loading: true,
+  loadingPublic: false,
+  spinning: false,
+  publishing: false,
+  result: null,
+  selectedOwner: '我的草稿转盘',
+  errorMessage: '',
+};
+
+const mergeFoodWheelUiState = (
+  state: FoodWheelUiState,
+  updates: Partial<FoodWheelUiState>,
+) => ({
+  ...state,
+  ...updates,
+});
+
+function useFoodWheelController() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [draftItems, setDraftItems] = useState<string[]>([...DEFAULT_ITEMS]);
-  const [newItem, setNewItem] = useState('');
-  const [publicWheels, setPublicWheels] = useState<PublicWheel[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingPublic, setLoadingPublic] = useState(false);
-  const [spinning, setSpinning] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
-  const [selectedOwner, setSelectedOwner] = useState('我的草稿转盘');
-  const [errorMessage, setErrorMessage] = useState('');
+  const resultDialogRef = useRef<HTMLDialogElement | null>(null);
+  const [ui, setUi] = useReducer(
+    mergeFoodWheelUiState,
+    initialFoodWheelUiState,
+  );
+  const {
+    draftItems,
+    newItem,
+    publicWheels,
+    loading,
+    loadingPublic,
+    spinning,
+    publishing,
+    result,
+    selectedOwner,
+    errorMessage,
+  } = ui;
   const rotationRef = useRef(0);
   const animFrameRef = useRef<number | null>(null);
   const compositionRef = useRef(false);
@@ -156,13 +219,13 @@ export default function FoodWheel() {
 
   const fetchPublicWheels = useCallback(async () => {
     try {
-      setLoadingPublic(true);
+      setUi({ loadingPublic: true });
       const payload = await wheelApi.get();
-      setPublicWheels(Array.isArray(payload.wheels) ? payload.wheels : []);
+      setUi({ publicWheels: Array.isArray(payload.wheels) ? payload.wheels : [] });
     } catch {
-      setPublicWheels([]);
+      setUi({ publicWheels: [] });
     } finally {
-      setLoadingPublic(false);
+      setUi({ loadingPublic: false });
     }
   }, []);
 
@@ -170,10 +233,10 @@ export default function FoodWheel() {
     let mounted = true;
 
     const load = async () => {
-      setLoading(true);
+      setUi({ loading: true });
       await fetchPublicWheels();
       if (mounted) {
-        setLoading(false);
+        setUi({ loading: false });
       }
     };
 
@@ -195,26 +258,21 @@ export default function FoodWheel() {
     return () => window.removeEventListener('resize', handleResize);
   }, [initCanvas]);
 
-  useEffect(() => {
-    return () => {
-      if (animFrameRef.current !== null) {
-        cancelAnimationFrame(animFrameRef.current);
-      }
-    };
+  const cancelSpinAnimation = useCallback(() => {
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
   }, []);
 
-  const ensureUserId = async (): Promise<string> => {
-    const cachedUserId = typeof window === 'undefined' ? '' : (localStorage.getItem('user_id')?.trim() || '');
-    if (cachedUserId) {
-      return cachedUserId;
-    }
+  useEffect(() => cancelSpinAnimation, [cancelSpinAnimation]);
 
-    const user = await userApi.ensureUser();
-    return user.userId;
-  };
+  useEffect(() => {
+    syncDialog(resultDialogRef.current, result !== null);
+  }, [result]);
 
   const setDraftAndRedraw = (nextItems: string[]) => {
-    setDraftItems(nextItems);
+    setUi({ draftItems: nextItems });
     rotationRef.current = 0;
     const canvas = canvasRef.current;
     if (canvas) {
@@ -226,15 +284,13 @@ export default function FoodWheel() {
     const list = Array.isArray(wheel.items) && wheel.items.length > 0
       ? wheel.items
       : [...DEFAULT_ITEMS];
-    setSelectedOwner(`查看：${getOwnerLabel(wheel).name}`);
+    setUi({ selectedOwner: `查看：${getOwnerLabel(wheel).name}` });
     setDraftAndRedraw(list);
   };
 
   const handleSpin = () => {
     if (spinning || draftItems.length < 2) return;
-    setErrorMessage('');
-    setResult(null);
-    setSpinning(true);
+    setUi({ errorMessage: '', result: null, spinning: true });
 
     const totalRotation =
       (Math.random() * 720 + 1800) * (Math.PI / 180); // 5-7 full rotations
@@ -257,11 +313,11 @@ export default function FoodWheel() {
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
-        setSpinning(false);
+        setUi({ spinning: false });
         const normalized = (-currentRotation % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
         const arc = (2 * Math.PI) / draftItems.length;
         const index = Math.min(draftItems.length - 1, Math.floor(normalized / arc));
-        setResult(draftItems[index]);
+        setUi({ result: draftItems[index] });
       }
     };
 
@@ -275,7 +331,7 @@ export default function FoodWheel() {
 
     const nextItems = [...draftItems, trimmed];
     setDraftAndRedraw(nextItems);
-    setNewItem('');
+    setUi({ newItem: '' });
   };
 
   const removeItem = (index: number) => {
@@ -286,23 +342,20 @@ export default function FoodWheel() {
 
   const resetItems = () => {
     setDraftAndRedraw([...DEFAULT_ITEMS]);
-    setSelectedOwner('我的草稿转盘');
+    setUi({ selectedOwner: '我的草稿转盘' });
   };
 
   const uploadDraft = async () => {
     if (publishing || draftItems.length < 2) {
-      setErrorMessage('转盘至少要有 2 个选项才可上传');
+      setUi({ errorMessage: '转盘至少要有 2 个选项才可上传' });
       return;
     }
 
     try {
-      setPublishing(true);
-      setErrorMessage('');
+      setUi({ publishing: true, errorMessage: '' });
       const userId = await ensureUserId();
-      await wheelApi.save(draftItems, userId);
-      await fetchPublicWheels();
-      const cachedUserId = typeof window === 'undefined' ? '' : (localStorage.getItem('user_id')?.trim() || '');
-      setSelectedOwner(`我的草稿转盘（已上传）${cachedUserId ? ` · ${cachedUserId}` : ''}`);
+      await wheelApi.save(draftItems, userId).then(fetchPublicWheels);
+      setUi({ selectedOwner: `我的草稿转盘（已上传）${userId ? ` · ${userId}` : ''}` });
       alert('上传成功，已加入公共转盘');
     } catch (error) {
       const message =
@@ -310,14 +363,14 @@ export default function FoodWheel() {
           ? error.message
           : '上传失败，请先检查网络或登录信息';
       if (message.includes('user_id')) {
-        setErrorMessage('上传失败，未能获取到当前用户信息，请先刷新页面后重试');
+        setUi({ errorMessage: '上传失败，未能获取到当前用户信息，请先刷新页面后重试' });
       } else if (message.includes('网络') || message.includes('Network') || message.includes('Failed to fetch')) {
-        setErrorMessage('上传失败，请先检查网络');
+        setUi({ errorMessage: '上传失败，请先检查网络' });
       } else {
-        setErrorMessage(`上传失败：${message}`);
+        setUi({ errorMessage: `上传失败：${message}` });
       }
     } finally {
-      setPublishing(false);
+      setUi({ publishing: false });
     }
   };
 
@@ -327,6 +380,41 @@ export default function FoodWheel() {
     }
   };
 
+  return {
+    canvasRef,
+    resultDialogRef,
+    compositionRef,
+    draftItems,
+    newItem,
+    publicWheels,
+    loading,
+    loadingPublic,
+    spinning,
+    publishing,
+    result,
+    selectedOwner,
+    errorMessage,
+    setUi,
+    setDraftAndRedraw,
+    loadPublicWheel,
+    handleSpin,
+    addItem,
+    removeItem,
+    resetItems,
+    uploadDraft,
+    handleKeyDown,
+  };
+}
+
+type FoodWheelController = ReturnType<typeof useFoodWheelController>;
+
+export default function FoodWheel() {
+  const controller = useFoodWheelController();
+
+  return <FoodWheelView controller={controller} />;
+}
+
+function FoodWheelView({ controller }: { controller: FoodWheelController }) {
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
       <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
@@ -335,217 +423,268 @@ export default function FoodWheel() {
       </h1>
 
       <div className="card py-3 text-center text-sm text-gray-500">
-        {loading ? '正在加载公共转盘...' : '默认仅显示上传到公共区的转盘，草稿编辑不会自动公开'}
+        {controller.loading ? '正在加载公共转盘...' : '默认仅显示上传到公共区的转盘，草稿编辑不会自动公开'}
       </div>
 
-      {/* Wheel */}
-      <div className="card flex flex-col items-center py-6 mb-6">
-        <div className="text-sm text-gray-500 mb-3">当前编辑：{selectedOwner}</div>
-        <div className="relative">
-          <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
-            <div
-              className="w-0 h-0"
-              style={{
-                borderLeft: '12px solid transparent',
-                borderRight: '12px solid transparent',
-                borderTop: '20px solid #1976d2',
-                filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
-              }}
-            />
-          </div>
-          <canvas ref={canvasRef} className="block" />
-          <button
-            type="button"
-            onClick={handleSpin}
-            disabled={spinning || draftItems.length < 2}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-[72px] h-[72px] rounded-full bg-primary-500 text-white font-bold text-sm hover:bg-primary-600 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg flex items-center justify-center"
-          >
-            {spinning ? (
-              <span className="animate-spin">
-                <Dices className="w-5 h-5" />
-              </span>
-            ) : (
-              '转！'
-            )}
-          </button>
+      <WheelPanel controller={controller} />
+      <FoodWheelResultDialog controller={controller} />
+      <PublicWheelList controller={controller} />
+      <DraftEditor controller={controller} />
+    </div>
+  );
+}
+
+function WheelPanel({ controller }: { controller: FoodWheelController }) {
+  const {
+    canvasRef,
+    draftItems,
+    errorMessage,
+    handleSpin,
+    loading,
+    publishing,
+    selectedOwner,
+    spinning,
+    uploadDraft,
+  } = controller;
+
+  return (
+    <div className="card flex flex-col items-center py-6 mb-6">
+      <div className="text-sm text-gray-500 mb-3">当前编辑：{selectedOwner}</div>
+      <div className="relative">
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+          <div
+            className="w-0 h-0"
+            style={{
+              borderLeft: '12px solid transparent',
+              borderRight: '12px solid transparent',
+              borderTop: '20px solid #1976d2',
+              filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.2))',
+            }}
+          />
         </div>
+        <canvas ref={canvasRef} className="block" />
+        <button
+          type="button"
+          onClick={handleSpin}
+          disabled={spinning || draftItems.length < 2}
+          className="absolute top-1/2 left-1/2 z-10 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {spinning ? (
+            <span className="animate-spin">
+              <Dices className="w-5 h-5" />
+            </span>
+          ) : (
+            '转！'
+          )}
+        </button>
+      </div>
 
-        {draftItems.length < 2 && !loading ? (
-          <p className="text-sm text-red-500 mt-4">至少需要 2 个选项才能转</p>
-        ) : null}
+      {draftItems.length < 2 && !loading ? (
+        <p className="text-sm text-red-500 mt-4">至少需要 2 个选项才能转</p>
+      ) : null}
 
-        <div className="mt-4 flex flex-wrap gap-2 justify-center">
+      <div className="mt-4 flex flex-wrap gap-2 justify-center">
+        <button
+          type="button"
+          onClick={uploadDraft}
+          disabled={publishing || draftItems.length < 2}
+          className="btn-primary"
+        >
+          <UploadCloud className="w-4 h-4 mr-1 inline" />
+          {publishing ? '上传中...' : '上传到公共区域'}
+        </button>
+        <button type="button" onClick={handleSpin} className="btn-secondary">
+          再来一次
+        </button>
+      </div>
+
+      {errorMessage ? <p className="text-sm text-red-500 mt-3">{errorMessage}</p> : null}
+    </div>
+  );
+}
+
+function FoodWheelResultDialog({ controller }: { controller: FoodWheelController }) {
+  const { draftItems, handleSpin, result, resultDialogRef, setUi } = controller;
+
+  return (
+    <dialog
+      ref={resultDialogRef}
+      aria-labelledby="food-wheel-result-title"
+      onCancel={() => setUi({ result: null })}
+      onClose={() => setUi({ result: null })}
+      className="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl backdrop:bg-black/50"
+    >
+      {result !== null && (
+        <>
           <button
             type="button"
-            onClick={uploadDraft}
-            disabled={publishing || draftItems.length < 2}
-            className="btn-primary"
+            onClick={() => setUi({ result: null })}
+            className="float-right rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 transition-colors"
+            aria-label="关闭"
           >
-            <UploadCloud className="w-4 h-4 mr-1 inline" />
-            {publishing ? '上传中...' : '上传到公共区域'}
+            <X className="h-5 w-5" />
           </button>
+          <div className="text-5xl mb-4">🎉</div>
+          <h2 id="food-wheel-result-title" className="text-xl font-bold text-gray-800 mb-2">抽中了</h2>
+          <p
+            className="text-3xl font-extrabold mb-6"
+            style={{ color: COLORS[draftItems.indexOf(result) % COLORS.length] }}
+          >
+            {result}！
+          </p>
           <button
             type="button"
-            onClick={handleSpin}
-            className="btn-secondary"
+            onClick={() => {
+              setUi({ result: null });
+              handleSpin();
+            }}
+            className="btn-primary w-full text-base"
           >
             再来一次
           </button>
-        </div>
+        </>
+      )}
+    </dialog>
+  );
+}
 
-        {errorMessage ? <p className="text-sm text-red-500 mt-3">{errorMessage}</p> : null}
-      </div>
+function PublicWheelList({ controller }: { controller: FoodWheelController }) {
+  const { loadPublicWheel, loadingPublic, publicWheels } = controller;
 
-      {result !== null && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setResult(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl text-center"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              onClick={() => setResult(null)}
-              className="float-right rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 transition-colors"
-              aria-label="关闭"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="text-5xl mb-4">🎉</div>
-            <h2 className="text-xl font-bold text-gray-800 mb-2">抽中了</h2>
-            <p
-              className="text-3xl font-extrabold mb-6"
-              style={{ color: COLORS[draftItems.indexOf(result) % COLORS.length] }}
-            >
-              {result}！
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setResult(null);
-                handleSpin();
-              }}
-              className="btn-primary w-full text-base"
-            >
-              再来一次
-            </button>
-          </div>
+  return (
+    <div className="card mb-6">
+      <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
+        <Globe className="w-4 h-4 text-primary-500" />
+        公共转盘（已上传）
+      </h2>
+
+      {loadingPublic ? (
+        <p className="text-sm text-gray-500">加载公共转盘中...</p>
+      ) : publicWheels.length === 0 ? (
+        <p className="text-sm text-gray-500">当前还没有公开转盘</p>
+      ) : (
+        <div className="space-y-3">
+          {publicWheels.map((wheel) => (
+            <PublicWheelCard
+              key={`${wheel.owner_user_id}-${wheel.id}`}
+              wheel={wheel}
+              onLoad={loadPublicWheel}
+            />
+          ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* 公共区域 */}
-      <div className="card mb-6">
-        <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-          <Globe className="w-4 h-4 text-primary-500" />
-          公共转盘（已上传）
-        </h2>
+function PublicWheelCard({
+  onLoad,
+  wheel,
+}: {
+  onLoad: (wheel: PublicWheel) => void;
+  wheel: PublicWheel;
+}) {
+  const owner = getOwnerLabel(wheel);
 
-        {loadingPublic ? (
-          <p className="text-sm text-gray-500">加载公共转盘中...</p>
-        ) : publicWheels.length === 0 ? (
-          <p className="text-sm text-gray-500">当前还没有公开转盘</p>
-        ) : (
-          <div className="space-y-3">
-            {publicWheels.map((wheel) => {
-              const owner = getOwnerLabel(wheel);
-              return (
-                <div
-                  key={`${wheel.owner_user_id}-${wheel.id}`}
-                  className="rounded-xl border border-gray-100 bg-white p-3"
-                >
-                  <div className="text-sm text-gray-700">
-                    <div className="font-semibold">{owner.name}</div>
-                    <div className="text-xs text-gray-500">ID: {wheel.id} · {owner.id}</div>
-                    <div className="text-xs text-gray-500">更新时间：{formatTime(wheel.updated_at)}</div>
-                  </div>
-                  <div className="text-xs text-gray-600 mt-2">
-                    选项预览：{wheel.items.slice(0, 3).join('、')}
-                    {wheel.items.length > 3 ? '…' : ''}
-                    （共 {wheel.items.length} 个）
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => loadPublicWheel(wheel)}
-                    className="mt-3 btn-secondary text-xs"
-                  >
-                    <RotateCcw className="w-3 h-3 mr-1" />
-                    加载并查看
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        )}
+  return (
+    <div className="rounded-xl border border-gray-100 bg-white p-3">
+      <div className="text-sm text-gray-700">
+        <div className="font-semibold">{owner.name}</div>
+        <div className="text-xs text-gray-500">ID: {wheel.id} · {owner.id}</div>
+        <div className="text-xs text-gray-500">更新时间：{formatTime(wheel.updated_at)}</div>
+      </div>
+      <div className="text-xs text-gray-600 mt-2">
+        选项预览：{wheel.items.slice(0, 3).join('、')}
+        {wheel.items.length > 3 ? '…' : ''}
+        （共 {wheel.items.length} 个）
+      </div>
+      <button
+        type="button"
+        onClick={() => onLoad(wheel)}
+        className="mt-3 btn-secondary text-xs"
+      >
+        <RotateCcw className="w-3 h-3 mr-1" />
+        加载并查看
+      </button>
+    </div>
+  );
+}
+
+function DraftEditor({ controller }: { controller: FoodWheelController }) {
+  const {
+    addItem,
+    compositionRef,
+    draftItems,
+    handleKeyDown,
+    newItem,
+    removeItem,
+    resetItems,
+    setDraftAndRedraw,
+    setUi,
+  } = controller;
+
+  return (
+    <div className="card mb-6">
+      <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+        <Plus className="w-4 h-4 text-primary-500" />
+        草稿编辑（未上传不显示）
+      </h2>
+
+      <div className="flex items-center gap-2 mb-4">
+        <input
+          aria-label="新增菜名"
+          value={newItem}
+          onChange={(e) => setUi({ newItem: e.target.value })}
+          onKeyDown={handleKeyDown}
+          onCompositionStart={() => {
+            compositionRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            compositionRef.current = false;
+            setUi({ newItem: (e.target as HTMLInputElement).value });
+          }}
+          placeholder="输入菜名"
+          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+        />
+        <button
+          type="button"
+          onClick={addItem}
+          className="btn-secondary whitespace-nowrap"
+        >
+          添加
+        </button>
       </div>
 
-      {/* 我的草稿 */}
-      <div className="card mb-6">
-        <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-          <Plus className="w-4 h-4 text-primary-500" />
-          草稿编辑（未上传不显示）
-        </h2>
-
-        <div className="flex items-center gap-2 mb-4">
-          <input
-            value={newItem}
-            onChange={(e) => setNewItem(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onCompositionStart={() => {
-              compositionRef.current = true;
-            }}
-            onCompositionEnd={(e) => {
-              compositionRef.current = false;
-              setNewItem((e.target as HTMLInputElement).value);
-            }}
-            placeholder="输入菜名"
-            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-          />
-          <button
-            type="button"
-            onClick={addItem}
-            className="btn-secondary whitespace-nowrap"
+      <ul className="space-y-2 mb-4">
+        {draftItems.map((item, index) => (
+          <li
+            key={item}
+            className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
           >
-            添加
-          </button>
-        </div>
-
-        <ul className="space-y-2 mb-4">
-          {draftItems.map((item, index) => (
-            <li
-              key={`${item}-${index}`}
-              className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+            <span className="text-sm text-gray-700">{item}</span>
+            <button
+              type="button"
+              onClick={() => removeItem(index)}
+              className="text-gray-500 hover:text-red-500 transition-colors"
             >
-              <span className="text-sm text-gray-700">{item}</span>
-              <button
-                type="button"
-                onClick={() => removeItem(index)}
-                className="text-gray-500 hover:text-red-500 transition-colors"
-              >
-                删除
-              </button>
-            </li>
-          ))}
-        </ul>
+              删除
+            </button>
+          </li>
+        ))}
+      </ul>
 
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={resetItems}
-            className="btn-secondary"
-          >
-            <RotateCcw className="w-4 h-4 mr-1" />
-            恢复默认
-          </button>
-          <button
-            type="button"
-            onClick={() => setDraftAndRedraw(DEFAULT_ITEMS)}
-            className="btn-secondary"
-          >
-            清空到默认
-          </button>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={resetItems} className="btn-secondary">
+          <RotateCcw className="w-4 h-4 mr-1" />
+          恢复默认
+        </button>
+        <button
+          type="button"
+          onClick={() => setDraftAndRedraw(DEFAULT_ITEMS)}
+          className="btn-secondary"
+        >
+          清空到默认
+        </button>
       </div>
     </div>
   );

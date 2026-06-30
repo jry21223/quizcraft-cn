@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import { IS_OPS_MODE } from '@/config/appMode';
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 
 const navItems = IS_OPS_MODE
   ? [
@@ -42,8 +42,10 @@ const defaultAnnouncementQqText = 'QQ群：';
 
 export default function Layout() {
   const location = useLocation();
-  const [showDonateModal, setShowDonateModal] = useState(false);
-  const [showQqGroupModal, setShowQqGroupModal] = useState(false);
+  const donateDialogRef = useRef<HTMLDialogElement | null>(null);
+  const qqGroupDialogRef = useRef<HTMLDialogElement | null>(null);
+  const [shouldLoadDonateQr, setShouldLoadDonateQr] = useState(false);
+  const [shouldLoadQqGroupQr, setShouldLoadQqGroupQr] = useState(false);
   const [qrLoadFailed, setQrLoadFailed] = useState(false);
   const [qqQrLoadFailed, setQqQrLoadFailed] = useState(false);
   const announcementMessage = (import.meta.env.VITE_ANNOUNCEMENT_MESSAGE || '').trim();
@@ -52,26 +54,20 @@ export default function Layout() {
   const shouldAppendAnnouncementQq =
     announcementQq.length > 0 && !announcementText.includes(announcementQq);
 
-  useEffect(() => {
-    if (!showDonateModal && !showQqGroupModal) {
-      return;
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setShowDonateModal(false);
-        setShowQqGroupModal(false);
-      }
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [showDonateModal, showQqGroupModal]);
-
   const shouldShowAnnouncement =
     announcementMessage.length > 0 || announcementQq.length > 0;
+
+  const openDonateDialog = () => {
+    setShouldLoadDonateQr(true);
+    setQrLoadFailed(false);
+    donateDialogRef.current?.showModal();
+  };
+
+  const openQqGroupDialog = () => {
+    setShouldLoadQqGroupQr(true);
+    setQqQrLoadFailed(false);
+    qqGroupDialogRef.current?.showModal();
+  };
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-blue-50 via-gray-50 to-white">
@@ -79,9 +75,11 @@ export default function Layout() {
       <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-200">
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link to={IS_OPS_MODE ? "/practice" : "/"} className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
-              <BookOpen className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src="/apple-touch-icon.png"
+              alt="刷题助手"
+              className="h-8 w-8 rounded-lg object-cover"
+            />
             <span className="font-bold text-lg text-gray-800">
               {IS_OPS_MODE ? '在线刷题' : '刷题助手'}
             </span>
@@ -122,10 +120,7 @@ export default function Layout() {
               </span>
               <button
                 type="button"
-                onClick={() => {
-                  setShowQqGroupModal(true);
-                  setQqQrLoadFailed(false);
-                }}
+                onClick={openQqGroupDialog}
                 className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white/80 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-white"
               >
                 <MessageCircle className="h-3.5 w-3.5" />
@@ -148,10 +143,7 @@ export default function Layout() {
             <p>刷题助手 · Jerry</p>
             <button
               type="button"
-              onClick={() => {
-                setShowQqGroupModal(true);
-                setQqQrLoadFailed(false);
-              }}
+              onClick={openQqGroupDialog}
               className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100"
             >
               <MessageCircle className="h-3.5 w-3.5" />
@@ -159,10 +151,7 @@ export default function Layout() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                setShowDonateModal(true);
-                setQrLoadFailed(false);
-              }}
+              onClick={openDonateDialog}
               className="inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1.5 text-xs font-medium text-yellow-700 transition-colors hover:border-yellow-300 hover:bg-yellow-100"
             >
               <Heart className="h-3.5 w-3.5" />
@@ -181,20 +170,16 @@ export default function Layout() {
         </div>
       </footer>
 
-      {showDonateModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setShowDonateModal(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
+      <dialog
+        ref={donateDialogRef}
+        aria-labelledby="donate-modal-title"
+        className="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white p-5 shadow-xl backdrop:bg-black/50"
+      >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800">支持作者</h2>
+              <h2 id="donate-modal-title" className="text-lg font-semibold text-gray-800">支持作者</h2>
               <button
                 type="button"
-                onClick={() => setShowDonateModal(false)}
+                onClick={() => donateDialogRef.current?.close()}
                 className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 transition-colors"
                 aria-label="关闭"
               >
@@ -207,33 +192,33 @@ export default function Layout() {
                 <p className="text-xs text-gray-500 leading-relaxed text-center">
                   未配置微信收款码，请在 VITE_DONATE_QR_URL 中配置图片链接
                 </p>
-              ) : (
+              ) : shouldLoadDonateQr ? (
                 <img
                   src={donateQrUrl}
                   alt="微信收款码"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full max-w-[240px] rounded-lg border border-gray-100"
                   onError={() => setQrLoadFailed(true)}
                 />
+              ) : (
+                <p className="text-xs text-gray-500 leading-relaxed text-center">
+                  打开后加载微信收款码
+                </p>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </dialog>
 
-      {showQqGroupModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          onClick={() => setShowQqGroupModal(false)}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
+      <dialog
+        ref={qqGroupDialogRef}
+        aria-labelledby="qq-group-modal-title"
+        className="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white p-5 shadow-xl backdrop:bg-black/50"
+      >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800">加入 QQ 群</h2>
+              <h2 id="qq-group-modal-title" className="text-lg font-semibold text-gray-800">加入 QQ 群</h2>
               <button
                 type="button"
-                onClick={() => setShowQqGroupModal(false)}
+                onClick={() => qqGroupDialogRef.current?.close()}
                 className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100"
                 aria-label="关闭"
               >
@@ -246,18 +231,22 @@ export default function Layout() {
                 <p className="text-center text-xs leading-relaxed text-gray-500">
                   未配置 QQ 群二维码，请在 VITE_QQ_GROUP_QR_URL 中配置图片链接
                 </p>
-              ) : (
+              ) : shouldLoadQqGroupQr ? (
                 <img
                   src={qqGroupQrUrl}
                   alt="河大Kit QQ 群二维码"
+                  loading="lazy"
+                  decoding="async"
                   className="w-full max-w-[260px] rounded-lg border border-gray-100"
                   onError={() => setQqQrLoadFailed(true)}
                 />
+              ) : (
+                <p className="text-center text-xs leading-relaxed text-gray-500">
+                  打开后加载 QQ 群二维码
+                </p>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </dialog>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { AnalysisConfig } from '@/types';
 
 const CACHE_KEY = 'quiz_app_llm_config';
@@ -9,34 +9,39 @@ interface CachedConfig {
   timestamp: number;
 }
 
-export function useCachedConfig() {
-  const [config, setConfig] = useState<AnalysisConfig>({
-    provider: 'deepseek',
-    apiKey: '',
-    apiUrl: '',
-    model: '',
-  });
-  const [isLoaded, setIsLoaded] = useState(false);
+const defaultConfig: AnalysisConfig = {
+  provider: 'deepseek',
+  apiKey: '',
+  apiUrl: '',
+  model: '',
+};
 
-  // 从 localStorage 加载
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const data: CachedConfig = JSON.parse(cached);
-        // 检查是否过期
-        if (Date.now() - data.timestamp < CACHE_EXPIRY) {
-          setConfig(data.config);
-        } else {
-          // 过期清除
-          localStorage.removeItem(CACHE_KEY);
-        }
-      }
-    } catch (e) {
-      console.error('加载缓存配置失败:', e);
+const readCachedConfig = (): AnalysisConfig => {
+  if (typeof window === 'undefined') {
+    return defaultConfig;
+  }
+
+  try {
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (!cached) {
+      return defaultConfig;
     }
-    setIsLoaded(true);
-  }, []);
+
+    const data: CachedConfig = JSON.parse(cached);
+    if (Date.now() - data.timestamp < CACHE_EXPIRY) {
+      return data.config;
+    }
+
+    localStorage.removeItem(CACHE_KEY);
+  } catch (e) {
+    console.error('加载缓存配置失败:', e);
+  }
+
+  return defaultConfig;
+};
+
+export function useCachedConfig() {
+  const [config, setConfig] = useState<AnalysisConfig>(() => readCachedConfig());
 
   // 保存到 localStorage
   const saveConfig = (newConfig: AnalysisConfig) => {
@@ -61,12 +66,7 @@ export function useCachedConfig() {
 
   // 清除缓存
   const clearConfig = () => {
-    setConfig({
-      provider: 'deepseek',
-      apiKey: '',
-      apiUrl: '',
-      model: '',
-    });
+    setConfig(defaultConfig);
     localStorage.removeItem(CACHE_KEY);
   };
 
@@ -87,7 +87,7 @@ export function useCachedConfig() {
     setConfig: saveConfig,
     updateConfig,
     clearConfig,
-    isLoaded,
+    isLoaded: true,
     keyCount,
   };
 }

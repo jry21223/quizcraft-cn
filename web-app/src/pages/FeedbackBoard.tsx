@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import {
   Archive,
@@ -23,6 +23,30 @@ const emptyDashboard: FeedbackDashboard = {
   resolved_items: [],
   archived_items: [],
 };
+
+type FeedbackBoardUiState = {
+  dashboard: FeedbackDashboard;
+  loading: boolean;
+  error: string;
+  updatingId: number | null;
+  notes: Record<number, string>;
+};
+
+const initialFeedbackBoardUiState: FeedbackBoardUiState = {
+  dashboard: emptyDashboard,
+  loading: true,
+  error: '',
+  updatingId: null,
+  notes: {},
+};
+
+const mergeFeedbackBoardUiState = (
+  state: FeedbackBoardUiState,
+  updates: Partial<FeedbackBoardUiState>,
+) => ({
+  ...state,
+  ...updates,
+});
 
 const formatDateTime = (value?: string | null) => {
   if (!value) return '-';
@@ -93,24 +117,23 @@ const FeedbackCard = ({
 };
 
 export default function FeedbackBoard() {
-  const [dashboard, setDashboard] = useState<FeedbackDashboard>(emptyDashboard);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [ui, setUi] = useReducer(
+    mergeFeedbackBoardUiState,
+    initialFeedbackBoardUiState,
+  );
+  const { dashboard, loading, error, updatingId, notes } = ui;
 
   const canManage = useMemo(() => Boolean(getAdminToken()), []);
 
   const loadDashboard = async () => {
-    setLoading(true);
-    setError('');
+    setUi({ loading: true, error: '' });
     try {
       const res = await feedbackApi.getDashboard();
-      setDashboard(res);
+      setUi({ dashboard: res });
     } catch (err) {
-      setError((err as Error).message || '加载反馈看板失败');
+      setUi({ error: (err as Error).message || '加载反馈看板失败' });
     } finally {
-      setLoading(false);
+      setUi({ loading: false });
     }
   };
 
@@ -119,8 +142,7 @@ export default function FeedbackBoard() {
   }, []);
 
   const markResolved = async (item: FeedbackBoardItem) => {
-    setUpdatingId(item.feedback_id);
-    setError('');
+    setUi({ updatingId: item.feedback_id, error: '' });
     try {
       await feedbackApi.updateStatus(item.feedback_id, {
         status: 'resolved',
@@ -128,15 +150,14 @@ export default function FeedbackBoard() {
       });
       await loadDashboard();
     } catch (err) {
-      setError((err as Error).message || '更新反馈状态失败');
+      setUi({ error: (err as Error).message || '更新反馈状态失败' });
     } finally {
-      setUpdatingId(null);
+      setUi({ updatingId: null });
     }
   };
 
   const archiveFeedback = async (item: FeedbackBoardItem) => {
-    setUpdatingId(item.feedback_id);
-    setError('');
+    setUi({ updatingId: item.feedback_id, error: '' });
     try {
       await feedbackApi.updateStatus(item.feedback_id, {
         status: 'archived',
@@ -144,9 +165,9 @@ export default function FeedbackBoard() {
       });
       await loadDashboard();
     } catch (err) {
-      setError((err as Error).message || '更新反馈状态失败');
+      setUi({ error: (err as Error).message || '更新反馈状态失败' });
     } finally {
-      setUpdatingId(null);
+      setUi({ updatingId: null });
     }
   };
 
@@ -246,12 +267,15 @@ export default function FeedbackBoard() {
                   canManage ? (
                     <div className="w-full shrink-0 space-y-2 sm:w-56">
                       <textarea
+                        aria-label={`反馈 ${item.feedback_id} 处理备注`}
                         value={notes[item.feedback_id] || ''}
                         onChange={(event) =>
-                          setNotes((current) => ({
-                            ...current,
-                            [item.feedback_id]: event.target.value,
-                          }))
+                          setUi({
+                            notes: {
+                              ...notes,
+                              [item.feedback_id]: event.target.value,
+                            },
+                          })
                         }
                         rows={3}
                         maxLength={1000}

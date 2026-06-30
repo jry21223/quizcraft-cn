@@ -1,14 +1,22 @@
 import {
   type FormEvent,
+  type TouchEvent,
   memo,
   useEffect,
   useLayoutEffect,
   useMemo,
+  useReducer,
   useRef,
-  useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { animate, motion, useMotionValue } from "framer-motion";
+import {
+  LazyMotion,
+  animate,
+  domAnimation,
+  m,
+  useMotionValue,
+  useReducedMotion,
+} from "framer-motion";
 import {
   ChevronLeft,
   ChevronRight,
@@ -27,11 +35,12 @@ import { RichText } from "@/components/RichText";
 import {
   formatQuestionType,
   formatAnswer,
+  formatTime,
   getTypeColor,
   getDifficultyLabel,
 } from "@/utils/format";
 import { getQuestionOptionKey } from "./quizCardState";
-import type { Question, QuestionType } from "@/types";
+import type { PracticeState, Question, QuestionType } from "@/types";
 
 const isAnswerCorrect = (
   answer: any,
@@ -206,6 +215,11 @@ const resolveFeedbackQuestionIndex = (
   fallbackIndex: number,
 ): number => getQuestionMetadataIndex(question) || fallbackIndex;
 
+const JUDGE_OPTIONS = [
+  { value: true, label: "对", icon: CheckCircle2 },
+  { value: false, label: "错", icon: XCircle },
+];
+
 const getProgressDotClass = ({
   current,
   answered,
@@ -243,6 +257,42 @@ type ProgressDotsProps = {
   onJump: (index: number) => void;
 };
 
+type ProgressDotButtonProps = {
+  question: Question;
+  index: number;
+  currentIndex: number;
+  answers: Record<string, any>;
+  results: Record<string, boolean>;
+  starredSet: Set<string>;
+  onJump: (index: number) => void;
+};
+
+const ProgressDotButton = memo(function ProgressDotButton({
+  question,
+  index,
+  currentIndex,
+  answers,
+  results,
+  starredSet,
+  onJump,
+}: ProgressDotButtonProps) {
+  const answered = answers[question.id] !== undefined;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onJump(index)}
+      aria-label={`跳到第 ${index + 1} 题`}
+      className={getProgressDotClass({
+        current: index === currentIndex,
+        answered,
+        correct: results[question.id],
+        starred: starredSet.has(question.id),
+      })}
+    />
+  );
+});
+
 const ProgressDots = memo(function ProgressDots({
   questions,
   currentIndex,
@@ -266,26 +316,6 @@ const ProgressDots = memo(function ProgressDots({
     currentIndex + PROGRESS_DOT_WINDOW_RADIUS + 1,
   );
 
-  const renderDot = (question: Question, idx: number) => {
-    const answered = answers[question.id] !== undefined;
-
-    return (
-      <button
-        key={`${question.id}-${idx}`}
-        onClick={() => onJump(idx)}
-        aria-label={`跳到第 ${idx + 1} 题`}
-        className={`w-2 h-2 rounded-full transition-colors ${getProgressDotClass(
-          {
-            current: idx === currentIndex,
-            answered,
-            correct: results[question.id],
-            starred: starredSet.has(question.id),
-          },
-        )}`}
-      />
-    );
-  };
-
   return (
     <div
       className="mt-3 w-full overflow-x-auto pb-1"
@@ -294,19 +324,46 @@ const ProgressDots = memo(function ProgressDots({
       <div className="flex items-center gap-1 min-w-max px-0.5">
         {start > 0 && (
           <>
-            {renderDot(questions[0], 0)}
+            <ProgressDotButton
+              key={questions[0].id}
+              question={questions[0]}
+              index={0}
+              currentIndex={currentIndex}
+              answers={answers}
+              results={results}
+              starredSet={starredSet}
+              onJump={onJump}
+            />
             <span className="px-1 text-xs text-gray-300">…</span>
           </>
         )}
 
-        {questions
-          .slice(start, end)
-          .map((question, offset) => renderDot(question, start + offset))}
+        {questions.slice(start, end).map((question, offset) => (
+          <ProgressDotButton
+            key={question.id}
+            question={question}
+            index={start + offset}
+            currentIndex={currentIndex}
+            answers={answers}
+            results={results}
+            starredSet={starredSet}
+            onJump={onJump}
+          />
+        ))}
 
         {end < questions.length && (
           <>
             <span className="px-1 text-xs text-gray-300">…</span>
-            {renderDot(questions[questions.length - 1], questions.length - 1)}
+            <ProgressDotButton
+              key={questions[questions.length - 1].id}
+              question={questions[questions.length - 1]}
+              index={questions.length - 1}
+              currentIndex={currentIndex}
+              answers={answers}
+              results={results}
+              starredSet={starredSet}
+              onJump={onJump}
+            />
           </>
         )}
       </div>
@@ -350,6 +407,7 @@ function OptionButton({
 
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={showResult}
       className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-colors ${bgClass}`}
@@ -399,14 +457,9 @@ function JudgeButtons({
   showResult: boolean;
   onSelect: (value: boolean) => void;
 }) {
-  const options = [
-    { value: true, label: "对", icon: CheckCircle2 },
-    { value: false, label: "错", icon: XCircle },
-  ];
-
   return (
     <div className="flex gap-4">
-      {options.map((opt) => {
+      {JUDGE_OPTIONS.map((opt) => {
         const isSelected = selected === opt.value;
         const isCorrect = showResult && correct === opt.value;
 
@@ -423,6 +476,7 @@ function JudgeButtons({
 
         return (
           <button
+            type="button"
             key={opt.label}
             onClick={() => onSelect(opt.value)}
             disabled={showResult}
@@ -455,6 +509,7 @@ function BlankAnswerInput({
   return (
     <div className="space-y-3" data-swipe-ignore="true">
       <input
+        aria-label="填空题答案"
         type="text"
         value={textValue}
         onChange={(event) => onChange(event.target.value)}
@@ -480,7 +535,248 @@ function BlankAnswerInput({
   );
 }
 
-export default function Quiz() {
+type QuestionCardProps = {
+  question: Question | null;
+  mode: { kind: "preview" } | { kind: "answering"; submitDisabled: boolean } | { kind: "result" };
+  practice: PracticeState;
+  selectedAnswer: any;
+  onBlankAnswerChange: (value: string) => void;
+  onJudgeSelect: (value: boolean) => void;
+  onOptionSelect: (index: number) => void;
+  onSubmitCurrent: () => void;
+  onTouchStart: (event: TouchEvent<HTMLDivElement>) => void;
+  onTouchMove: (event: TouchEvent<HTMLDivElement>) => void;
+  onTouchEnd: (event: TouchEvent<HTMLDivElement>) => void;
+  onTouchCancel: () => void;
+};
+
+type QuizUiState = {
+  selectedAnswer: any;
+  showResult: boolean;
+  elapsedTime: number;
+  isSliding: boolean;
+  visualCurrentIndex: number;
+  feedbackSuggestion: string;
+  feedbackSubmitting: boolean;
+  feedbackMessage: string;
+  feedbackError: string;
+};
+
+const initialQuizUiState: QuizUiState = {
+  selectedAnswer: null,
+  showResult: false,
+  elapsedTime: 0,
+  isSliding: false,
+  visualCurrentIndex: 0,
+  feedbackSuggestion: "",
+  feedbackSubmitting: false,
+  feedbackMessage: "",
+  feedbackError: "",
+};
+
+const mergeQuizUiState = (
+  state: QuizUiState,
+  updates: Partial<QuizUiState>,
+) => ({
+  ...state,
+  ...updates,
+});
+
+const ignoreBlankAnswerChange = () => undefined;
+const ignoreJudgeSelect = () => undefined;
+const ignoreOptionSelect = () => undefined;
+
+function QuestionCard({
+  question,
+  mode,
+  practice,
+  selectedAnswer,
+  onBlankAnswerChange,
+  onJudgeSelect,
+  onOptionSelect,
+  onSubmitCurrent,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+  onTouchCancel,
+}: QuestionCardProps) {
+  if (!question) {
+    return (
+      <div className="w-full flex-shrink-0 min-w-full px-0.5">
+        <div className="bg-white rounded-2xl border border-transparent p-6 min-h-[300px]" />
+      </div>
+    );
+  }
+
+  const isCurrent = mode.kind !== "preview";
+  const savedAnswer = practice.answers[question.id];
+  const hasSavedAnswer = savedAnswer !== undefined;
+  const cardAnswer = isCurrent
+    ? selectedAnswer ?? (hasSavedAnswer ? savedAnswer : null)
+    : hasSavedAnswer
+      ? savedAnswer
+      : null;
+  const cardShowResult = isCurrent ? mode.kind === "result" : hasSavedAnswer;
+  const result =
+    hasSavedAnswer
+      ? {
+          correct: practice.results[question.id],
+          correctAnswer: practice.correctAnswers[question.id],
+          analysis: practice.analyses[question.id],
+        }
+      : null;
+
+  const difficulty = question.stats
+    ? getDifficultyLabel(question.stats.rate)
+    : null;
+
+  return (
+    <div className="w-full flex-shrink-0 min-w-full px-0.5">
+      <div
+        onTouchStart={isCurrent ? onTouchStart : undefined}
+        onTouchMove={isCurrent ? onTouchMove : undefined}
+        onTouchEnd={isCurrent ? onTouchEnd : undefined}
+        onTouchCancel={isCurrent ? onTouchCancel : undefined}
+        className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform ${
+          isCurrent ? "" : "pointer-events-none"
+        }`}
+      >
+        <div className="flex items-center gap-2 mb-4">
+          <span
+            className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(question.type)}`}
+          >
+            {formatQuestionType(question.type)}
+          </span>
+          {difficulty && (
+            <span
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}
+            >
+              {difficulty.label} · 正确率 {question.stats?.rate}%
+            </span>
+          )}
+          <span className="text-xs text-gray-400">{question.chapter}</span>
+        </div>
+
+        <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
+          <RichText text={question.content} />
+        </h2>
+
+        <div className="space-y-3 mb-6">
+          {question.type === "blank" ? (
+            <BlankAnswerInput
+              value={cardAnswer}
+              correctAnswer={cardShowResult ? result?.correctAnswer : undefined}
+              showResult={cardShowResult}
+              onChange={isCurrent ? onBlankAnswerChange : ignoreBlankAnswerChange}
+            />
+          ) : question.type === "judge" ? (
+            <JudgeButtons
+              selected={normalizeJudgeAnswer(cardAnswer)}
+              correct={
+                cardShowResult
+                  ? normalizeJudgeAnswer(result?.correctAnswer) ?? undefined
+                  : undefined
+              }
+              showResult={cardShowResult}
+              onSelect={isCurrent ? onJudgeSelect : ignoreJudgeSelect}
+            />
+          ) : (
+            question.options?.map((option, index) => {
+              const isSelected = isOptionSelected(
+                cardAnswer,
+                question.type,
+                index,
+              );
+
+              const isCorrect = cardShowResult
+                ? isOptionSelected(result?.correctAnswer, question.type, index)
+                : false;
+
+              const isMissed = Boolean(
+                cardShowResult &&
+                  question.type === "multi" &&
+                  isCorrect &&
+                  !isSelected,
+              );
+
+              return (
+                <OptionButton
+                  key={getQuestionOptionKey(question.id, index)}
+                  label={String.fromCharCode(65 + index)}
+                  text={option}
+                  selected={Boolean(isSelected)}
+                  correct={isCorrect}
+                  missed={isMissed}
+                  showResult={cardShowResult}
+                  onClick={
+                    isCurrent ? () => onOptionSelect(index) : ignoreOptionSelect
+                  }
+                />
+              );
+            })
+          )}
+        </div>
+
+        {mode.kind === "answering" && (
+          <div className="min-h-[52px] mb-4 flex items-end">
+            <button
+              type="button"
+              onClick={onSubmitCurrent}
+              disabled={mode.submitDisabled}
+              className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              提交答案
+            </button>
+          </div>
+        )}
+
+        {mode.kind === "result" && result && (
+          <div
+            className={`rounded-xl p-4 mb-4 ${result.correct ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              {result.correct ? (
+                <>
+                  <CheckCircle2 className="w-5 h-5 text-green-500" />
+                  <span className="font-medium text-green-800">
+                    回答正确！
+                  </span>
+                </>
+              ) : (
+                <>
+                  <XCircle className="w-5 h-5 text-red-500" />
+                  <span className="font-medium text-red-800">回答错误</span>
+                </>
+              )}
+            </div>
+
+            {!result.correct && (
+              <div className="text-sm text-gray-700 mb-2">
+                正确答案：
+                <span className="font-medium text-green-700">
+                  {formatAnswer(result.correctAnswer, question.type)}
+                </span>
+              </div>
+            )}
+
+            {result.analysis && (
+              <div className="mt-3 pt-3 border-t border-gray-200/50">
+                <div className="text-sm font-medium text-gray-700 mb-1">
+                  解析
+                </div>
+                <div className="text-sm text-gray-600 leading-relaxed">
+                  <RichText text={result.analysis} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function useQuizController() {
   const navigate = useNavigate();
   const {
     practice,
@@ -492,22 +788,26 @@ export default function Quiz() {
     starredQuestions,
   } = useQuizStore();
 
-  const [selectedAnswer, setSelectedAnswer] = useState<any>(null);
-  const [showResult, setShowResult] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0);
-  const [viewportWidth, setViewportWidth] = useState(0);
-  const [isSliding, setIsSliding] = useState(false);
+  const [ui, setUi] = useReducer(mergeQuizUiState, initialQuizUiState);
+  const {
+    selectedAnswer,
+    showResult,
+    elapsedTime,
+    isSliding,
+    visualCurrentIndex,
+    feedbackSuggestion,
+    feedbackSubmitting,
+    feedbackMessage,
+    feedbackError,
+  } = ui;
+  const prefersReducedMotion = useReducedMotion();
   const trackX = useMotionValue(0);
+  const feedbackDialogRef = useRef<HTMLDialogElement | null>(null);
+  const viewportWidthRef = useRef(0);
   const dragXRef = useRef(0);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const swipeStartRef = useRef<SwipeStart | null>(null);
 
-  const [visualCurrentIndex, setVisualCurrentIndex] = useState(0);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
-  const [feedbackSuggestion, setFeedbackSuggestion] = useState("");
-  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState("");
-  const [feedbackError, setFeedbackError] = useState("");
 
   const currentIndex = practice?.currentIndex ?? -1;
   const hasPractice = Boolean(practice);
@@ -524,7 +824,11 @@ export default function Quiz() {
     const node = viewportRef.current;
     const updateWidth = () => {
       const width = Math.floor(node.getBoundingClientRect().width);
-      setViewportWidth(width > 0 ? width : 0);
+      const nextWidth = width > 0 ? width : 0;
+      viewportWidthRef.current = nextWidth;
+      if (nextWidth > 0) {
+        trackX.set(-nextWidth);
+      }
     };
 
     updateWidth();
@@ -535,7 +839,7 @@ export default function Quiz() {
 
     ro.observe(node);
     return () => ro.disconnect();
-  }, [hasPractice]);
+  }, [hasPractice, trackX]);
 
   useEffect(() => {
     if (!hasPractice) {
@@ -547,21 +851,20 @@ export default function Quiz() {
     if (!hasPractice) return;
 
     if (activeAnswer !== undefined) {
-    setSelectedAnswer(activeAnswer);
-    setShowResult(true);
+    setUi({ selectedAnswer: activeAnswer, showResult: true });
   } else {
-    setSelectedAnswer(null);
-    setShowResult(false);
+    setUi({ selectedAnswer: null, showResult: false });
   }
   }, [hasPractice, activeQuestionId, activeAnswer]);
 
   useLayoutEffect(() => {
     if (!hasPractice || !practice) return;
 
-    setVisualCurrentIndex(practice.currentIndex);
+    setUi({ visualCurrentIndex: practice.currentIndex });
   }, [hasPractice, practice?.currentIndex, practice]);
 
   useLayoutEffect(() => {
+    const viewportWidth = viewportWidthRef.current;
     if (!hasPractice || !viewportWidth) {
       return;
     }
@@ -569,8 +872,8 @@ export default function Quiz() {
     trackX.set(-viewportWidth);
     dragXRef.current = 0;
     swipeStartRef.current = null;
-    setIsSliding(false);
-  }, [hasPractice, currentIndex, practice?.questions.length, viewportWidth, trackX]);
+    setUi({ isSliding: false });
+  }, [hasPractice, currentIndex, practice?.questions.length, trackX]);
 
   const startTime = practice?.startTime;
   const isFinished = practice?.isFinished ?? false;
@@ -579,7 +882,7 @@ export default function Quiz() {
     if (!startTime || isFinished) return;
 
     const timer = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000));
+      setUi({ elapsedTime: Math.floor((Date.now() - startTime) / 1000) });
     }, 1000);
 
     return () => clearInterval(timer);
@@ -627,15 +930,17 @@ export default function Quiz() {
   );
 
   const openFeedbackModal = () => {
-    setFeedbackSuggestion("");
-    setFeedbackMessage("");
-    setFeedbackError("");
-    setFeedbackOpen(true);
+    setUi({
+      feedbackSuggestion: "",
+      feedbackMessage: "",
+      feedbackError: "",
+    });
+    feedbackDialogRef.current?.showModal();
   };
 
   const closeFeedbackModal = () => {
     if (feedbackSubmitting) return;
-    setFeedbackOpen(false);
+    feedbackDialogRef.current?.close();
   };
 
   const handleFeedbackSubmit = async (event: FormEvent) => {
@@ -644,13 +949,15 @@ export default function Quiz() {
 
     const normalizedSuggestion = feedbackSuggestion.trim();
     if (!normalizedSuggestion) {
-      setFeedbackError("建议改正内容不能为空");
+      setUi({ feedbackError: "建议改正内容不能为空" });
       return;
     }
 
-    setFeedbackSubmitting(true);
-    setFeedbackError("");
-    setFeedbackMessage("");
+    setUi({
+      feedbackSubmitting: true,
+      feedbackError: "",
+      feedbackMessage: "",
+    });
     try {
       await feedbackApi.submit({
         question_index: feedbackQuestionIndex,
@@ -659,28 +966,35 @@ export default function Quiz() {
         question_content: activeQuestion.content,
         suggestion: normalizedSuggestion,
       });
-      setFeedbackMessage("反馈提交成功，感谢你的建议！");
-      setFeedbackSuggestion("");
+      setUi({
+        feedbackMessage: "反馈提交成功，感谢你的建议！",
+        feedbackSuggestion: "",
+      });
     } catch (error) {
-      setFeedbackError((error as Error).message || "提交失败");
+      setUi({ feedbackError: (error as Error).message || "提交失败" });
     } finally {
-      setFeedbackSubmitting(false);
+      setUi({ feedbackSubmitting: false });
     }
   };
 
   const alignTrackToCenter = (animateBack = true) => {
+    const viewportWidth = viewportWidthRef.current;
     if (!viewportWidth) {
       return;
     }
 
     if (animateBack) {
-      animate(trackX, -viewportWidth, { duration: 0.12, ease: "easeOut" });
+      animate(trackX, -viewportWidth, {
+        duration: prefersReducedMotion ? 0 : 0.12,
+        ease: "easeOut",
+      });
     } else {
       trackX.set(-viewportWidth);
     }
   };
 
   const setTrackDragPosition = (value: number) => {
+    const viewportWidth = viewportWidthRef.current;
     if (!viewportWidth) {
       return;
     }
@@ -697,8 +1011,7 @@ export default function Quiz() {
   };
 
   const resetQuestionViewState = () => {
-    setSelectedAnswer(null);
-    setShowResult(false);
+    setUi({ selectedAnswer: null, showResult: false });
   };
 
   const slideToIndex = (targetIndex: number) => {
@@ -714,8 +1027,10 @@ export default function Quiz() {
 
     resetQuestionViewState();
 
+    const viewportWidth = viewportWidthRef.current;
+
     if (!viewportWidth || Math.abs(nextIndex - currentIndex) > 1) {
-      setVisualCurrentIndex(nextIndex);
+      setUi({ visualCurrentIndex: nextIndex });
       jumpToQuestion(nextIndex);
       trackX.set(-viewportWidth);
       return;
@@ -723,17 +1038,16 @@ export default function Quiz() {
 
     const targetX = nextIndex > currentIndex ? -2 * viewportWidth : 0;
 
-    setVisualCurrentIndex(nextIndex);
-    setIsSliding(true);
+    setUi({ visualCurrentIndex: nextIndex, isSliding: true });
     const controls = animate(trackX, targetX, {
-      duration: SLIDE_DURATION,
+      duration: prefersReducedMotion ? 0 : SLIDE_DURATION,
       ease: SLIDE_EASE,
     });
 
     void controls.then(() => {
       jumpToQuestion(nextIndex);
       trackX.set(-viewportWidth);
-      setIsSliding(false);
+      setUi({ isSliding: false });
     });
   };
 
@@ -766,6 +1080,7 @@ export default function Quiz() {
   };
 
   const handleCardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    const viewportWidth = viewportWidthRef.current;
     if (
       isSliding ||
       !viewportWidth ||
@@ -790,6 +1105,7 @@ export default function Quiz() {
 
   const handleCardTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     const start = swipeStartRef.current;
+    const viewportWidth = viewportWidthRef.current;
     if (!start?.tracking || event.touches.length !== 1 || !viewportWidth) return;
 
     const touch = event.touches[0];
@@ -815,6 +1131,7 @@ export default function Quiz() {
 
   const handleCardTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
     const start = swipeStartRef.current;
+    const viewportWidth = viewportWidthRef.current;
     if (!start?.tracking || !viewportWidth) {
       resetSwipeState();
       return;
@@ -855,181 +1172,6 @@ export default function Quiz() {
     resetSwipeState();
   };
 
-  const renderCard = (question: Question | null, isCurrent = false) => {
-    if (!question) {
-      return (
-        <div className="w-full flex-shrink-0 min-w-full px-0.5">
-          <div className="bg-white rounded-2xl border border-transparent p-6 min-h-[300px]" />
-        </div>
-      );
-    }
-
-    const savedAnswer = practice.answers[question.id];
-    const hasSavedAnswer = savedAnswer !== undefined;
-    const cardAnswer = isCurrent
-      ? selectedAnswer ?? (hasSavedAnswer ? savedAnswer : null)
-      : hasSavedAnswer
-        ? savedAnswer
-        : null;
-    const cardShowResult = isCurrent ? showResult : hasSavedAnswer;
-    const result =
-      hasSavedAnswer
-        ? {
-            correct: practice.results[question.id],
-            correctAnswer: practice.correctAnswers[question.id],
-            analysis: practice.analyses[question.id],
-          }
-        : null;
-
-    const difficulty = question.stats
-      ? getDifficultyLabel(question.stats.rate)
-      : null;
-
-    return (
-      <div className="w-full flex-shrink-0 min-w-full px-0.5">
-        <div
-          onTouchStart={isCurrent ? handleCardTouchStart : undefined}
-          onTouchMove={isCurrent ? handleCardTouchMove : undefined}
-          onTouchEnd={isCurrent ? handleCardTouchEnd : undefined}
-          onTouchCancel={isCurrent ? () => resetSwipeState() : undefined}
-          className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform ${
-            isCurrent ? "" : "pointer-events-none"
-          }`}
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <span
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium ${getTypeColor(question.type)}`}
-            >
-              {formatQuestionType(question.type)}
-            </span>
-            {difficulty && (
-              <span
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium ${difficulty.color}`}
-              >
-                {difficulty.label} · 正确率 {question.stats?.rate}%
-              </span>
-            )}
-            <span className="text-xs text-gray-400">{question.chapter}</span>
-          </div>
-
-          <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
-            <RichText text={question.content} />
-          </h2>
-
-          <div className="space-y-3 mb-6">
-            {question.type === "blank" ? (
-              <BlankAnswerInput
-                value={cardAnswer}
-                correctAnswer={cardShowResult ? result?.correctAnswer : undefined}
-                showResult={cardShowResult}
-                onChange={isCurrent ? setSelectedAnswer : () => undefined}
-              />
-            ) : question.type === "judge" ? (
-              <JudgeButtons
-                selected={normalizeJudgeAnswer(cardAnswer)}
-                correct={
-                  cardShowResult
-                    ? normalizeJudgeAnswer(result?.correctAnswer) ?? undefined
-                    : undefined
-                }
-                showResult={cardShowResult}
-                onSelect={isCurrent ? handleJudgeSelect : () => undefined}
-              />
-            ) : (
-              question.options?.map((option, index) => {
-                const isSelected = isOptionSelected(
-                  cardAnswer,
-                  question.type,
-                  index,
-                );
-
-                const isCorrect = cardShowResult
-                  ? isOptionSelected(result?.correctAnswer, question.type, index)
-                  : false;
-
-                const isMissed = Boolean(
-                  cardShowResult &&
-                    question.type === "multi" &&
-                    isCorrect &&
-                    !isSelected,
-                );
-
-                return (
-                  <OptionButton
-                    key={getQuestionOptionKey(question.id, index)}
-                    label={String.fromCharCode(65 + index)}
-                    text={option}
-                    selected={Boolean(isSelected)}
-                    correct={isCorrect}
-                    missed={isMissed}
-                    showResult={cardShowResult}
-                    onClick={
-                      isCurrent ? () => handleOptionSelect(index) : () => undefined
-                    }
-                  />
-                );
-              })
-            )}
-          </div>
-
-          {isCurrent && !showResult && (
-            <div className="min-h-[52px] mb-4 flex items-end">
-              <button
-                onClick={handleSubmitCurrent}
-                disabled={!canSubmitCurrent || isSliding}
-                className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                提交答案
-              </button>
-            </div>
-          )}
-
-          {isCurrent && showResult && result && (
-            <div
-              className={`rounded-xl p-4 mb-4 ${result.correct ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}
-            >
-              <div className="flex items-center gap-2 mb-2">
-                {result.correct ? (
-                  <>
-                    <CheckCircle2 className="w-5 h-5 text-green-500" />
-                    <span className="font-medium text-green-800">
-                      回答正确！
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <XCircle className="w-5 h-5 text-red-500" />
-                    <span className="font-medium text-red-800">回答错误</span>
-                  </>
-                )}
-              </div>
-
-              {!result.correct && (
-                <div className="text-sm text-gray-700 mb-2">
-                  正确答案：
-                  <span className="font-medium text-green-700">
-                    {formatAnswer(result.correctAnswer, question.type)}
-                  </span>
-                </div>
-              )}
-
-              {result.analysis && (
-                <div className="mt-3 pt-3 border-t border-gray-200/50">
-                  <div className="text-sm font-medium text-gray-700 mb-1">
-                    解析
-                  </div>
-                  <div className="text-sm text-gray-600 leading-relaxed">
-                    <RichText text={result.analysis} />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const handleOptionSelect = (index: number) => {
     if (showResult) return;
 
@@ -1039,10 +1181,10 @@ export default function Quiz() {
       const newAnswer = current.includes(index)
         ? current.filter((i) => i !== index)
         : [...current, index].sort();
-      setSelectedAnswer(newAnswer);
+      setUi({ selectedAnswer: newAnswer });
     } else {
       // 单选题：只更新选中
-      setSelectedAnswer(index);
+      setUi({ selectedAnswer: index });
     }
   };
 
@@ -1074,7 +1216,7 @@ export default function Quiz() {
       activeQuestion.type,
     );
 
-    setShowResult(true);
+    setUi({ showResult: true });
     answerQuestion({
       questionId,
       answer,
@@ -1102,169 +1244,284 @@ export default function Quiz() {
 
   const handleJudgeSelect = (value: boolean) => {
     if (showResult) return;
-    setSelectedAnswer(value);
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+    setUi({ selectedAnswer: value });
   };
 
   const starred = starredQuestions.includes(activeQuestion.id);
 
+  return {
+    activeBankKey,
+    activeQuestion,
+    canSubmitCurrent,
+    closeFeedbackModal,
+    elapsedTime,
+    feedbackDialogRef,
+    feedbackError,
+    feedbackMessage,
+    feedbackQuestionIndex,
+    feedbackSubmitting,
+    feedbackSuggestion,
+    handleCardTouchEnd,
+    handleCardTouchMove,
+    handleCardTouchStart,
+    handleFeedbackSubmit,
+    handleJudgeSelect,
+    handleJump,
+    handleNext,
+    handleOptionSelect,
+    handlePrev,
+    handleSubmitCurrent,
+    isSliding,
+    nextQuestionRef,
+    openFeedbackModal,
+    practice,
+    prevQuestion,
+    progress,
+    resetSwipeState,
+    selectedAnswer,
+    setFeedbackSuggestion: (value: string) => setUi({ feedbackSuggestion: value }),
+    setSelectedAnswer: (value: any) => setUi({ selectedAnswer: value }),
+    showResult,
+    starred,
+    starredQuestions,
+    toggleStar,
+    trackX,
+    visualIndex,
+    viewportRef,
+  };
+}
+
+type QuizController = NonNullable<ReturnType<typeof useQuizController>>;
+
+export default function Quiz() {
+  const controller = useQuizController();
+
+  if (!controller) return null;
+
+  return <QuizView controller={controller} />;
+}
+
+function QuizView({ controller }: { controller: QuizController }) {
   return (
+    <LazyMotion features={domAnimation}>
       <div className="max-w-3xl mx-auto">
-      {feedbackOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
-          onClick={closeFeedbackModal}
+        <QuizFeedbackDialog controller={controller} />
+        <QuizProgressHeader controller={controller} />
+        <QuizTrack controller={controller} />
+        <QuizFooterControls controller={controller} />
+    </div>
+    </LazyMotion>
+  );
+}
+
+function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
+  return (
+    <dialog
+      ref={controller.feedbackDialogRef}
+      aria-labelledby="feedback-modal-title"
+      onCancel={(event) => {
+        if (controller.feedbackSubmitting) {
+          event.preventDefault();
+        }
+      }}
+      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white p-5 shadow-xl backdrop:bg-black/50"
+      data-swipe-ignore="true"
+    >
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 id="feedback-modal-title" className="text-lg font-semibold text-gray-800">反馈本题</h2>
+          <p className="mt-1 text-xs text-gray-500">
+            {controller.activeBankKey} · 第 {controller.feedbackQuestionIndex} 题 · {controller.activeQuestion.id}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={controller.closeFeedbackModal}
+          disabled={controller.feedbackSubmitting}
+          className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-50"
+          aria-label="关闭反馈弹窗"
         >
-          <div
-            className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-            data-swipe-ignore="true"
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm leading-relaxed text-gray-600">
+        <RichText text={controller.activeQuestion.content} />
+      </div>
+
+      <form onSubmit={controller.handleFeedbackSubmit} className="space-y-3">
+        <label htmlFor="quiz-feedback-suggestion" className="sr-only">
+          反馈建议
+        </label>
+        <textarea
+          id="quiz-feedback-suggestion"
+          rows={6}
+          value={controller.feedbackSuggestion}
+          onChange={(event) => controller.setFeedbackSuggestion(event.target.value)}
+          placeholder="例如：正确答案应为 B；选项 C 有错别字；解析和答案不一致..."
+          className="w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+          maxLength={2000}
+          disabled={controller.feedbackSubmitting}
+        />
+        <div className="flex items-center justify-between text-xs text-gray-400">
+          <span>最多 2000 字，提交后不会离开当前刷题进度</span>
+          <span>{controller.feedbackSuggestion.length}/2000</span>
+        </div>
+
+        {controller.feedbackError && <p className="text-sm text-red-600">{controller.feedbackError}</p>}
+        {controller.feedbackMessage && <p className="text-sm text-green-600">{controller.feedbackMessage}</p>}
+
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            type="button"
+            onClick={controller.closeFeedbackModal}
+            disabled={controller.feedbackSubmitting}
+            className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
           >
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-800">反馈本题</h2>
-                <p className="mt-1 text-xs text-gray-500">
-                  {activeBankKey} · 第 {feedbackQuestionIndex} 题 · {activeQuestion.id}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeFeedbackModal}
-                disabled={feedbackSubmitting}
-                className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-50"
-                aria-label="关闭反馈弹窗"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm leading-relaxed text-gray-600">
-              <RichText text={activeQuestion.content} />
-            </div>
-
-            <form onSubmit={handleFeedbackSubmit} className="space-y-3">
-              <textarea
-                rows={6}
-                value={feedbackSuggestion}
-                onChange={(event) => setFeedbackSuggestion(event.target.value)}
-                placeholder="例如：正确答案应为 B；选项 C 有错别字；解析和答案不一致..."
-                className="w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
-                maxLength={2000}
-                disabled={feedbackSubmitting}
-                autoFocus
-              />
-              <div className="flex items-center justify-between text-xs text-gray-400">
-                <span>最多 2000 字，提交后不会离开当前刷题进度</span>
-                <span>{feedbackSuggestion.length}/2000</span>
-              </div>
-
-              {feedbackError && <p className="text-sm text-red-600">{feedbackError}</p>}
-              {feedbackMessage && <p className="text-sm text-green-600">{feedbackMessage}</p>}
-
-              <div className="flex items-center gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={closeFeedbackModal}
-                  disabled={feedbackSubmitting}
-                  className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
-                >
-                  继续刷题
-                </button>
-                <button
-                  type="submit"
-                  disabled={feedbackSubmitting || !feedbackSuggestion.trim()}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <Send className="h-4 w-4" />
-                  {feedbackSubmitting ? "提交中..." : "提交反馈"}
-                </button>
-              </div>
-            </form>
-          </div>
+            继续刷题
+          </button>
+          <button
+            type="submit"
+            disabled={controller.feedbackSubmitting || !controller.feedbackSuggestion.trim()}
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Send className="h-4 w-4" />
+            {controller.feedbackSubmitting ? "提交中..." : "提交反馈"}
+          </button>
         </div>
-      )}
-      {/* 顶部进度条 */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-4 px-4 py-3 mb-6">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <BookOpen className="w-4 h-4" />
-            <span>
-              题目 {visualIndex + 1} / {practice.questions.length}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={openFeedbackModal}
-              className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
-              aria-label="反馈本题"
-            >
-              <MessageCircle className="w-4 h-4" />
-            </button>
-            <div className="flex items-center gap-1 text-sm text-gray-500">
-              <Timer className="w-4 h-4" />
-              <span>{formatTime(elapsedTime)}</span>
-            </div>
-            <button
-              onClick={() => toggleStar(activeQuestion.id)}
-              className={`p-1.5 rounded-lg transition-colors ${starred ? "text-yellow-500 bg-yellow-50" : "text-gray-400 hover:bg-gray-100"}`}
-            >
-              <Flag className={`w-4 h-4 ${starred ? "fill-current" : ""}`} />
-            </button>
-          </div>
+      </form>
+    </dialog>
+  );
+}
+
+function QuizProgressHeader({ controller }: { controller: QuizController }) {
+  return (
+    <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-4 px-4 py-3 mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <BookOpen className="w-4 h-4" />
+          <span>
+            题目 {controller.visualIndex + 1} / {controller.practice.questions.length}
+          </span>
         </div>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={controller.openFeedbackModal}
+            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            aria-label="反馈本题"
+          >
+            <MessageCircle className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-1 text-sm text-gray-500">
+            <Timer className="w-4 h-4" />
+            <span>{formatTime(controller.elapsedTime)}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => controller.toggleStar(controller.activeQuestion.id)}
+            className={`p-1.5 rounded-lg transition-colors ${controller.starred ? "text-yellow-500 bg-yellow-50" : "text-gray-400 hover:bg-gray-100"}`}
+            aria-label={controller.starred ? "取消收藏本题" : "收藏本题"}
+          >
+            <Flag className={`w-4 h-4 ${controller.starred ? "fill-current" : ""}`} />
+          </button>
+        </div>
+      </div>
       <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary-500 transition-all duration-[120ms]"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
+        <div
+          className="h-full bg-primary-500 transition-all duration-[120ms]"
+          style={{ width: `${controller.progress}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function QuizTrack({ controller }: { controller: QuizController }) {
+  return (
+    <div className="overflow-hidden" ref={controller.viewportRef}>
+      <m.div style={{ x: controller.trackX }} className="flex">
+        <QuizTrackCard controller={controller} question={controller.prevQuestion} mode={{ kind: "preview" }} />
+        <QuizTrackCard
+          controller={controller}
+          question={controller.activeQuestion}
+          mode={
+            controller.showResult
+              ? { kind: "result" }
+              : {
+                  kind: "answering",
+                  submitDisabled: !controller.canSubmitCurrent || controller.isSliding,
+                }
+          }
+        />
+        <QuizTrackCard controller={controller} question={controller.nextQuestionRef} mode={{ kind: "preview" }} />
+      </m.div>
+    </div>
+  );
+}
+
+function QuizTrackCard({
+  controller,
+  mode,
+  question,
+}: {
+  controller: QuizController;
+  mode: QuestionCardProps["mode"];
+  question: Question | null;
+}) {
+  return (
+    <QuestionCard
+      question={question}
+      mode={mode}
+      practice={controller.practice}
+      selectedAnswer={controller.selectedAnswer}
+      onBlankAnswerChange={controller.setSelectedAnswer}
+      onJudgeSelect={controller.handleJudgeSelect}
+      onOptionSelect={controller.handleOptionSelect}
+      onSubmitCurrent={controller.handleSubmitCurrent}
+      onTouchStart={controller.handleCardTouchStart}
+      onTouchMove={controller.handleCardTouchMove}
+      onTouchEnd={controller.handleCardTouchEnd}
+      onTouchCancel={() => controller.resetSwipeState()}
+    />
+  );
+}
+
+function QuizFooterControls({ controller }: { controller: QuizController }) {
+  return (
+    <div className="pt-4 border-t border-gray-100">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={controller.handlePrev}
+          disabled={controller.isSliding || controller.practice.currentIndex === 0}
+          className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
+        >
+          <ChevronLeft className="w-5 h-5" />
+          上一题
+        </button>
+
+        <button
+          type="button"
+          onClick={controller.handleNext}
+          disabled={controller.isSliding}
+          className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
+        >
+          {controller.visualIndex === controller.practice.questions.length - 1
+            ? "查看结果"
+            : "下一题"}
+          <ChevronRight className="w-5 h-5" />
+        </button>
       </div>
 
-        {/* 题目卡片 */}
-        <div className="overflow-hidden" ref={viewportRef}>
-          <motion.div style={{ x: trackX }} className="flex">
-            {renderCard(prevQuestion)}
-            {renderCard(activeQuestion, true)}
-            {renderCard(nextQuestionRef)}
-          </motion.div>
-        </div>
-            <div className="pt-4 border-t border-gray-100">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePrev}
-                  disabled={isSliding || practice.currentIndex === 0}
-                  className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                  上一题
-                </button>
-
-                <button
-                  onClick={handleNext}
-                  disabled={isSliding}
-                  className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
-                >
-                  {visualIndex === practice.questions.length - 1
-                    ? "查看结果"
-                    : "下一题"}
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-              </div>
-
-          <ProgressDots
-            questions={practice.questions}
-            currentIndex={visualIndex}
-            answers={practice.answers}
-            results={practice.results}
-            starredQuestions={starredQuestions}
-            onJump={handleJump}
-          />
-        </div>
-      </div>
+      <ProgressDots
+        questions={controller.practice.questions}
+        currentIndex={controller.visualIndex}
+        answers={controller.practice.answers}
+        results={controller.practice.results}
+        starredQuestions={controller.starredQuestions}
+        onJump={controller.handleJump}
+      />
+    </div>
   );
 }

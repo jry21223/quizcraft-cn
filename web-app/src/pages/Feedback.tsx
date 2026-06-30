@@ -1,68 +1,53 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { MessageSquare, ArrowLeft, Send } from 'lucide-react';
 import { feedbackApi } from '@/api/client';
+
+type FeedbackLocationState = {
+  questionIndex?: unknown;
+  question_index?: unknown;
+  questionBank?: unknown;
+  question_bank?: unknown;
+};
+
+const parseQuestionIndex = (value: unknown): number | null => {
+  const raw = typeof value === 'string' ? Number(value) : Number(value);
+  return Number.isInteger(raw) && raw > 0 ? raw : null;
+};
+
+const parseQuestionBank = (value: unknown): string => {
+  return typeof value === 'string' ? value.trim() : '';
+};
+
+const readLastFeedbackQuestionIndex = () => {
+  try {
+    return parseQuestionIndex(localStorage.getItem('quizcraft_last_feedback_question_index'));
+  } catch {
+    return null;
+  }
+};
 
 export default function Feedback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const [questionIndex, setQuestionIndex] = useState<number | null>(null);
-  const [questionBank, setQuestionBank] = useState("");
   const [suggestion, setSuggestion] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  const parseQuestionIndex = (value: unknown): number | null => {
-    const raw = typeof value === 'string' ? Number(value) : Number(value);
-    return Number.isInteger(raw) && raw > 0 ? raw : null;
-  };
-
-  const parseQuestionBank = (value: unknown): string => {
-    return typeof value === 'string' ? value.trim() : '';
-  };
-
-  const parsedQuestionIndex = useMemo(() => {
-
-    const localStorageIndex = (() => {
-      try {
-        return parseQuestionIndex(localStorage.getItem('quizcraft_last_feedback_question_index'));
-      } catch {
-        return null;
-      }
-    })();
-
-    const locationState =
-      (location.state as { questionIndex?: unknown; question_index?: unknown }) || {};
-    return (
-      parseQuestionIndex(locationState.questionIndex) ??
-      parseQuestionIndex(locationState.question_index) ??
-      parseQuestionIndex(searchParams.get('questionIndex')) ??
-      parseQuestionIndex(searchParams.get('question_index')) ??
-      localStorageIndex ??
-      null
-    );
-  }, [searchParams, location.state]);
-
-  const parsedQuestionBank = useMemo(() => {
-    const locationState =
-      (location.state as {
-        questionBank?: unknown;
-        question_bank?: unknown;
-      }) || {};
-    return (
-      parseQuestionBank(locationState.questionBank) ||
-      parseQuestionBank(locationState.question_bank) ||
-      parseQuestionBank(searchParams.get('questionBank')) ||
-      parseQuestionBank(searchParams.get('question_bank'))
-    );
-  }, [searchParams, location.state]);
-
-  useEffect(() => {
-    setQuestionIndex(parsedQuestionIndex);
-    setQuestionBank(parsedQuestionBank);
-  }, [parsedQuestionIndex, parsedQuestionBank]);
+  const locationState = (location.state as FeedbackLocationState | null) || {};
+  const questionIndex =
+    parseQuestionIndex(locationState.questionIndex) ??
+    parseQuestionIndex(locationState.question_index) ??
+    parseQuestionIndex(searchParams.get('questionIndex')) ??
+    parseQuestionIndex(searchParams.get('question_index')) ??
+    readLastFeedbackQuestionIndex();
+  const questionBank =
+    parseQuestionBank(locationState.questionBank) ||
+    parseQuestionBank(locationState.question_bank) ||
+    parseQuestionBank(searchParams.get('questionBank')) ||
+    parseQuestionBank(searchParams.get('question_bank'));
 
   const submitFeedback = async (event: FormEvent) => {
     event.preventDefault();
@@ -120,10 +105,11 @@ export default function Feedback() {
 
         <form onSubmit={submitFeedback} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="feedback-question-index" className="block text-sm font-medium text-gray-700 mb-2">
               题目索引
             </label>
             <input
+              id="feedback-question-index"
               type="number"
               min={1}
               value={questionIndex ?? ''}
@@ -134,10 +120,11 @@ export default function Feedback() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="feedback-suggestion" className="block text-sm font-medium text-gray-700 mb-2">
               建议改正内容
             </label>
             <textarea
+              id="feedback-suggestion"
               rows={8}
               value={suggestion}
               onChange={(event) => setSuggestion(event.target.value)}

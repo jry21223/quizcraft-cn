@@ -3,6 +3,34 @@ import { Link } from 'react-router-dom';
 import { BookOpen, Zap, Target, BarChart3, ArrowRight, Brain } from 'lucide-react';
 import { bankApi } from '@/api/client';
 import { useQuizStore } from '@/stores/quizStore';
+
+const FEATURES = [
+  {
+    icon: Zap,
+    title: '智能刷题',
+    desc: '随机、难题、章节三种模式，针对性练习',
+    color: 'bg-yellow-100 text-yellow-700',
+  },
+  {
+    icon: Target,
+    title: '难题攻克',
+    desc: '自动识别低正确率题目，重点突破',
+    color: 'bg-red-100 text-red-700',
+  },
+  {
+    icon: BarChart3,
+    title: '数据统计',
+    desc: '实时统计答题情况，追踪学习进度',
+    color: 'bg-green-100 text-green-700',
+  },
+  {
+    icon: Brain,
+    title: 'AI 解析',
+    desc: '上传题库自动生成答案解析',
+    color: 'bg-purple-100 text-purple-700',
+  },
+];
+
 export default function Home() {
   const { banks, setBanks, user } = useQuizStore();
   const [loading, setLoading] = useState(true);
@@ -15,33 +43,6 @@ export default function Home() {
       setLoading(false);
     });
   }, [setBanks]);
-  
-  const features = [
-    {
-      icon: Zap,
-      title: '智能刷题',
-      desc: '随机、难题、章节三种模式，针对性练习',
-      color: 'bg-yellow-100 text-yellow-700',
-    },
-    {
-      icon: Target,
-      title: '难题攻克',
-      desc: '自动识别低正确率题目，重点突破',
-      color: 'bg-red-100 text-red-700',
-    },
-    {
-      icon: BarChart3,
-      title: '数据统计',
-      desc: '实时统计答题情况，追踪学习进度',
-      color: 'bg-green-100 text-green-700',
-    },
-    {
-      icon: Brain,
-      title: 'AI 解析',
-      desc: '上传题库自动生成答案解析',
-      color: 'bg-purple-100 text-purple-700',
-    },
-  ];
   
   return (
     <div className="space-y-8 animate-fade-in">
@@ -121,7 +122,7 @@ export default function Home() {
       <section>
         <h2 className="text-lg font-semibold text-gray-800 mb-4">功能特点</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {features.map((feature) => (
+          {FEATURES.map((feature) => (
             <div
               key={feature.title}
               className="flex items-start gap-3 bg-white rounded-xl p-4 border border-gray-100"

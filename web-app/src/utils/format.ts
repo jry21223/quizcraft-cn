@@ -23,11 +23,6 @@ const normalizeJudgeAnswer = (value: any): boolean | null => {
   return null;
 };
 
-// 格式化正确率
-export const formatRate = (rate: number): string => {
-  return `${rate.toFixed(1)}%`;
-};
-
 // 格式化题目类型
 export const formatQuestionType = (type: QuestionType): string => {
   const map: Record<QuestionType, string> = {
@@ -57,17 +52,6 @@ export const formatTime = (seconds: number): string => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
-// 格式化日期
-export const formatDate = (date: string | Date): string => {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleString('zh-CN', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-};
-
 // 获取难度标签
 export const getDifficultyLabel = (rate: number): { label: string; color: string } => {
   if (rate >= 70) return { label: '简单', color: 'text-green-600 bg-green-50' };
@@ -76,13 +60,8 @@ export const getDifficultyLabel = (rate: number): { label: string; color: string
 };
 
 // 将索引转为选项字母
-export const indexToOption = (index: number): string => {
+const indexToOption = (index: number): string => {
   return String.fromCharCode(65 + index);  // 0 -> A, 1 -> B, ...
-};
-
-// 将选项字母转为索引
-export const optionToIndex = (option: string): number => {
-  return option.toUpperCase().charCodeAt(0) - 65;
 };
 
 // 将答案数组转为字符串
@@ -103,19 +82,4 @@ export const formatAnswer = (answer: any, type: QuestionType): string => {
     return indexToOption(answer);
   }
   return String(answer);
-};
-
-// 解析用户输入的答案
-export const parseAnswer = (input: string, type: QuestionType): any => {
-  if (type === 'judge') {
-    const normalized = input.trim().toLowerCase();
-    return normalized === 'y' || normalized === '对' || normalized === 'true';
-  }
-  if (type === 'blank') {
-    return input.trim();
-  }
-  if (type === 'multi') {
-    return input.split('').map(optionToIndex);
-  }
-  return optionToIndex(input);
 };

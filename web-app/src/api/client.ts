@@ -352,5 +352,3 @@ export const analysisApi = {
     });
   },
 };
-
-export default api;

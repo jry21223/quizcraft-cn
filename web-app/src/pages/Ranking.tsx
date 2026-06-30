@@ -3,6 +3,20 @@ import { Trophy, Medal, User, Crown } from 'lucide-react';
 import { userApi } from '@/api/client';
 import type { RankItem } from '@/types';
 
+const getRankIcon = (index: number) => {
+  if (index === 0) return <Crown className="w-5 h-5 text-yellow-500" />;
+  if (index === 1) return <Medal className="w-5 h-5 text-gray-400" />;
+  if (index === 2) return <Medal className="w-5 h-5 text-amber-600" />;
+  return <span className="w-5 h-5 flex items-center justify-center text-sm text-gray-400">{index + 1}</span>;
+};
+
+const getRankBg = (index: number) => {
+  if (index === 0) return 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200';
+  if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200';
+  if (index === 2) return 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200';
+  return 'bg-white border-gray-100';
+};
+
 export default function Ranking() {
   const [ranking, setRanking] = useState<RankItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,20 +31,6 @@ export default function Ranking() {
         setLoading(false);
       });
   }, []);
-  
-  const getRankIcon = (index: number) => {
-    if (index === 0) return <Crown className="w-5 h-5 text-yellow-500" />;
-    if (index === 1) return <Medal className="w-5 h-5 text-gray-400" />;
-    if (index === 2) return <Medal className="w-5 h-5 text-amber-600" />;
-    return <span className="w-5 h-5 flex items-center justify-center text-sm text-gray-400">{index + 1}</span>;
-  };
-  
-  const getRankBg = (index: number) => {
-    if (index === 0) return 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200';
-    if (index === 1) return 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200';
-    if (index === 2) return 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-200';
-    return 'bg-white border-gray-100';
-  };
   
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">

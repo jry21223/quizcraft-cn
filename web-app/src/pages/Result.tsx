@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { LazyMotion, domAnimation, m } from 'framer-motion';
 import { 
   RotateCcw, 
   Home, 
@@ -12,6 +12,13 @@ import {
 } from 'lucide-react';
 import { useQuizStore } from '@/stores/quizStore';
 import { formatTime } from '@/utils/format';
+
+const getRating = (accuracy: number) => {
+  if (accuracy >= 90) return { label: '优秀', color: 'text-green-500', emoji: '🎉' };
+  if (accuracy >= 70) return { label: '良好', color: 'text-blue-500', emoji: '👍' };
+  if (accuracy >= 60) return { label: '及格', color: 'text-yellow-500', emoji: '💪' };
+  return { label: '需努力', color: 'text-red-500', emoji: '📚' };
+};
 
 export default function Result() {
   const navigate = useNavigate();
@@ -42,20 +49,13 @@ export default function Result() {
   const accuracy = Math.round((correct / practice.questions.length) * 100);
   const duration = Math.floor((Date.now() - practice.startTime) / 1000);
   
-  // 获取评分
-  const getRating = () => {
-    if (accuracy >= 90) return { label: '优秀', color: 'text-green-500', emoji: '🎉' };
-    if (accuracy >= 70) return { label: '良好', color: 'text-blue-500', emoji: '👍' };
-    if (accuracy >= 60) return { label: '及格', color: 'text-yellow-500', emoji: '💪' };
-    return { label: '需努力', color: 'text-red-500', emoji: '📚' };
-  };
-  
-  const rating = getRating();
+  const rating = getRating(accuracy);
   
   return (
+    <LazyMotion features={domAnimation}>
     <div className="max-w-2xl mx-auto animate-fade-in">
       {/* 成绩卡片 */}
-      <motion.div
+      <m.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         className="bg-white rounded-2xl border border-gray-100 shadow-lg p-8 mb-6 text-center"
@@ -101,7 +101,7 @@ export default function Result() {
             <span>用时 {formatTime(duration)}</span>
           </div>
         </div>
-      </motion.div>
+      </m.div>
       
       {/* 题目回顾 */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
@@ -113,6 +113,7 @@ export default function Result() {
             
             return (
               <button
+                type="button"
                 key={q.id}
                 onClick={() => {
                   // 可以跳转到对应题目查看
@@ -149,6 +150,7 @@ export default function Result() {
       {/* 操作按钮 */}
       <div className="grid grid-cols-2 gap-4">
         <button
+          type="button"
           onClick={() => {
             resetPractice();
             navigate('/practice');
@@ -159,6 +161,7 @@ export default function Result() {
           再练一次
         </button>
         <button
+          type="button"
           onClick={() => {
             resetPractice();
             navigate('/');
@@ -170,5 +173,6 @@ export default function Result() {
         </button>
       </div>
     </div>
+    </LazyMotion>
   );
 }

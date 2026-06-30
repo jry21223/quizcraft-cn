@@ -20,9 +20,45 @@ await esbuild.build({
 });
 
 const module = await import(pathToFileURL(outfile).href);
-const renderRichText = module.renderRichText;
+const parseRichText = module.parseRichText;
+const highlightCodeParts = module.highlightCodeParts;
+const getLanguageLabel = module.getLanguageLabel;
 
-assert.equal(typeof renderRichText, "function", "renderRichText must be exported");
+assert.equal(typeof parseRichText, "function", "parseRichText must be exported");
+assert.equal(typeof highlightCodeParts, "function", "highlightCodeParts must be exported");
+assert.equal(typeof getLanguageLabel, "function", "getLanguageLabel must be exported");
+
+const escapeHtml = (value) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const renderCodeParts = (parts) =>
+  parts
+    .map((part) => {
+      if (part.kind === "text") return escapeHtml(part.value);
+      return `<span class="qc-code-token qc-code-token--${part.kind}">${escapeHtml(part.value)}</span>`;
+    })
+    .join("");
+
+const renderSegment = (segment) => {
+  if (segment.kind === "text") {
+    return escapeHtml(segment.value).replace(/\r?\n/g, "<br />");
+  }
+
+  const highlighted = renderCodeParts(highlightCodeParts(segment.value, segment.language));
+  const languageLabel = getLanguageLabel(segment.language);
+  if (!segment.block) {
+    return `<span class="qc-inline-code">${highlighted}</span>`;
+  }
+
+  return `<span class="qc-code-block" data-language="${languageLabel}" data-swipe-ignore="true"><code>${highlighted}</code></span>`;
+};
+
+const renderRichText = (text) => parseRichText(text).map(renderSegment).join("");
 
 const javaBlock = renderRichText("阅读代码：\n```java\nint a = 1;\nSystem.out.println(a);\n```");
 assert.match(javaBlock, /qc-code-block/);
