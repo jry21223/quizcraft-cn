@@ -410,10 +410,10 @@ function OptionButton({
       type="button"
       onClick={onClick}
       disabled={showResult}
-      className={`w-full flex items-start gap-3 p-4 rounded-xl border-2 text-left transition-colors ${bgClass}`}
+      className={`grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 w-full min-h-[72px] h-auto rounded-xl border-2 p-4 box-border overflow-hidden text-left transition-colors ${bgClass}`}
     >
       <span
-        className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+        className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold ${
           showResult
             ? correct && selected
               ? "bg-green-500 text-white"
@@ -429,17 +429,17 @@ function OptionButton({
       >
         {label}
       </span>
-      <span className="flex-1 pt-1">
+      <span className="min-w-0 max-w-full whitespace-normal break-words [overflow-wrap:anywhere] text-lg leading-normal">
         <RichText text={text} />
       </span>
       {showResult && correct && selected && (
-        <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-1" />
+        <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0 justify-self-end" />
       )}
       {showResult && missed && (
-        <CheckCircle2 className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />
+        <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0 justify-self-end" />
       )}
       {showResult && selected && !correct && (
-        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-1" />
+        <XCircle className="w-5 h-5 text-red-500 shrink-0 justify-self-end" />
       )}
     </button>
   );
