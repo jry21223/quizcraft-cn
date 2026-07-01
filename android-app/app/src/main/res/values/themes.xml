@@ -9,5 +9,8 @@
         <item name="android:navigationBarColor">@color/white</item>
         <item name="android:windowLightNavigationBar">true</item>
         <item name="android:windowBackground">@color/bg_gradient_start</item>
+
+        <!-- 闪屏背景色设为蓝色，让图标完整显示（不孤零零飘着） -->
+        <item name="android:windowSplashScreenBackground">@color/primary</item>
     </style>
 </resources>

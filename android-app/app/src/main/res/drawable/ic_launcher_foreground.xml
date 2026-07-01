@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 刷题助手图标：白底蓝勾（对勾 = 答对/通关） -->
+<!-- 刷题助手图标：白底 + 白色圆圈 + 蓝色对勾 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
