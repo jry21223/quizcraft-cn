@@ -4,14 +4,34 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 STATIC_DEPLOY_DIR="${STATIC_DEPLOY_DIR:-}"
 
+_validate_static_deploy_dir() {
+  local deploy_dir="$1"
+  local resolved_dir
+
+  resolved_dir="$(realpath -m "${deploy_dir}")"
+  case "${resolved_dir}/" in
+    /var/www/quizcraft-cn/*|/opt/quizcraft-cn/static/*)
+      ;;
+    *)
+      echo "refusing to deploy outside approved static roots: ${resolved_dir}" >&2
+      echo "set STATIC_DEPLOY_DIR under /var/www/quizcraft-cn or /opt/quizcraft-cn/static" >&2
+      exit 1
+      ;;
+  esac
+
+  if [ ! -d "${resolved_dir}" ]; then
+    echo "static deploy dir does not exist: ${resolved_dir}" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${resolved_dir}"
+}
+
 cd "${ROOT_DIR}/web-app"
 npm run build:ops
 
 if [ -n "${STATIC_DEPLOY_DIR}" ]; then
-  if [ ! -d "${STATIC_DEPLOY_DIR}" ]; then
-    echo "static deploy dir does not exist: ${STATIC_DEPLOY_DIR}" >&2
-    exit 1
-  fi
+  STATIC_DEPLOY_DIR="$(_validate_static_deploy_dir "${STATIC_DEPLOY_DIR}")"
   cp -f dist/index.html "${STATIC_DEPLOY_DIR}/"
   rm -rf "${STATIC_DEPLOY_DIR}/assets"
   mkdir -p "${STATIC_DEPLOY_DIR}/assets"
