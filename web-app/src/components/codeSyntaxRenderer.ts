@@ -1,7 +1,9 @@
 export type CodeLanguage = "java" | "html" | "css" | "javascript" | "json" | "text";
 export type TextSegment = { kind: "text"; value: string };
 export type CodeSegment = { kind: "code"; value: string; language: CodeLanguage; block: boolean };
-export type RichSegment = TextSegment | CodeSegment;
+export type BoldSegment = { kind: "bold"; value: string };
+export type ItalicSegment = { kind: "italic"; value: string };
+export type RichSegment = TextSegment | CodeSegment | BoldSegment | ItalicSegment;
 type TokenKind = "text" | "comment" | "string";
 export type HighlightPartKind =
   | TokenKind
@@ -316,11 +318,11 @@ export function parseRichText(text: string): RichSegment[] {
     if (cursor < text.length) {
       segments.push({ kind: "text", value: text.slice(cursor) });
     }
-    return segments;
+    return parseInlineMarkdown(segments);
   }
 
   const looseCode = splitLooseCode(text);
-  if (looseCode) return looseCode;
+  if (looseCode) return parseInlineMarkdown(looseCode);
 
   INLINE_CODE_PATTERN.lastIndex = 0;
   cursor = 0;
@@ -341,7 +343,7 @@ export function parseRichText(text: string): RichSegment[] {
     if (cursor < text.length) {
       segments.push({ kind: "text", value: text.slice(cursor) });
     }
-    return segments;
+    return parseInlineMarkdown(segments);
   }
 
   BARE_HTML_TAG_PATTERN.lastIndex = 0;
@@ -365,10 +367,10 @@ export function parseRichText(text: string): RichSegment[] {
     if (cursor < text.length) {
       segments.push({ kind: "text", value: text.slice(cursor) });
     }
-    return segments;
+    return parseInlineMarkdown(segments);
   }
 
-  return [{ kind: "text", value: text }];
+  return parseInlineMarkdown([{ kind: "text", value: text }]);
 }
 
 function tokenize(code: string): Token[] {
@@ -526,12 +528,111 @@ export function getLanguageLabel(language: CodeLanguage) {
   return language === "javascript" ? "JS" : language.toUpperCase();
 }
 
+// ── Parse inline code within a text string ──
+
+function parseInlineCodeInText(text: string): RichSegment[] {
+  INLINE_CODE_PATTERN.lastIndex = 0;
+  const result: RichSegment[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+  while ((match = INLINE_CODE_PATTERN.exec(text))) {
+    if (match.index > cursor) {
+      result.push({ kind: "text", value: text.slice(cursor, match.index) });
+    }
+    result.push({ kind: "code", value: match[1], language: normalizeLanguage(undefined, match[1]), block: false });
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) {
+    result.push({ kind: "text", value: text.slice(cursor) });
+  }
+  return result.length > 0 ? result : [{ kind: "text", value: text }];
+}
+
+// ── Inline Markdown: bold / italic ──
+
+const BOLD_PATTERN = /\*\*(.+?)\*\*|__(.+?)__/g;
+const ITALIC_PATTERN = /\*(.+?)\*|_(.+?)_/g;
+
+function parseInlineMarkdown(segments: RichSegment[]): RichSegment[] {
+  // First pass: parse inline code within text segments
+  const withCode: RichSegment[] = [];
+  for (const seg of segments) {
+    if (seg.kind !== "text") {
+      withCode.push(seg);
+      continue;
+    }
+    for (const sub of parseInlineCodeInText(seg.value)) {
+      withCode.push(sub);
+    }
+  }
+
+  // Second pass: parse bold/italic within text segments
+  const result: RichSegment[] = [];
+  for (const seg of withCode) {
+    if (seg.kind !== "text") {
+      result.push(seg);
+      continue;
+    }
+    let parts: Array<{ kind: "text" | "bold" | "italic"; value: string }> = [
+      { kind: "text", value: seg.value },
+    ];
+
+    // Parse bold first
+    const boldParts: typeof parts = [];
+    for (const p of parts) {
+      if (p.kind !== "text") { boldParts.push(p); continue; }
+      BOLD_PATTERN.lastIndex = 0;
+      let cursor = 0;
+      let match: RegExpExecArray | null;
+      while ((match = BOLD_PATTERN.exec(p.value))) {
+        if (match.index > cursor) {
+          boldParts.push({ kind: "text", value: p.value.slice(cursor, match.index) });
+        }
+        boldParts.push({ kind: "bold", value: match[1] || match[2] });
+        cursor = match.index + match[0].length;
+      }
+      if (cursor < p.value.length) {
+        boldParts.push({ kind: "text", value: p.value.slice(cursor) });
+      }
+    }
+    parts = boldParts.length > 0 ? boldParts : parts;
+
+    // Parse italic (skip if already bold)
+    const italicParts: typeof parts = [];
+    for (const p of parts) {
+      if (p.kind !== "text") { italicParts.push(p); continue; }
+      ITALIC_PATTERN.lastIndex = 0;
+      let cursor = 0;
+      let match: RegExpExecArray | null;
+      while ((match = ITALIC_PATTERN.exec(p.value))) {
+        if (match.index > cursor) {
+          italicParts.push({ kind: "text", value: p.value.slice(cursor, match.index) });
+        }
+        italicParts.push({ kind: "italic", value: match[1] || match[2] });
+        cursor = match.index + match[0].length;
+      }
+      if (cursor < p.value.length) {
+        italicParts.push({ kind: "text", value: p.value.slice(cursor) });
+      }
+    }
+
+    for (const p of (italicParts.length > 0 ? italicParts : parts)) {
+      result.push(p as RichSegment);
+    }
+  }
+  return result;
+}
+
 export function shouldRenderRichText(text: string) {
   return (
     /[\r\n]/.test(text) ||
     text.includes("```") ||
     testInlineCode(text) ||
     testBareHtmlTag(text) ||
-    splitLooseCode(text) !== null
+    splitLooseCode(text) !== null ||
+    /\*\*/.test(text) ||
+    /_[^_]+_/.test(text) ||
+    /\*[^*]+\*/.test(text) ||
+    /__/.test(text)
   );
 }

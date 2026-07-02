@@ -58,12 +58,12 @@ export default function Result() {
       <m.div
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white rounded-2xl border border-gray-100 shadow-lg p-8 mb-6 text-center"
+        className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-lg p-8 mb-6 text-center"
       >
         <div className="text-6xl mb-4">{rating.emoji}</div>
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">练习完成！</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-2">练习完成！</h1>
         <div className={`text-4xl font-bold ${rating.color} mb-1`}>{accuracy}%</div>
-        <div className="text-gray-500">{rating.label}</div>
+        <div className="text-gray-500 dark:text-slate-400">{rating.label}</div>
         
         {/* 统计 */}
         <div className="grid grid-cols-3 gap-4 mt-8">
@@ -81,17 +81,17 @@ export default function Result() {
             </div>
             <div className="text-2xl font-bold text-red-700">{wrong}</div>
           </div>
-          <div className="bg-gray-50 rounded-xl p-4">
-            <div className="flex items-center justify-center gap-1 text-gray-600 mb-1">
+          <div className="bg-gray-50 dark:bg-slate-700 rounded-xl p-4">
+            <div className="flex items-center justify-center gap-1 text-gray-600 dark:text-slate-300 mb-1">
               <HelpCircle className="w-4 h-4" />
               <span className="text-sm font-medium">未答</span>
             </div>
-            <div className="text-2xl font-bold text-gray-700">{unanswered}</div>
+            <div className="text-2xl font-bold text-gray-700 dark:text-slate-200">{unanswered}</div>
           </div>
         </div>
         
         {/* 额外信息 */}
-        <div className="flex justify-center gap-6 mt-6 text-sm text-gray-500">
+        <div className="flex justify-center gap-6 mt-6 text-sm text-gray-500 dark:text-slate-400">
           <div className="flex items-center gap-1">
             <Target className="w-4 h-4" />
             <span>共 {practice.questions.length} 题</span>
@@ -104,8 +104,8 @@ export default function Result() {
       </m.div>
       
       {/* 题目回顾 */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">题目回顾</h2>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-4">题目回顾</h2>
         <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
           {practice.questions.map((q, idx) => {
             const isCorrect = practice.results[q.id];
@@ -123,7 +123,7 @@ export default function Result() {
                     ? 'bg-green-100 text-green-700'
                     : hasAnswer
                       ? 'bg-red-100 text-red-700'
-                      : 'bg-gray-100 text-gray-500'
+                      : 'bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 dark:text-slate-500'
                 }`}
               >
                 {idx + 1}
@@ -131,7 +131,7 @@ export default function Result() {
             );
           })}
         </div>
-        <div className="flex justify-center gap-4 mt-4 text-xs text-gray-500">
+        <div className="flex justify-center gap-4 mt-4 text-xs text-gray-500 dark:text-slate-400">
           <div className="flex items-center gap-1">
             <div className="w-3 h-3 rounded bg-green-100" />
             <span>正确</span>
@@ -141,7 +141,7 @@ export default function Result() {
             <span>错误</span>
           </div>
           <div className="flex items-center gap-1">
-            <div className="w-3 h-3 rounded bg-gray-100" />
+            <div className="w-3 h-3 rounded bg-gray-100 dark:bg-slate-700" />
             <span>未答</span>
           </div>
         </div>
@@ -166,7 +166,7 @@ export default function Result() {
             resetPractice();
             navigate('/');
           }}
-          className="flex items-center justify-center gap-2 py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors"
+          className="flex items-center justify-center gap-2 py-3 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-200 font-medium rounded-xl hover:bg-gray-200 transition-colors"
         >
           <Home className="w-5 h-5" />
           返回首页

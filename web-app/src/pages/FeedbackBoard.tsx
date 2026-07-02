@@ -72,11 +72,11 @@ const FeedbackCard = ({
   action?: ReactNode;
 }) => {
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
+    <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 shadow-sm dark:shadow-slate-900/30">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
-            <span className="rounded-full bg-gray-100 px-2 py-1 font-medium text-gray-600">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+            <span className="rounded-full bg-gray-100 dark:bg-slate-700 px-2 py-1 font-medium text-gray-600 dark:text-slate-300">
               #{item.feedback_id}
             </span>
             <span>{getBankLabel(item)}</span>
@@ -84,11 +84,11 @@ const FeedbackCard = ({
             <span>{formatDateTime(item.created_at)}</span>
           </div>
           {item.question_content && (
-            <p className="mt-3 line-clamp-2 text-sm font-medium text-gray-800">
+            <p className="mt-3 line-clamp-2 text-sm font-medium text-gray-800 dark:text-slate-100">
               {item.question_content}
             </p>
           )}
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-gray-600 dark:text-slate-300">
             {item.suggestion}
           </p>
           {item.status === 'resolved' && (
@@ -202,12 +202,12 @@ export default function FeedbackBoard() {
     <div className="mx-auto max-w-5xl animate-fade-in space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-500 text-white shadow-sm">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary-500 text-white shadow-sm dark:shadow-slate-900/30">
             <ClipboardCheck className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-800">反馈看板</h1>
-            <p className="text-sm text-gray-500">
+            <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100">反馈看板</h1>
+            <p className="text-sm text-gray-500 dark:text-slate-400">
               题库纠错反馈、处理进度和已处理明细
             </p>
           </div>
@@ -216,7 +216,7 @@ export default function FeedbackBoard() {
           type="button"
           onClick={loadDashboard}
           disabled={loading}
-          className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:border-primary-200 hover:text-primary-600 disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 transition-colors hover:border-primary-200 hover:text-primary-600 disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           刷新
@@ -227,7 +227,7 @@ export default function FeedbackBoard() {
         {stats.map((item) => (
           <div
             key={item.label}
-            className={`rounded-xl border p-4 shadow-sm ${item.color}`}
+            className={`rounded-xl border p-4 shadow-sm dark:shadow-slate-900/30 ${item.color}`}
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium">{item.label}</span>
@@ -246,15 +246,15 @@ export default function FeedbackBoard() {
 
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-800">待处理反馈</h2>
-          <span className="text-sm text-gray-400">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">待处理反馈</h2>
+          <span className="text-sm text-gray-400 dark:text-slate-500">
             {canManage ? '可在本页标记处理' : '公开查看'}
           </span>
         </div>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-white" />
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-white dark:bg-slate-800" />
             ))}
           </div>
         ) : dashboard.pending_items.length > 0 ? (
@@ -280,7 +280,7 @@ export default function FeedbackBoard() {
                         rows={3}
                         maxLength={1000}
                         placeholder="处理备注"
-                        className="w-full resize-none rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700"
+                        className="w-full resize-none rounded-lg border border-gray-200 dark:border-slate-600 px-3 py-2 text-sm text-gray-700 dark:text-slate-200"
                       />
                       <button
                         type="button"
@@ -295,7 +295,7 @@ export default function FeedbackBoard() {
                         type="button"
                         onClick={() => archiveFeedback(item)}
                         disabled={updatingId === item.feedback_id}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-60"
                       >
                         <Archive className="h-4 w-4" />
                         {updatingId === item.feedback_id ? '处理中...' : '归档'}
@@ -307,7 +307,7 @@ export default function FeedbackBoard() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-gray-100 bg-white py-10 text-center text-gray-500">
+          <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 py-10 text-center text-gray-500 dark:text-slate-400">
             <Inbox className="mx-auto mb-2 h-8 w-8 text-gray-300" />
             暂无待处理反馈
           </div>
@@ -315,11 +315,11 @@ export default function FeedbackBoard() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-800">已处理反馈明细</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">已处理反馈明细</h2>
         {loading ? (
           <div className="space-y-3">
             {[1, 2].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-white" />
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-white dark:bg-slate-800" />
             ))}
           </div>
         ) : dashboard.resolved_items.length > 0 ? (
@@ -329,7 +329,7 @@ export default function FeedbackBoard() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-gray-100 bg-white py-10 text-center text-gray-500">
+          <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 py-10 text-center text-gray-500 dark:text-slate-400">
             <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-gray-300" />
             暂无已处理反馈
           </div>
@@ -337,11 +337,11 @@ export default function FeedbackBoard() {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-gray-800">已归档反馈</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">已归档反馈</h2>
         {loading ? (
           <div className="space-y-3">
             {[1, 2].map((i) => (
-              <div key={i} className="h-28 animate-pulse rounded-xl bg-white" />
+              <div key={i} className="h-28 animate-pulse rounded-xl bg-white dark:bg-slate-800" />
             ))}
           </div>
         ) : dashboard.archived_items.length > 0 ? (
@@ -351,7 +351,7 @@ export default function FeedbackBoard() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-gray-100 bg-white py-10 text-center text-gray-500">
+          <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 py-10 text-center text-gray-500 dark:text-slate-400">
             <Archive className="mx-auto mb-2 h-8 w-8 text-gray-300" />
             暂无已归档反馈
           </div>

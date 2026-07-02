@@ -8,23 +8,24 @@
   }
   
   body {
-    @apply antialiased text-gray-900;
+    @apply antialiased text-gray-900 dark:text-slate-200;
+    @apply dark:bg-slate-950;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 
+    @apply px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600
            disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
   }
-  
+
   .btn-secondary {
-    @apply px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 
+    @apply px-4 py-2 bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-200 rounded-lg hover:bg-gray-200 dark:bg-slate-600 dark:hover:bg-slate-600
            disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
   }
-  
+
   .card {
-    @apply bg-white rounded-xl border border-gray-100 shadow-sm p-4;
+    @apply bg-white dark:bg-slate-800 rounded-xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-4;
   }
 }
 
@@ -92,6 +93,11 @@
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+.dark .qc-inline-code {
+  border-color: #374151;
+  background: #1e293b;
+  color: #fda4af;
+}
 
 .qc-code-token--keyword {
   color: #93c5fd;
@@ -157,6 +163,10 @@
 ::selection {
   background-color: #e3f2fd;
   color: #1565c0;
+}
+.dark ::selection {
+  background-color: #1e3a5f;
+  color: #93c5fd;
 }
 
 @media (prefers-reduced-motion: reduce) {

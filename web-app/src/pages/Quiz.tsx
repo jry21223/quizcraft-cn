@@ -234,18 +234,18 @@ const getProgressDotClass = ({
   const baseClass = "w-2 h-2 rounded-full transition-all transform-gpu";
 
   if (starred) {
-    return `${baseClass} ${current ? "scale-125 bg-yellow-500" : "bg-yellow-400"}`;
+    return `${baseClass} ${current ? "scale-125 bg-yellow-50 dark:bg-yellow-900/200" : "bg-yellow-400"}`;
   }
 
   if (current) {
-    return `${baseClass} bg-primary-500 scale-125`;
+    return `${baseClass} bg-primary-50 dark:bg-primary-900/30 scale-125`;
   }
 
   if (answered) {
     return `${baseClass} ${correct ? "bg-green-400" : "bg-red-400"}`;
   }
 
-  return `${baseClass} bg-gray-200`;
+  return `${baseClass} bg-gray-200 dark:bg-slate-500`;
 };
 
 type ProgressDotsProps = {
@@ -389,20 +389,20 @@ function OptionButton({
   showResult: boolean;
   onClick: () => void;
 }) {
-  let bgClass = "bg-white border-gray-200 hover:border-primary-300";
+  let bgClass = "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-600 hover:border-primary-400";
 
   if (showResult) {
     if (correct && selected) {
-      bgClass = "bg-green-50 border-green-500 text-green-800";
+      bgClass = "bg-green-50 dark:bg-green-900/20 border-green-500 text-green-800 dark:text-green-200";
     } else if (missed) {
-      bgClass = "bg-green-50 border-green-200 text-green-700";
+      bgClass = "bg-green-50 dark:bg-green-900/20 border-green-200 text-green-700 dark:text-green-300";
     } else if (selected) {
-      bgClass = "bg-red-50 border-red-500 text-red-800";
+      bgClass = "bg-red-50 dark:bg-red-900/20 border-red-500 text-red-800 dark:text-red-200";
     } else {
-      bgClass = "bg-gray-50 border-gray-200 text-gray-400";
+      bgClass = "bg-gray-50 dark:bg-slate-700 border-gray-200 dark:border-slate-700 text-gray-400 dark:text-slate-500";
     }
   } else if (selected) {
-    bgClass = "bg-primary-50 border-primary-500 text-primary-700";
+    bgClass = "bg-primary-50 dark:bg-slate-500 dark:border-primary-400 border-primary-500 text-primary-700 dark:text-slate-100";
   }
 
   return (
@@ -416,15 +416,15 @@ function OptionButton({
         className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold ${
           showResult
             ? correct && selected
-              ? "bg-green-500 text-white"
+              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200"
               : missed
-                ? "bg-green-200 text-green-700"
+                ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
                 : selected
-                  ? "bg-red-500 text-white"
-                  : "bg-gray-200 text-gray-500"
+                  ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200"
+                  : "bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-200"
             : selected
-              ? "bg-primary-500 text-white"
-              : "bg-gray-100 text-gray-600"
+              ? "bg-primary-50 dark:bg-slate-700 text-primary-700 dark:text-slate-100"
+              : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300"
         }`}
       >
         {label}
@@ -463,15 +463,15 @@ function JudgeButtons({
         const isSelected = selected === opt.value;
         const isCorrect = showResult && correct === opt.value;
 
-        let btnClass = "bg-white border-gray-200 hover:border-primary-300";
+        let btnClass = "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-600 hover:border-primary-400";
         if (showResult) {
           if (correct === opt.value) {
-            btnClass = "bg-green-50 border-green-500 text-green-800";
+            btnClass = "bg-green-50 dark:bg-green-900/20 border-green-500 text-green-800 dark:text-green-200";
           } else if (isSelected) {
-            btnClass = "bg-red-50 border-red-500 text-red-800";
+            btnClass = "bg-red-50 dark:bg-red-900/20 border-red-500 text-red-800 dark:text-red-200";
           }
         } else if (isSelected) {
-          btnClass = "bg-primary-50 border-primary-500 text-primary-700";
+          btnClass = "bg-primary-50 dark:bg-slate-500 dark:border-primary-400 border-primary-500 text-primary-700 dark:text-slate-100";
         }
 
         return (
@@ -517,12 +517,12 @@ function BlankAnswerInput({
         placeholder="请输入答案"
         className={`w-full rounded-xl border-2 px-4 py-3 text-base outline-none transition-colors ${
           showResult
-            ? "border-gray-200 bg-gray-50 text-gray-500"
-            : "border-gray-200 bg-white text-gray-800 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
+            ? "border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700 text-gray-500 dark:text-slate-400 dark:text-slate-500"
+            : "border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-100 focus:border-primary-400 focus:ring-2 focus:ring-primary-100"
         }`}
       />
       {showResult && (
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500">
           你的答案：{normalizeBlankAnswer(value) || "未作答"}
           {correctAnswer !== undefined && (
             <span className="ml-3">
@@ -603,7 +603,7 @@ function QuestionCard({
   if (!question) {
     return (
       <div className="w-full flex-shrink-0 min-w-full px-0.5">
-        <div className="bg-white rounded-2xl border border-transparent p-6 min-h-[300px]" />
+        <div className="bg-white dark:bg-slate-800 rounded-2xl border border-transparent p-6 min-h-[300px]" />
       </div>
     );
   }
@@ -637,7 +637,7 @@ function QuestionCard({
         onTouchMove={isCurrent ? onTouchMove : undefined}
         onTouchEnd={isCurrent ? onTouchEnd : undefined}
         onTouchCancel={isCurrent ? onTouchCancel : undefined}
-        className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-6 touch-pan-y will-change-transform ${
+        className={`bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm dark:shadow-slate-900/30 p-6 touch-pan-y will-change-transform ${
           isCurrent ? "" : "pointer-events-none"
         }`}
       >
@@ -654,10 +654,10 @@ function QuestionCard({
               {difficulty.label} · 正确率 {question.stats?.rate}%
             </span>
           )}
-          <span className="text-xs text-gray-400">{question.chapter}</span>
+          <span className="text-xs text-gray-400 dark:text-slate-500">{question.chapter}</span>
         </div>
 
-        <h2 className="text-lg font-medium text-gray-800 mb-6 leading-relaxed">
+        <h2 className="text-lg font-medium text-gray-800 dark:text-slate-100 mb-6 leading-relaxed">
           <RichText text={question.content} />
         </h2>
 
@@ -723,7 +723,7 @@ function QuestionCard({
               type="button"
               onClick={onSubmitCurrent}
               disabled={mode.submitDisabled}
-              className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-3 bg-primary-50 hover:bg-[#3366BA] hover:text-white dark:bg-slate-500 dark:text-slate-100 dark:hover:bg-[#3366BA] dark:hover:text-white text-primary-700 font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               提交答案
             </button>
@@ -732,39 +732,39 @@ function QuestionCard({
 
         {mode.kind === "result" && result && (
           <div
-            className={`rounded-xl p-4 mb-4 ${result.correct ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}
+            className={`rounded-xl p-4 mb-4 ${result.correct ? "bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800" : "bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800"}`}
           >
             <div className="flex items-center gap-2 mb-2">
               {result.correct ? (
                 <>
                   <CheckCircle2 className="w-5 h-5 text-green-500" />
-                  <span className="font-medium text-green-800">
+                  <span className="font-medium text-green-800 dark:text-green-200">
                     回答正确！
                   </span>
                 </>
               ) : (
                 <>
                   <XCircle className="w-5 h-5 text-red-500" />
-                  <span className="font-medium text-red-800">回答错误</span>
+                  <span className="font-medium text-red-800 dark:text-red-200">回答错误</span>
                 </>
               )}
             </div>
 
             {!result.correct && (
-              <div className="text-sm text-gray-700 mb-2">
+              <div className="text-sm text-gray-700 dark:text-slate-200 mb-2">
                 正确答案：
-                <span className="font-medium text-green-700">
+                <span className="font-medium text-green-700 dark:text-green-300">
                   {formatAnswer(result.correctAnswer, question.type)}
                 </span>
               </div>
             )}
 
             {result.analysis && (
-              <div className="mt-3 pt-3 border-t border-gray-200/50">
-                <div className="text-sm font-medium text-gray-700 mb-1">
+              <div className="mt-3 pt-3 border-t border-gray-200 dark:border-slate-700/50">
+                <div className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
                   解析
                 </div>
-                <div className="text-sm text-gray-600 leading-relaxed">
+                <div className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed">
                   <RichText text={result.analysis} />
                 </div>
               </div>
@@ -1332,13 +1332,13 @@ function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
           event.preventDefault();
         }
       }}
-      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white p-5 shadow-xl backdrop:bg-black/50"
+      className="w-[calc(100%-2rem)] max-w-lg rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-xl backdrop:bg-black/50"
       data-swipe-ignore="true"
     >
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 id="feedback-modal-title" className="text-lg font-semibold text-gray-800">反馈本题</h2>
-          <p className="mt-1 text-xs text-gray-500">
+          <h2 id="feedback-modal-title" className="text-lg font-semibold text-gray-800 dark:text-slate-100">反馈本题</h2>
+          <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 dark:text-slate-500">
             {controller.activeBankKey} · 第 {controller.feedbackQuestionIndex} 题 · {controller.activeQuestion.id}
           </p>
         </div>
@@ -1346,14 +1346,14 @@ function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
           type="button"
           onClick={controller.closeFeedbackModal}
           disabled={controller.feedbackSubmitting}
-          className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 disabled:opacity-50"
+          className="rounded-lg p-1.5 text-gray-500 dark:text-slate-400 dark:text-slate-500 transition-colors hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-50"
           aria-label="关闭反馈弹窗"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
 
-      <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-3 text-sm leading-relaxed text-gray-600">
+      <div className="mb-4 rounded-xl border border-gray-100 dark:border-slate-700 bg-gray-50 dark:bg-slate-700 p-3 text-sm leading-relaxed text-gray-600 dark:text-slate-300">
         <RichText text={controller.activeQuestion.content} />
       </div>
 
@@ -1367,11 +1367,11 @@ function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
           value={controller.feedbackSuggestion}
           onChange={(event) => controller.setFeedbackSuggestion(event.target.value)}
           placeholder="例如：正确答案应为 B；选项 C 有错别字；解析和答案不一致..."
-          className="w-full resize-y rounded-xl border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none transition-colors focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
+          className="w-full resize-y rounded-xl border border-gray-200 dark:border-slate-700 px-3 py-2 text-sm text-gray-700 dark:text-slate-200 outline-none transition-colors focus:border-primary-300 focus:ring-2 focus:ring-primary-100"
           maxLength={2000}
           disabled={controller.feedbackSubmitting}
         />
-        <div className="flex items-center justify-between text-xs text-gray-400">
+        <div className="flex items-center justify-between text-xs text-gray-400 dark:text-slate-500">
           <span>最多 2000 字，提交后不会离开当前刷题进度</span>
           <span>{controller.feedbackSuggestion.length}/2000</span>
         </div>
@@ -1384,14 +1384,14 @@ function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
             type="button"
             onClick={controller.closeFeedbackModal}
             disabled={controller.feedbackSubmitting}
-            className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 disabled:opacity-50"
+            className="flex-1 rounded-xl border border-gray-200 dark:border-slate-700 px-4 py-3 text-sm font-medium text-gray-600 dark:text-slate-300 transition-colors hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50"
           >
             继续刷题
           </button>
           <button
             type="submit"
             disabled={controller.feedbackSubmitting || !controller.feedbackSuggestion.trim()}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-50 dark:bg-slate-500 dark:text-slate-100 px-4 py-3 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             {controller.feedbackSubmitting ? "提交中..." : "提交反馈"}
@@ -1404,9 +1404,9 @@ function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
 
 function QuizProgressHeader({ controller }: { controller: QuizController }) {
   return (
-    <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-100 -mx-4 px-4 py-3 mb-6">
+    <div className="sticky top-0 z-10 bg-white dark:bg-slate-800/80 backdrop-blur-md border-b border-gray-100 dark:border-slate-700 -mx-4 px-4 py-3 mb-6">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500">
           <BookOpen className="w-4 h-4" />
           <span>
             题目 {controller.visualIndex + 1} / {controller.practice.questions.length}
@@ -1416,28 +1416,28 @@ function QuizProgressHeader({ controller }: { controller: QuizController }) {
           <button
             type="button"
             onClick={controller.openFeedbackModal}
-            className="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors"
+            className="p-1.5 rounded-lg text-gray-500 dark:text-slate-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
             aria-label="反馈本题"
           >
             <MessageCircle className="w-4 h-4" />
           </button>
-          <div className="flex items-center gap-1 text-sm text-gray-500">
+          <div className="flex items-center gap-1 text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500">
             <Timer className="w-4 h-4" />
             <span>{formatTime(controller.elapsedTime)}</span>
           </div>
           <button
             type="button"
             onClick={() => controller.toggleStar(controller.activeQuestion.id)}
-            className={`p-1.5 rounded-lg transition-colors ${controller.starred ? "text-yellow-500 bg-yellow-50" : "text-gray-400 hover:bg-gray-100"}`}
+            className={`p-1.5 rounded-lg transition-colors ${controller.starred ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" : "text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-700 dark:bg-slate-700"}`}
             aria-label={controller.starred ? "取消收藏本题" : "收藏本题"}
           >
             <Flag className={`w-4 h-4 ${controller.starred ? "fill-current" : ""}`} />
           </button>
         </div>
       </div>
-      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary-500 transition-all duration-[120ms]"
+          className="h-full bg-primary-50 dark:bg-primary-900/30 transition-all duration-[120ms]"
           style={{ width: `${controller.progress}%` }}
         />
       </div>
@@ -1508,13 +1508,13 @@ function QuizTrackCard({
 
 function QuizFooterControls({ controller }: { controller: QuizController }) {
   return (
-    <div className="pt-4 border-t border-gray-100">
+    <div className="pt-4 border-t border-gray-100 dark:border-slate-700">
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={controller.handlePrev}
           disabled={controller.isSliding || controller.practice.currentIndex === 0}
-          className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
+          className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
         >
           <ChevronLeft className="w-5 h-5" />
           上一题
@@ -1524,7 +1524,7 @@ function QuizFooterControls({ controller }: { controller: QuizController }) {
           type="button"
           onClick={controller.handleNext}
           disabled={controller.isSliding}
-          className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
+          className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-50 hover:bg-[#3366BA] hover:text-white dark:bg-slate-500 dark:text-slate-100 dark:hover:bg-[#3366BA] dark:hover:text-white text-primary-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
         >
           {controller.visualIndex === controller.practice.questions.length - 1
             ? "查看结果"

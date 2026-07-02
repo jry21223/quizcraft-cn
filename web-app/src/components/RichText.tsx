@@ -6,6 +6,8 @@ import {
   type RichSegment,
   type HighlightPart,
   type TextSegment,
+  type BoldSegment,
+  type ItalicSegment,
 } from "./codeSyntaxRenderer";
 
 type RichTextProps = {
@@ -71,6 +73,12 @@ function CodeParts({ parts }: { parts: HighlightPart[] }) {
 function RichTextSegment({ segment }: { segment: RichSegment }) {
   if (segment.kind === "text") {
     return <TextSegmentView segment={segment} />;
+  }
+  if (segment.kind === "bold") {
+    return <strong className="font-semibold text-gray-900 dark:text-slate-100">{(segment as BoldSegment).value}</strong>;
+  }
+  if (segment.kind === "italic") {
+    return <em className="italic text-gray-700 dark:text-slate-300">{(segment as ItalicSegment).value}</em>;
   }
 
   const highlighted = highlightCodeParts(segment.value, segment.language);

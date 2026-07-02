@@ -417,12 +417,12 @@ export default function FoodWheel() {
 function FoodWheelView({ controller }: { controller: FoodWheelController }) {
   return (
     <div className="max-w-3xl mx-auto animate-fade-in">
-      <h1 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-        <Dices className="w-6 h-6 text-primary-500" />
+      <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-6 flex items-center gap-2">
+        <Dices className="w-6 h-6 text-primary-500 dark:text-primary-400" />
         美食推荐转盘
       </h1>
 
-      <div className="card py-3 text-center text-sm text-gray-500">
+      <div className="card py-3 text-center text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500">
         {controller.loading ? '正在加载公共转盘...' : '默认仅显示上传到公共区的转盘，草稿编辑不会自动公开'}
       </div>
 
@@ -449,7 +449,7 @@ function WheelPanel({ controller }: { controller: FoodWheelController }) {
 
   return (
     <div className="card flex flex-col items-center py-6 mb-6">
-      <div className="text-sm text-gray-500 mb-3">当前编辑：{selectedOwner}</div>
+      <div className="text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500 mb-3">当前编辑：{selectedOwner}</div>
       <div className="relative">
         <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
           <div
@@ -467,7 +467,7 @@ function WheelPanel({ controller }: { controller: FoodWheelController }) {
           type="button"
           onClick={handleSpin}
           disabled={spinning || draftItems.length < 2}
-          className="absolute top-1/2 left-1/2 z-10 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary-500 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
+          className="absolute top-1/2 left-1/2 z-10 flex h-[72px] w-[72px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary-50 dark:bg-primary-900/300 text-sm font-bold text-white shadow-lg transition-all hover:bg-primary-600 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {spinning ? (
             <span className="animate-spin">
@@ -512,20 +512,20 @@ function FoodWheelResultDialog({ controller }: { controller: FoodWheelController
       aria-labelledby="food-wheel-result-title"
       onCancel={() => setUi({ result: null })}
       onClose={() => setUi({ result: null })}
-      className="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl backdrop:bg-black/50"
+      className="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white dark:bg-slate-800 p-6 text-center shadow-xl backdrop:bg-black/50"
     >
       {result !== null && (
         <>
           <button
             type="button"
             onClick={() => setUi({ result: null })}
-            className="float-right rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 transition-colors"
+            className="float-right rounded-lg p-1.5 text-gray-500 dark:text-slate-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
             aria-label="关闭"
           >
             <X className="h-5 w-5" />
           </button>
           <div className="text-5xl mb-4">🎉</div>
-          <h2 id="food-wheel-result-title" className="text-xl font-bold text-gray-800 mb-2">抽中了</h2>
+          <h2 id="food-wheel-result-title" className="text-xl font-bold text-gray-800 dark:text-slate-100 mb-2">抽中了</h2>
           <p
             className="text-3xl font-extrabold mb-6"
             style={{ color: COLORS[draftItems.indexOf(result) % COLORS.length] }}
@@ -553,15 +553,15 @@ function PublicWheelList({ controller }: { controller: FoodWheelController }) {
 
   return (
     <div className="card mb-6">
-      <h2 className="text-base font-semibold text-gray-800 mb-4 flex items-center gap-2">
-        <Globe className="w-4 h-4 text-primary-500" />
+      <h2 className="text-base font-semibold text-gray-800 dark:text-slate-100 mb-4 flex items-center gap-2">
+        <Globe className="w-4 h-4 text-primary-500 dark:text-primary-400" />
         公共转盘（已上传）
       </h2>
 
       {loadingPublic ? (
-        <p className="text-sm text-gray-500">加载公共转盘中...</p>
+        <p className="text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500">加载公共转盘中...</p>
       ) : publicWheels.length === 0 ? (
-        <p className="text-sm text-gray-500">当前还没有公开转盘</p>
+        <p className="text-sm text-gray-500 dark:text-slate-400 dark:text-slate-500">当前还没有公开转盘</p>
       ) : (
         <div className="space-y-3">
           {publicWheels.map((wheel) => (
@@ -587,13 +587,13 @@ function PublicWheelCard({
   const owner = getOwnerLabel(wheel);
 
   return (
-    <div className="rounded-xl border border-gray-100 bg-white p-3">
-      <div className="text-sm text-gray-700">
+    <div className="rounded-xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
+      <div className="text-sm text-gray-700 dark:text-slate-200">
         <div className="font-semibold">{owner.name}</div>
-        <div className="text-xs text-gray-500">ID: {wheel.id} · {owner.id}</div>
-        <div className="text-xs text-gray-500">更新时间：{formatTime(wheel.updated_at)}</div>
+        <div className="text-xs text-gray-500 dark:text-slate-400 dark:text-slate-500">ID: {wheel.id} · {owner.id}</div>
+        <div className="text-xs text-gray-500 dark:text-slate-400 dark:text-slate-500">更新时间：{formatTime(wheel.updated_at)}</div>
       </div>
-      <div className="text-xs text-gray-600 mt-2">
+      <div className="text-xs text-gray-600 dark:text-slate-300 mt-2">
         选项预览：{wheel.items.slice(0, 3).join('、')}
         {wheel.items.length > 3 ? '…' : ''}
         （共 {wheel.items.length} 个）
@@ -625,8 +625,8 @@ function DraftEditor({ controller }: { controller: FoodWheelController }) {
 
   return (
     <div className="card mb-6">
-      <h2 className="text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
-        <Plus className="w-4 h-4 text-primary-500" />
+      <h2 className="text-base font-semibold text-gray-800 dark:text-slate-100 mb-3 flex items-center gap-2">
+        <Plus className="w-4 h-4 text-primary-500 dark:text-primary-400" />
         草稿编辑（未上传不显示）
       </h2>
 
@@ -644,7 +644,7 @@ function DraftEditor({ controller }: { controller: FoodWheelController }) {
             setUi({ newItem: (e.target as HTMLInputElement).value });
           }}
           placeholder="输入菜名"
-          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          className="flex-1 px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
         />
         <button
           type="button"
@@ -659,13 +659,13 @@ function DraftEditor({ controller }: { controller: FoodWheelController }) {
         {draftItems.map((item, index) => (
           <li
             key={item}
-            className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+            className="flex items-center justify-between bg-gray-50 dark:bg-slate-700 rounded-lg px-3 py-2"
           >
-            <span className="text-sm text-gray-700">{item}</span>
+            <span className="text-sm text-gray-700 dark:text-slate-200">{item}</span>
             <button
               type="button"
               onClick={() => removeItem(index)}
-              className="text-gray-500 hover:text-red-500 transition-colors"
+              className="text-gray-500 dark:text-slate-400 dark:text-slate-500 hover:text-red-500 transition-colors"
             >
               删除
             </button>
