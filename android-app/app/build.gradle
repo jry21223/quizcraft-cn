@@ -16,8 +16,8 @@ android {
         applicationId "com.quizcraft.android"
         minSdk 24
         targetSdk 34
-        versionCode 17
-        versionName "2.2.7"
+        versionCode 23
+        versionName "2.3.4"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 

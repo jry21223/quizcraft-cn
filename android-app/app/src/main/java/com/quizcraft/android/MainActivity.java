@@ -11,6 +11,7 @@ import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.graphics.Bitmap;
 import android.graphics.drawable.ColorDrawable;
 import android.net.ConnectivityManager;
@@ -48,10 +49,11 @@ import java.net.URL;
 
 public class MainActivity extends AppCompatActivity {
 
+    private static final String TAG = "QuizCraft";
     private static final String TARGET_URL = "https://superhuazai.me/practice";
     private static final String USER_AGENT_SUFFIX = " QuizCraft-Android/1.0";
-    private static final int CURRENT_VERSION_CODE = 17;
-    private static final String CURRENT_VERSION_NAME = "2.2.7";
+    private static final int CURRENT_VERSION_CODE = 23;
+    private static final String CURRENT_VERSION_NAME = "2.3.4";
     private static final String VERSION_JSON_URL = "https://gitee.com/taylorchengitee/Android-exam-solving-assistant/raw/master/version.json";
     private static final String GITHUB_URL = "https://github.com/jry21223/quizcraft-cn";
     private static final String APK_FILE_NAME = "QuizCraft-update.apk";
@@ -82,9 +84,37 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
+    private boolean isDarkTheme = false;
+
     private class KeyboardBridge {
         @JavascriptInterface
         public boolean hasKeyboard() { return isKeyboardConnected(); }
+        @JavascriptInterface
+        public void setDarkMode(boolean dark) { runOnUiThread(() -> applyTheme(dark)); }
+    }
+
+    private void applyTheme(boolean dark) {
+        isDarkTheme = dark;
+        Window w = getWindow();
+        if (dark) {
+            w.setStatusBarColor(0xFF0F172A);
+            w.getDecorView().setSystemUiVisibility(
+                w.getDecorView().getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            w.setNavigationBarColor(0xFF0F172A);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                w.getDecorView().setSystemUiVisibility(
+                    w.getDecorView().getSystemUiVisibility() & ~View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            }
+        } else {
+            w.setStatusBarColor(getColor(R.color.white));
+            w.getDecorView().setSystemUiVisibility(
+                w.getDecorView().getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+            w.setNavigationBarColor(getColor(R.color.white));
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                w.getDecorView().setSystemUiVisibility(
+                    w.getDecorView().getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -160,7 +190,19 @@ public class MainActivity extends AppCompatActivity {
             w.setLayout((int)(m.widthPixels*0.85), WindowManager.LayoutParams.WRAP_CONTENT);
             w.setWindowAnimations(android.R.style.Animation_Dialog);
         }
+        // Apply theme colors
+        View card = d.findViewById(R.id.dialog_root);
+        if (card != null) {
+            card.setBackgroundColor(isDarkTheme ? 0xFF1E293B : 0xFFFFFFFF);
+        }
+        int textColor = isDarkTheme ? 0xFFF1F5F9 : 0xFF1F2937;
+        int mutedColor = isDarkTheme ? 0xFF94A3B8 : 0xFF6B7280;
+        ((TextView)d.findViewById(R.id.dialog_title)).setTextColor(textColor);
+        ((TextView)d.findViewById(R.id.dialog_message)).setTextColor(textColor);
         ((TextView)d.findViewById(R.id.version_text)).setText("当前版本：v"+CURRENT_VERSION_NAME);
+        ((TextView)d.findViewById(R.id.version_text)).setTextColor(mutedColor);
+        ((TextView)d.findViewById(R.id.view_changelog)).setTextColor(mutedColor);
+        ((TextView)d.findViewById(R.id.qq_copy_hint)).setTextColor(mutedColor);
         d.findViewById(R.id.view_changelog).setOnClickListener(v->{d.dismiss();viewChangelog();});
         d.findViewById(R.id.check_update).setOnClickListener(v->{d.dismiss();checkForUpdate(true);});
         final String qq="1031855485";
@@ -197,7 +239,11 @@ public class MainActivity extends AppCompatActivity {
                 URL u=new URL(VERSION_JSON_URL);
                 HttpURLConnection c=(HttpURLConnection)u.openConnection();
                 c.setRequestMethod("GET");c.setConnectTimeout(8000);c.setReadTimeout(8000);
-                if(c.getResponseCode()!=200){if(showUpToDate)runOnUiThread(()->Toast.makeText(this,"检查更新失败",Toast.LENGTH_SHORT).show());return;}
+                c.setUseCaches(false);
+                c.setRequestProperty("User-Agent","QuizCraft-Android/"+CURRENT_VERSION_NAME);
+                if(c.getResponseCode()!=200){
+                    Log.e(TAG,"Update check HTTP "+c.getResponseCode());
+                    if(showUpToDate)runOnUiThread(()->Toast.makeText(this,"检查更新失败",Toast.LENGTH_SHORT).show());return;}
                 BufferedReader r=new BufferedReader(new InputStreamReader(c.getInputStream()));
                 StringBuilder sb=new StringBuilder();String l;while((l=r.readLine())!=null)sb.append(l);r.close();c.disconnect();
                 JSONObject j=new JSONObject(sb.toString());
@@ -207,12 +253,12 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(()->showUpdateDialog(latest,dl,m));
                 }
                 else if(showUpToDate)runOnUiThread(()->Toast.makeText(this,"已是最新 v"+CURRENT_VERSION_NAME,Toast.LENGTH_SHORT).show());
-            }catch(Exception e){if(showUpToDate)runOnUiThread(()->Toast.makeText(this,"检查更新失败",Toast.LENGTH_SHORT).show());}
+            }catch(Exception e){Log.e(TAG,"Update check failed",e);if(showUpToDate)runOnUiThread(()->Toast.makeText(this,"检查更新失败",Toast.LENGTH_SHORT).show());}
         }).start();
     }
 
     private boolean isNewer(String rv){String[] ra=rv.split("\\."),ca=CURRENT_VERSION_NAME.split("\\.");int len=Math.max(ra.length,ca.length);for(int i=0;i<len;i++){int r=i<ra.length?parseIntSafe(ra[i]):0,c=i<ca.length?parseIntSafe(ca[i]):0;if(r!=c)return r>c;}return false;}
-    private int parseIntSafe(String s){try{return Integer.parseInt(s);}catch(Exception e){return 0;}}
+    private int parseIntSafe(String s){try{return Integer.parseInt(s.replaceAll("[^0-9].*$",""));}catch(Exception e){return 0;}}
     private String formatSize(long b){if(b<1024)return b+"B";if(b<1048576)return(b/1024)+"KB";return String.format("%.1fMB",b/1048576.0);}
 
     // ─── MD 弹窗（统一风格：蓝顶条 + 白卡片，和退出弹窗一致）───
@@ -266,17 +312,16 @@ public class MainActivity extends AppCompatActivity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        // 圆角白色背景
         android.graphics.drawable.GradientDrawable rootBg = new android.graphics.drawable.GradientDrawable();
         rootBg.setCornerRadius(_dp(16));
-        rootBg.setColor(0xFFFFFFFF);
+        rootBg.setColor(isDarkTheme ? 0xFF1E293B : 0xFFFFFFFF);
         root.setBackground(rootBg);
         root.setClipToOutline(true);
 
         // 蓝色标题栏
         LinearLayout header = new LinearLayout(this);
         header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setBackgroundColor(0xFF3B82F6);
+        header.setBackgroundColor(isDarkTheme ? 0xFF1E3A5F : 0xFF3B82F6);
         header.setGravity(android.view.Gravity.CENTER_VERTICAL);
         header.setPadding(_dp(20), _dp(15), _dp(20), _dp(15));
         TextView tv = new TextView(this);
@@ -293,7 +338,24 @@ public class MainActivity extends AppCompatActivity {
         wv.getSettings().setJavaScriptEnabled(false);
         wv.setBackgroundColor(0x00000000);
         wv.setLayerType(View.LAYER_TYPE_NONE, null);
-        String css = "body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;"
+        String css;
+        if (isDarkTheme) {
+            css = "body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;"
+                + "font-size:14px;color:#E2E8F0;margin:0;padding:0;line-height:1.9;background:#1E293B}"
+                + "h1{font-size:16px;margin:12px 0 6px;color:#60A5FA;font-weight:700}"
+                + "h2{font-size:16px;margin:16px 0 10px;color:#F1F5F9;font-weight:700;"
+                + "padding-left:10px;border-left:3px solid #60A5FA}"
+                + "h3{font-size:14px;margin:12px 0 4px;color:#F1F5F9;font-weight:600}"
+                + "b{color:#F1F5F9;font-weight:600}"
+                + "code{background:#1E3A5F;padding:2px 7px;border-radius:4px;"
+                + "font-size:12px;color:#93C5FD;font-weight:500;white-space:nowrap}"
+                + "ul{padding-left:18px;margin:6px 0}"
+                + "li{margin:4px 0;color:#94A3B8;line-height:1.8}"
+                + "p{margin:5px 0;color:#94A3B8}"
+                + "hr{border:none;border-top:1px solid #334155;margin:14px 0}"
+                + "br{display:block;content:'';margin-top:4px}";
+        } else {
+            css = "body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;"
                 + "font-size:14px;color:#374151;margin:0;padding:0;line-height:1.9}"
                 + "h1{font-size:16px;margin:12px 0 6px;color:#3B82F6;font-weight:700}"
                 + "h2{font-size:16px;margin:16px 0 10px;color:#1F2937;font-weight:700;"
@@ -307,6 +369,7 @@ public class MainActivity extends AppCompatActivity {
                 + "p{margin:5px 0;color:#4B5563}"
                 + "hr{border:none;border-top:1px solid #E5E7EB;margin:14px 0}"
                 + "br{display:block;content:'';margin-top:4px}";
+        }
         String html = "<!DOCTYPE html><html><head><meta charset=\"UTF-8\">"
                 + "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1.0\">"
                 + "<style>" + css + "</style></head><body>" + _md(md) + "</body></html>";
@@ -322,8 +385,9 @@ public class MainActivity extends AppCompatActivity {
             btns.setOrientation(LinearLayout.HORIZONTAL);
             btns.setPadding(_dp(24), _dp(4), _dp(24), _dp(18));
             for (int i = 0; i < labels.length; i++) {
-                String bg = i == 0 ? "#3B82F6" : "#F3F4F6";
-                String fg = i == 0 ? "#FFFFFF" : "#374151";
+                String bg, fg;
+                if (i == 0) { bg = isDarkTheme ? "#2563EB" : "#3B82F6"; fg = "#FFFFFF"; }
+                else { bg = isDarkTheme ? "#334155" : "#F3F4F6"; fg = isDarkTheme ? "#E2E8F0" : "#374151"; }
                 TextView b = _btn(labels[i], bg, fg);
                 final int idx = i;
                 b.setOnClickListener(v2 -> { d.dismiss(); if (actions != null && actions[idx] != null) actions[idx].run(); });
@@ -360,7 +424,10 @@ public class MainActivity extends AppCompatActivity {
                 URL url = new URL(VERSION_JSON_URL);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET"); conn.setConnectTimeout(8000); conn.setReadTimeout(8000);
+                conn.setUseCaches(false);
+                conn.setRequestProperty("User-Agent","QuizCraft-Android/"+CURRENT_VERSION_NAME);
                 if (conn.getResponseCode() != 200) {
+                    Log.e(TAG,"Changelog HTTP "+conn.getResponseCode());
                     runOnUiThread(() -> Toast.makeText(this, "获取失败", Toast.LENGTH_SHORT).show());
                     return;
                 }
@@ -389,7 +456,7 @@ public class MainActivity extends AppCompatActivity {
         new Thread(() -> {
             try {
                 URL u = new URL(apkUrl); HttpURLConnection c = (HttpURLConnection) u.openConnection();
-                c.setConnectTimeout(15000); c.setReadTimeout(15000); c.setInstanceFollowRedirects(true); c.connect();
+                c.setConnectTimeout(15000); c.setReadTimeout(60000); c.setInstanceFollowRedirects(true); c.connect();
                 int total = c.getContentLength();
                 java.io.InputStream in = c.getInputStream();
                 java.io.File dir = new java.io.File(getExternalFilesDir(null), "downloads"); dir.mkdirs();
@@ -464,43 +531,55 @@ public class MainActivity extends AppCompatActivity {
             "_gBar.innerHTML='<div style=\"max-width:600px;margin:0 auto\">'+items+'</div><div style=\"color:rgba(255,255,255,0.3);font-size:11px;margin-top:6px\">松开 G 取消 · 按住 G 同时再按上方字母跳转</div>';\n" +
             "document.body.appendChild(_gBar);}\n" +
             "function hideGBar(){if(_gBar){_gBar.remove();_gBar=null;}}\n" +
+            // 暗色检测
+            "function _isDark(){return document.documentElement.classList.contains('dark');}\n" +
             // H 帮助面板
             "var hp=false;\n" +
             "function showHelp(){if(hp){var e=document.getElementById('__kH');if(e)e.remove();hp=false;return}\n" +
+            "var dk=_isDark();\n" +
+            "var cardBg=dk?'#1E293B':'#fff';\n" +
+            "var titleClr=dk?'#F1F5F9':'#1e293b';\n" +
+            "var labelClr=dk?'#94A3B8':'#94a3b8';\n" +
+            "var textClr=dk?'#CBD5E1':'#64748b';\n" +
+            "var tagBg=dk?'#1E3A5F':'#eff6ff';\n" +
+            "var tagClr=dk?'#93C5FD':'#3B82F6';\n" +
+            "var btnBg=dk?'#2563EB':'#3B82F6';\n" +
+            "var hintClr=dk?'#64748B':'#cbd5e1';\n" +
+            "var shadow=dk?'0 12px 48px rgba(0,0,0,0.5)':'0 12px 48px rgba(0,0,0,0.2)';\n" +
             "var d=document.createElement('div');d.id='__kH';d.innerHTML=\n" +
-            "'<div style=\"position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.35);z-index:99998\" onclick=\"this.parentElement.remove();hp=false\"></div>'\n" +
-            "+'<div style=\"position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:#fff;border-radius:16px;padding:24px 28px;max-width:360px;width:90vw;box-shadow:0 12px 48px rgba(0,0,0,0.2);font-size:13px;line-height:2\">'\n" +
-            "+'<h2 style=\"margin:0 0 16px;font-size:17px;font-weight:700;color:#1e293b\">键盘快捷键</h2>'\n" +
-            "+'<div style=\"color:#94a3b8;font-size:11px;font-weight:600;margin-bottom:4px\">导航</div>'\n" +
+            "'<div style=\"position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99998\" onclick=\"this.parentElement.remove();hp=false\"></div>'\n" +
+            "+'<div style=\"position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:99999;background:'+cardBg+';border-radius:16px;padding:24px 28px;max-width:360px;width:90vw;box-shadow:'+shadow+';font-size:13px;line-height:2\">'\n" +
+            "+'<h2 style=\"margin:0 0 16px;font-size:17px;font-weight:700;color:'+titleClr+'\">键盘快捷键</h2>'\n" +
+            "+'<div style=\"color:'+labelClr+';font-size:11px;font-weight:600;margin-bottom:4px\">导航</div>'\n" +
             "+'<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px\">'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + H</span><span style=\"color:#64748b;font-size:12px;line-height:2\">首页</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + P</span><span style=\"color:#64748b;font-size:12px;line-height:2\">刷题</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + R</span><span style=\"color:#64748b;font-size:12px;line-height:2\">排行</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + E</span><span style=\"color:#64748b;font-size:12px;line-height:2\">工坊</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + W</span><span style=\"color:#64748b;font-size:12px;line-height:2\">转盘</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + B</span><span style=\"color:#64748b;font-size:12px;line-height:2\">反馈</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + H</span><span style=\"color:'+textClr+';font-size:12px;line-height:2\">首页</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + P</span><span style=\"color:'+textClr+';font-size:12px;line-height:2\">刷题</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + R</span><span style=\"color:'+textClr+';font-size:12px;line-height:2\">排行</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + E</span><span style=\"color:'+textClr+';font-size:12px;line-height:2\">工坊</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + W</span><span style=\"color:'+textClr+';font-size:12px;line-height:2\">转盘</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">G + B</span><span style=\"color:'+textClr+';font-size:12px;line-height:2\">反馈</span>'\n" +
             "+'</div>'\n" +
-            "+'<div style=\"color:#94a3b8;font-size:11px;font-weight:600;margin-bottom:4px\">刷题</div>'\n" +
+            "+'<div style=\"color:'+labelClr+';font-size:11px;font-weight:600;margin-bottom:4px\">刷题</div>'\n" +
             "+'<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center\">'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">1-4</span><span style=\"color:#64748b;font-size:12px\">选 ABCD</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Space</span><span style=\"color:#64748b;font-size:12px\">提交/下一题</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Q E</span><span style=\"color:#64748b;font-size:12px\">上下题</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">F</span><span style=\"color:#64748b;font-size:12px\">反馈</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">1-4</span><span style=\"color:'+textClr+';font-size:12px\">选 ABCD</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Space</span><span style=\"color:'+textClr+';font-size:12px\">提交/下一题</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Q E</span><span style=\"color:'+textClr+';font-size:12px\">上下题</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">F</span><span style=\"color:'+textClr+';font-size:12px\">反馈</span>'\n" +
             "+'</div>'\n" +
-            "+'<div style=\"color:#94a3b8;font-size:11px;font-weight:600;margin-bottom:4px\">设置</div>'\n" +
+            "+'<div style=\"color:'+labelClr+';font-size:11px;font-weight:600;margin-bottom:4px\">设置</div>'\n" +
             "+'<div style=\"display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;align-items:center\">'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">B</span><span style=\"color:#64748b;font-size:12px\">选择题库</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">1-3</span><span style=\"color:#64748b;font-size:12px\">选模式</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Enter</span><span style=\"color:#64748b;font-size:12px\">开始</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">B</span><span style=\"color:'+textClr+';font-size:12px\">选择题库</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">1-3</span><span style=\"color:'+textClr+';font-size:12px\">选模式</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Enter</span><span style=\"color:'+textClr+';font-size:12px\">开始</span>'\n" +
             "+'</div>'\n" +
-            "+'<div style=\"color:#94a3b8;font-size:11px;font-weight:600;margin-bottom:4px\">其他</div>'\n" +
+            "+'<div style=\"color:'+labelClr+';font-size:11px;font-weight:600;margin-bottom:4px\">其他</div>'\n" +
             "+'<div style=\"display:flex;flex-wrap:wrap;gap:6px;align-items:center\">'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Esc</span><span style=\"color:#64748b;font-size:12px\">返回</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">H</span><span style=\"color:#64748b;font-size:12px\">帮助</span>'\n" +
-            "+'<span style=\"background:#eff6ff;color:#3B82F6;padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Enter</span><span style=\"color:#64748b;font-size:12px\">再练/大转盘空格</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Esc</span><span style=\"color:'+textClr+';font-size:12px\">返回</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">H</span><span style=\"color:'+textClr+';font-size:12px\">帮助</span>'\n" +
+            "+'<span style=\"background:'+tagBg+';color:'+tagClr+';padding:3px 10px;border-radius:6px;font-size:12px;font-weight:600\">Enter</span><span style=\"color:'+textClr+';font-size:12px\">再练/大转盘空格</span>'\n" +
             "+'</div>'\n" +
-            "+'<p style=\"margin:14px 0 0;font-size:11px;color:#cbd5e1\">输入框聚焦时暂停 · 按住 G 显示导航</p>'\n" +
-            "+'<button onclick=\"this.parentElement.parentElement.remove();hp=false\" style=\"margin-top:10px;width:100%;padding:8px;background:#3B82F6;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer\">关闭</button>'\n" +
+            "+'<p style=\"margin:14px 0 0;font-size:11px;color:'+hintClr+'\">输入框聚焦时暂停 · 按住 G 显示导航</p>'\n" +
+            "+'<button onclick=\"this.parentElement.parentElement.remove();hp=false\" style=\"margin-top:10px;width:100%;padding:8px;background:'+btnBg+';color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer\">关闭</button>'\n" +
             "+'</div>';document.body.appendChild(d);hp=true;}\n" +
             // 浮动按钮
             "function initFB(){if(document.getElementById('__kF'))return;\n" +
