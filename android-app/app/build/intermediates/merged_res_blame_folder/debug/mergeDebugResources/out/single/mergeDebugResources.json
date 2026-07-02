@@ -1,0 +1,86 @@
+[
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable-night_bg_dialog_card.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable-night\\bg_dialog_card.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\mipmap-anydpi-v26\\ic_launcher.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_ic_launcher_background.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.quizcraft.android.app-debug-21:/drawable-night_bg_dialog_card.xml.flat",
+        "source": "com.quizcraft.android.app-main-23:/drawable-night/bg_dialog_card.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_ic_copy.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\ic_copy.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_dialog_button_exit_press.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_dialog_button_exit_press.xml"
+    },
+    {
+        "merged": "com.quizcraft.android.app-debug-21:/drawable-night_bg_dialog_button_stay_press.xml.flat",
+        "source": "com.quizcraft.android.app-main-23:/drawable-night/bg_dialog_button_stay_press.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_pill_outline.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_pill_outline.xml"
+    },
+    {
+        "merged": "com.quizcraft.android.app-debug-21:/layout_dialog_exit.xml.flat",
+        "source": "com.quizcraft.android.app-main-23:/layout/dialog_exit.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\layout_dialog_exit.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\layout\\dialog_exit.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable-night_bg_dialog_button_stay_press.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable-night\\bg_dialog_button_stay_press.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_qq_highlight.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_qq_highlight.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\mipmap-anydpi-v26\\ic_launcher_round.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_dialog_topbar.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_dialog_topbar.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_dialog_button_stay_press.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_dialog_button_stay_press.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_ic_dialog_icon.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\ic_dialog_icon.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\layout_activity_main.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\layout\\activity_main.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_pill_primary.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_pill_primary.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\xml_file_paths.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\xml\\file_paths.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_bg_dialog_card.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\bg_dialog_card.xml"
+    },
+    {
+        "merged": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-debug-21:\\drawable_ic_launcher_foreground.xml.flat",
+        "source": "C:\\Users\\HONOR\\.gradle\\daemon\\9.0.0\\com.quizcraft.android.app-main-23:\\drawable\\ic_launcher_foreground.xml"
+    }
+]

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#FBBF24</color>
+    <color name="accent_light">#3D2E00</color>
+    <color name="bg_gradient_end">#0F172A</color>
+    <color name="bg_gradient_start">#0F172A</color>
+    <color name="black">#000000</color>
+    <color name="border_light">#334155</color>
+    <color name="card_bg">#1E293B</color>
+    <color name="dark_bg">#0F172A</color>
+    <color name="divider">#1E293B</color>
+    <color name="primary">#3B82F6</color>
+    <color name="primary_dark">#60A5FA</color>
+    <color name="primary_light">#1E3A5F</color>
+    <color name="primary_surface">#0F172A</color>
+    <color name="qq_highlight">#F472B6</color>
+    <color name="text_muted">#64748B</color>
+    <color name="text_primary">#F1F5F9</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="white">#FFFFFF</color>
+    <style name="Theme.QuizCraft" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/primary</item>
+        <item name="android:statusBarColor">@color/dark_bg</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">@color/dark_bg</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@color/dark_bg</item>
+        <item name="android:windowSplashScreenBackground">@color/primary</item>
+    </style>
+</resources>

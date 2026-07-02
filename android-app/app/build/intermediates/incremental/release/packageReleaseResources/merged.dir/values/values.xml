@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#F59E0B</color>
+    <color name="accent_light">#FEF3C7</color>
+    <color name="bg_gradient_end">#F9FAFB</color>
+    <color name="bg_gradient_start">#EFF6FF</color>
+    <color name="black">#000000</color>
+    <color name="border_light">#E5E7EB</color>
+    <color name="card_bg">#FFFFFF</color>
+    <color name="divider">#F3F4F6</color>
+    <color name="primary">#3B82F6</color>
+    <color name="primary_dark">#2563EB</color>
+    <color name="primary_light">#DBEAFE</color>
+    <color name="primary_surface">#EFF6FF</color>
+    <color name="qq_highlight">#EC4899</color>
+    <color name="text_muted">#9CA3AF</color>
+    <color name="text_primary">#1F2937</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="white">#FFFFFF</color>
+    <string name="app_name">刷题助手</string>
+    <string name="dialog_exit">退出程序</string>
+    <string name="dialog_message">祝各位考试顺利！\n\n刷题遇到错题、页面异常可加QQ群\n网站维护、域名变更通知都会在群内同步\n页面底部可查看群二维码</string>
+    <string name="dialog_stay">留在APP</string>
+    <string name="dialog_title">刷题助手</string>
+    <string name="toast_loading">祝大家考试顺利</string>
+    <style name="Theme.QuizCraft" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryDark">@color/primary_dark</item>
+        <item name="colorAccent">@color/primary</item>
+        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowBackground">@color/bg_gradient_start</item>
+
+        
+        <item name="android:windowSplashScreenBackground">@color/primary</item>
+    </style>
+</resources>

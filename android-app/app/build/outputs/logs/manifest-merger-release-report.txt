@@ -1,0 +1,239 @@
+-- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:32:9-40:20
+	android:grantUriPermissions
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:36:13-47
+	android:authorities
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:34:13-64
+	android:exported
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:35:13-37
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:33:13-62
+manifest
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:2:1-44:12
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:2:1-44:12
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:2:1-44:12
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:2:1-44:12
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\0ec6936df3cb51c60b0def8606f46b9e\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.appcompat:appcompat:1.6.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\f8aa23df41259229d056e827441c75a4\transformed\appcompat-1.6.1\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\3d8648eb37817a104183a09c07cafd18\transformed\swiperefreshlayout-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\290939f3059c20a3ef9c6c1d3456b9d3\transformed\fragment-1.3.6\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.activity:activity:1.6.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\587865dc52a8858b36c8609c3b6419eb\transformed\activity-1.6.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\813f469e4af2f4dcec4bfad12a92ea9d\transformed\drawerlayout-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\226b402692a98b05fab6f56d918d1f24\transformed\emoji2-views-helper-1.2.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\df09a0d51836f8b763f4ab832919c2e6\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\e0ce96de2fe9796a30f78555e17388b6\transformed\vectordrawable-1.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\b50de67b145028490cf666aa5e27b35d\transformed\loader-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\d70dd72d3ae4098dc729fb22d8c37551\transformed\lifecycle-viewmodel-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\0451584147f3905724af6da7b3a0bc36\transformed\lifecycle-viewmodel-savedstate-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.core:core-ktx:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c2ff6c856455a934a94ff147df11ceed\transformed\core-ktx-1.9.0\AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\e4af80cadca823b079881e352d688ccf\transformed\viewpager-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\5a23485f1dce4c86c14e2d3484ee9add\transformed\customview-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:17:1-30:12
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\6339d05449f7c3efdeea8cabf70a9c83\transformed\cursoradapter-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:17:1-37:12
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\44f64b3d4003b9ba5193f826b9bae1c6\transformed\lifecycle-runtime-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.savedstate:savedstate:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\1fae0019a89846979612d3b365e205ac\transformed\savedstate-1.2.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\81dc538562702fabc64b9654f850efe0\transformed\interpolator-1.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:17:1-33:12
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\d09699bdd503394cd16e8ae6b2f85b1a\transformed\tracing-1.0.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\9a1e0be687b0c123cc7e766ccacca9f2\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:17:1-27:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\8a5212fdcd64865a5437d2d06f6178b2\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\1e354a96f10fad1b0154c6e881729e09\transformed\lifecycle-livedata-core-2.5.1\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.arch.core:core-runtime:2.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\16d5053ef8ea46b1c328e15ecbb247e6\transformed\core-runtime-2.1.0\AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\619daca9ce298be767c6930f7ae8f5ee\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:17:1-22:12
+	package
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+	android:versionName
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+	xmlns:tools
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:3:5-51
+	android:versionCode
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+	xmlns:android
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:6:5-67
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:6:22-64
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:7:5-79
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:7:22-76
+uses-permission#android.permission.REQUEST_INSTALL_PACKAGES
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:9:5-83
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:9:22-80
+application
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:11:5-42:19
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:11:5-42:19
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:28:5-89
+MERGED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:28:5-89
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:25:5-35:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:25:5-35:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:25:5-31:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\9a1e0be687b0c123cc7e766ccacca9f2\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\9a1e0be687b0c123cc7e766ccacca9f2\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:24:5-25:19
+	android:extractNativeLibs
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:28:18-86
+	android:supportsRtl
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:16:9-35
+	android:label
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:14:9-41
+	android:roundIcon
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:15:9-54
+	tools:targetApi
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:19:9-29
+	android:icon
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:13:9-43
+	android:allowBackup
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:12:9-35
+	android:theme
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:17:9-47
+	android:usesCleartextTraffic
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:18:9-44
+activity#com.quizcraft.android.MainActivity
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:21:9-30:20
+	android:windowSoftInputMode
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:25:13-55
+	android:exported
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:23:13-36
+	android:configChanges
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:24:13-74
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:22:13-41
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:26:13-29:29
+action#android.intent.action.MAIN
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:27:17-69
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:27:25-66
+category#android.intent.category.LAUNCHER
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:28:17-77
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:28:27-74
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:37:13-39:54
+	android:resource
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:39:17-51
+	android:name
+		ADDED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml:38:17-67
+uses-sdk
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\0ec6936df3cb51c60b0def8606f46b9e\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.6.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\0ec6936df3cb51c60b0def8606f46b9e\transformed\appcompat-resources-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.6.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\f8aa23df41259229d056e827441c75a4\transformed\appcompat-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.appcompat:appcompat:1.6.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\f8aa23df41259229d056e827441c75a4\transformed\appcompat-1.6.1\AndroidManifest.xml:20:5-44
+MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\3d8648eb37817a104183a09c07cafd18\transformed\swiperefreshlayout-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.swiperefreshlayout:swiperefreshlayout:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\3d8648eb37817a104183a09c07cafd18\transformed\swiperefreshlayout-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\290939f3059c20a3ef9c6c1d3456b9d3\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.fragment:fragment:1.3.6] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\290939f3059c20a3ef9c6c1d3456b9d3\transformed\fragment-1.3.6\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.activity:activity:1.6.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\587865dc52a8858b36c8609c3b6419eb\transformed\activity-1.6.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.6.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\587865dc52a8858b36c8609c3b6419eb\transformed\activity-1.6.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\813f469e4af2f4dcec4bfad12a92ea9d\transformed\drawerlayout-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\813f469e4af2f4dcec4bfad12a92ea9d\transformed\drawerlayout-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\226b402692a98b05fab6f56d918d1f24\transformed\emoji2-views-helper-1.2.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\226b402692a98b05fab6f56d918d1f24\transformed\emoji2-views-helper-1.2.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:21:5-44
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\df09a0d51836f8b763f4ab832919c2e6\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\df09a0d51836f8b763f4ab832919c2e6\transformed\vectordrawable-animated-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\e0ce96de2fe9796a30f78555e17388b6\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\e0ce96de2fe9796a30f78555e17388b6\transformed\vectordrawable-1.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\b50de67b145028490cf666aa5e27b35d\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\b50de67b145028490cf666aa5e27b35d\transformed\loader-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\d70dd72d3ae4098dc729fb22d8c37551\transformed\lifecycle-viewmodel-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\d70dd72d3ae4098dc729fb22d8c37551\transformed\lifecycle-viewmodel-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\0451584147f3905724af6da7b3a0bc36\transformed\lifecycle-viewmodel-savedstate-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\0451584147f3905724af6da7b3a0bc36\transformed\lifecycle-viewmodel-savedstate-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.core:core-ktx:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c2ff6c856455a934a94ff147df11ceed\transformed\core-ktx-1.9.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-ktx:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c2ff6c856455a934a94ff147df11ceed\transformed\core-ktx-1.9.0\AndroidManifest.xml:5:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\e4af80cadca823b079881e352d688ccf\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\e4af80cadca823b079881e352d688ccf\transformed\viewpager-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\5a23485f1dce4c86c14e2d3484ee9add\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\5a23485f1dce4c86c14e2d3484ee9add\transformed\customview-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\6339d05449f7c3efdeea8cabf70a9c83\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\6339d05449f7c3efdeea8cabf70a9c83\transformed\cursoradapter-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\44f64b3d4003b9ba5193f826b9bae1c6\transformed\lifecycle-runtime-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-runtime:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\44f64b3d4003b9ba5193f826b9bae1c6\transformed\lifecycle-runtime-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\1fae0019a89846979612d3b365e205ac\transformed\savedstate-1.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.savedstate:savedstate:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\1fae0019a89846979612d3b365e205ac\transformed\savedstate-1.2.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\81dc538562702fabc64b9654f850efe0\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\81dc538562702fabc64b9654f850efe0\transformed\interpolator-1.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:21:5-23:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\d09699bdd503394cd16e8ae6b2f85b1a\transformed\tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.tracing:tracing:1.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\d09699bdd503394cd16e8ae6b2f85b1a\transformed\tracing-1.0.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\9a1e0be687b0c123cc7e766ccacca9f2\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\9a1e0be687b0c123cc7e766ccacca9f2\transformed\versionedparcelable-1.1.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\8a5212fdcd64865a5437d2d06f6178b2\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.0.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\8a5212fdcd64865a5437d2d06f6178b2\transformed\lifecycle-livedata-2.0.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\1e354a96f10fad1b0154c6e881729e09\transformed\lifecycle-livedata-core-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.5.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\1e354a96f10fad1b0154c6e881729e09\transformed\lifecycle-livedata-core-2.5.1\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\16d5053ef8ea46b1c328e15ecbb247e6\transformed\core-runtime-2.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.arch.core:core-runtime:2.1.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\16d5053ef8ea46b1c328e15ecbb247e6\transformed\core-runtime-2.1.0\AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\619daca9ce298be767c6930f7ae8f5ee\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.3.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\619daca9ce298be767c6930f7ae8f5ee\transformed\annotation-experimental-1.3.0\AndroidManifest.xml:20:5-44
+	android:targetSdkVersion
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Users\HONOR\Desktop\JavaWeb题目制作\android-app\app\src\main\AndroidManifest.xml
+provider#androidx.startup.InitializationProvider
+ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:26:9-34:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:26:9-34:20
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:26:9-30:34
+MERGED from [androidx.startup:startup-runtime:1.1.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\cee518524b349755a411ff0b3d958da4\transformed\startup-runtime-1.1.1\AndroidManifest.xml:26:9-30:34
+	tools:node
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:28:13-31
+	android:authorities
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:26:13-68
+	android:exported
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:27:13-37
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:25:13-67
+meta-data#androidx.emoji2.text.EmojiCompatInitializer
+ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.2.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\46e171706c757ac1e349251b3e97f08e\transformed\emoji2-1.2.0\AndroidManifest.xml:30:17-75
+permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+permission#com.quizcraft.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:23:9-81
+uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+uses-permission#com.quizcraft.android.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.9.0] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\c8f37b359cd35456593a3044eefc20dc\transformed\core-1.9.0\AndroidManifest.xml:26:22-94
+meta-data#androidx.lifecycle.ProcessLifecycleInitializer
+ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:31:13-33:52
+	android:value
+		ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:33:17-49
+	android:name
+		ADDED from [androidx.lifecycle:lifecycle-process:2.4.1] C:\Users\HONOR\.gradle\caches\9.0.0\transforms\35034b7228b28be456c6bd658b554b82\transformed\lifecycle-process-2.4.1\AndroidManifest.xml:32:17-78
