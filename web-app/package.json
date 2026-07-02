@@ -11,7 +11,7 @@
     "preview": "vite preview",
     "preview:ops": "vite preview --mode ops",
     "lint": "eslint . --ext ts,tsx",
-    "test:syntax": "node scripts/check-code-syntax-scope.mjs && node scripts/check-quiz-auto-advance.mjs"
+    "test:syntax": "node scripts/check-code-syntax-scope.mjs && node scripts/check-quiz-auto-advance.mjs && node scripts/check-option-layout.mjs"
   },
   "dependencies": {
     "axios": "^1.18.1",
@@ -34,6 +34,7 @@
     "eslint": "^8.55.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "playwright": "^1.61.1",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
     "typescript": "^5.2.2",

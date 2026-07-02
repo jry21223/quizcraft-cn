@@ -1,7 +1,7 @@
 {
   "meta": {
     "name": "毛概2026夏讲义RAG索引",
-    "source_file": "/Users/jerry/Downloads/毛概/毛概2026年夏最新教材重点.pdf",
+    "source_file": "毛概2026年夏最新教材重点.pdf",
     "chunk_count": 29
   },
   "chunks": [

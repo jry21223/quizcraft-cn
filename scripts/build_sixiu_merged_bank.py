@@ -7,6 +7,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bank_metadata import sanitize_source_metadata
+except ModuleNotFoundError:
+    from bank_metadata import sanitize_source_metadata
+
 from build_sixiu_resource_library import retrieve
 
 
@@ -154,8 +159,8 @@ def main() -> int:
         for section in materials.get("sections") or []:
             context_parts.append(f"## {section['chapter']}\n{section['content']}")
 
-    OUT_BANK.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
-    OUT_RAG.write_text(json.dumps(rag, ensure_ascii=False, indent=2), encoding="utf-8")
+    OUT_BANK.write_text(json.dumps(sanitize_source_metadata(bank), ensure_ascii=False, indent=2), encoding="utf-8")
+    OUT_RAG.write_text(json.dumps(sanitize_source_metadata(rag), ensure_ascii=False, indent=2), encoding="utf-8")
     OUT_CONTEXT.write_text("\n\n".join(context_parts).strip() + "\n", encoding="utf-8")
     OUT_ISSUES.write_text("\n".join(issues) + ("\n" if issues else ""), encoding="utf-8")
 

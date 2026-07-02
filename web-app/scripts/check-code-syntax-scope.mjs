@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -89,83 +89,3 @@ const routerPrompt = renderRichText("<MSR>display ip routing-table 6.6.6.6");
 assert.doesNotMatch(routerPrompt, /qc-inline-code/, "router prompts should not be treated as HTML tags");
 
 writeFileSync(join(outdir, "last-output.html"), [javaBlock, backtickInline, nakedHtml, plainText].join("\n"));
-
-const quizSource = readFileSync("src/pages/Quiz.tsx", "utf8");
-assert.match(
-  quizSource,
-  /grid-cols-\[44px_minmax\(0,1fr\)/,
-  "option cards must use a fixed label column and minmax(0,1fr) content column",
-);
-assert.match(
-  quizSource,
-  /min-w-0 max-w-full/,
-  "option content must allow long code text to shrink inside the card",
-);
-assert.match(
-  quizSource,
-  /\[overflow-wrap:anywhere\]/,
-  "option content must allow long code strings to wrap anywhere",
-);
-
-const cssSource = readFileSync("src/index.css", "utf8");
-const getCssRuleBody = (source, selector) => {
-  const escapedSelector = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = source.match(new RegExp(`${escapedSelector}\\s*\\{([\\s\\S]*?)\\}`));
-  assert.ok(match, `${selector} rule must exist`);
-  return match[1];
-};
-const inlineCodeRule = getCssRuleBody(cssSource, ".qc-inline-code");
-const codeBlockRule = getCssRuleBody(cssSource, ".qc-code-block");
-const codeBlockCodeRule = getCssRuleBody(cssSource, ".qc-code-block code");
-
-assert.match(
-  codeBlockRule,
-  /display:\s*flex;/,
-  "code block containers must use flex layout for stable alignment",
-);
-assert.match(
-  codeBlockRule,
-  /flex-direction:\s*column;/,
-  "code block containers must keep the language label above code content",
-);
-assert.match(
-  codeBlockRule,
-  /justify-content:\s*center;/,
-  "code block containers must center their content along the main axis",
-);
-
-assert.match(
-  inlineCodeRule,
-  /display:\s*inline-flex;/,
-  "inline code must align as a single inline box with its surrounding text",
-);
-assert.match(
-  inlineCodeRule,
-  /align-items:\s*center;/,
-  "inline code content must be vertically centered inside the code chip",
-);
-assert.doesNotMatch(
-  inlineCodeRule,
-  /vertical-align:\s*baseline;/,
-  "inline code must not use baseline alignment because it sits too high beside Chinese text",
-);
-assert.match(
-  inlineCodeRule,
-  /line-height:\s*1\.15;/,
-  "inline code must keep its own compact line height instead of inheriting option text leading",
-);
-assert.match(
-  inlineCodeRule,
-  /white-space:\s*pre-wrap;/,
-  "inline code must wrap instead of forcing a single long line",
-);
-assert.doesNotMatch(
-  codeBlockCodeRule,
-  /min-width:\s*max-content;/,
-  "code blocks inside rich text must not force max-content width",
-);
-assert.match(
-  codeBlockCodeRule,
-  /overflow-wrap:\s*anywhere;/,
-  "code blocks must allow long HTML or JavaScript snippets to wrap",
-);

@@ -12,6 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bank_metadata import sanitize_source_metadata
+except ModuleNotFoundError:
+    from bank_metadata import sanitize_source_metadata
+
 
 CLEAN_PATTERNS = [
     re.compile(r"更多(考试)?资料请加.*"),
@@ -606,9 +611,9 @@ def main() -> int:
         season_dir.mkdir(parents=True, exist_ok=True)
         issues = validate_bank_questions(bank)
 
-        (season_dir / "question_bank.json").write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
-        (season_dir / "lecture_rag.json").write_text(json.dumps(rag, ensure_ascii=False, indent=2), encoding="utf-8")
-        (season_dir / "materials.json").write_text(json.dumps(materials, ensure_ascii=False, indent=2), encoding="utf-8")
+        (season_dir / "question_bank.json").write_text(json.dumps(sanitize_source_metadata(bank), ensure_ascii=False, indent=2), encoding="utf-8")
+        (season_dir / "lecture_rag.json").write_text(json.dumps(sanitize_source_metadata(rag), ensure_ascii=False, indent=2), encoding="utf-8")
+        (season_dir / "materials.json").write_text(json.dumps(sanitize_source_metadata(materials), ensure_ascii=False, indent=2), encoding="utf-8")
         (season_dir / "raw_questions.txt").write_text(question_text, encoding="utf-8")
         (season_dir / "raw_lecture.txt").write_text(lecture_text, encoding="utf-8")
         (season_dir / "issues.txt").write_text("\n".join(issues) + ("\n" if issues else ""), encoding="utf-8")

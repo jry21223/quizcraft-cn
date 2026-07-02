@@ -10,6 +10,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bank_metadata import sanitize_source_metadata
+except ModuleNotFoundError:
+    from bank_metadata import sanitize_source_metadata
+
 
 QUESTION_CLEAN_PATTERNS = [
     re.compile(r"更多考试资料请加.*"),
@@ -437,8 +442,8 @@ def main() -> int:
     bank, rag, issues = build_bank(args.questions_pdf.expanduser(), args.lecture_pdf.expanduser())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.rag_output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
-    args.rag_output.write_text(json.dumps(rag, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(json.dumps(sanitize_source_metadata(bank), ensure_ascii=False, indent=2), encoding="utf-8")
+    args.rag_output.write_text(json.dumps(sanitize_source_metadata(rag), ensure_ascii=False, indent=2), encoding="utf-8")
     args.issues_output.write_text("\n".join(issues) + ("\n" if issues else ""), encoding="utf-8")
 
     print(json.dumps({

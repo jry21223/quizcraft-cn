@@ -579,6 +579,11 @@ def load_question_banks():
             "name": "近代史",
             "files": ["history.json", "chapters.json"],
             "color": "#c62828"
+        },
+        "software_engineering_process_tests": {
+            "name": "软件工程过程性测试",
+            "files": ["generated/software_engineering_process_tests.json"],
+            "color": "#1565c0"
         }
     }
 

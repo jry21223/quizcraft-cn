@@ -201,6 +201,8 @@ python3 scripts/upload_bank_via_api.py /tmp/my_bank.parsed.json \
 
 生产环境以 PostgreSQL 为运行时数据源。后端配置 `DATABASE_URL` 后，会从 `question_banks` 和 `bank_questions` 加载题库，并把排行榜、用户统计、题目统计和反馈数据写入数据库。
 
+本地兜底加载是显式 registry 加 `tiku/*.json`：`server.py` 中的内置题库 registry 会指定少量文件源，例如 `generated/software_engineering_process_tests.json`；随后才扫描 `tiku/` 下的 JSON。系统不会自动扫描整个 `generated/` 目录，新增生成题库如果需要本地/API 可见，应加入 registry 或上传到数据库。
+
 `tiku/*.json` 只作为导入、导出、本地编辑或特殊修复流程中的文件缓存，题库 JSON 不应提交到 Git。默认不要在启动时把本地 JSON 同步回数据库：
 
 ```bash

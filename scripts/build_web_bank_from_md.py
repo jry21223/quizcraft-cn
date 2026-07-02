@@ -8,6 +8,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bank_metadata import sanitize_source_metadata
+except ModuleNotFoundError:
+    from bank_metadata import sanitize_source_metadata
+
 
 QUESTION_RE = re.compile(r"^###\s+(\d+)\.\s+(单选题|多选题|判断题)\s*$")
 SECTION_RE = re.compile(r"^##\s+(.+?)（第\d+-\d+题）\s*$")
@@ -107,7 +112,7 @@ def main() -> int:
     bank = parse_markdown(args.input.expanduser())
     issues = validate(bank)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(json.dumps(sanitize_source_metadata(bank), ensure_ascii=False, indent=2), encoding="utf-8")
     args.issues_output.write_text("\n".join(issues) + ("\n" if issues else ""), encoding="utf-8")
     print(json.dumps({
         "questions": len(bank["questions"]),

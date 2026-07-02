@@ -12,6 +12,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bank_metadata import sanitize_source_metadata
+except ModuleNotFoundError:
+    from bank_metadata import sanitize_source_metadata
+
 
 CLEAN_PATTERNS = [
     re.compile(r"更多(考试)?资料请加.*"),
@@ -494,8 +499,8 @@ def main() -> int:
 
     for path in (args.output, args.rag_output, args.context_output, args.issues_output):
         path.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
-    args.rag_output.write_text(json.dumps(rag, ensure_ascii=False, indent=2), encoding="utf-8")
+    args.output.write_text(json.dumps(sanitize_source_metadata(bank), ensure_ascii=False, indent=2), encoding="utf-8")
+    args.rag_output.write_text(json.dumps(sanitize_source_metadata(rag), ensure_ascii=False, indent=2), encoding="utf-8")
     args.context_output.write_text(context, encoding="utf-8")
     args.issues_output.write_text("\n".join(issues) + ("\n" if issues else ""), encoding="utf-8")
     print(json.dumps({"questions": len(questions), "types": dict(Counter(q["type"] for q in questions)), "chapters": len(chapters), "rag_chunks": len(chunks), "issues": len(issues)}, ensure_ascii=False))

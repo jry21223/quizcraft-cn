@@ -3,7 +3,7 @@
     "name": "思修2025冬重点RAG索引",
     "subject": "思想道德与法治",
     "season": "2025_winter",
-    "source_file": "/Users/jerry/Downloads/思修2025年冬最新考试重点.pdf",
+    "source_file": "思修2025年冬最新考试重点.pdf",
     "chunk_count": 20
   },
   "chunks": [

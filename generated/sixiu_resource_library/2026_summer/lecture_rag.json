@@ -3,7 +3,7 @@
     "name": "思修2026夏重点RAG索引",
     "subject": "思想道德与法治",
     "season": "2026_summer",
-    "source_file": "/Users/jerry/Downloads/思修2026年夏最新考试重点.pdf",
+    "source_file": "思修2026年夏最新考试重点.pdf",
     "chunk_count": 20
   },
   "chunks": [
