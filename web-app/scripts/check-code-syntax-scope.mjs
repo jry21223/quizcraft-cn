@@ -115,7 +115,24 @@ const getCssRuleBody = (source, selector) => {
   return match[1];
 };
 const inlineCodeRule = getCssRuleBody(cssSource, ".qc-inline-code");
+const codeBlockRule = getCssRuleBody(cssSource, ".qc-code-block");
 const codeBlockCodeRule = getCssRuleBody(cssSource, ".qc-code-block code");
+
+assert.match(
+  codeBlockRule,
+  /display:\s*flex;/,
+  "code block containers must use flex layout for stable alignment",
+);
+assert.match(
+  codeBlockRule,
+  /flex-direction:\s*column;/,
+  "code block containers must keep the language label above code content",
+);
+assert.match(
+  codeBlockRule,
+  /justify-content:\s*center;/,
+  "code block containers must center their content along the main axis",
+);
 
 assert.match(
   inlineCodeRule,

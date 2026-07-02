@@ -257,7 +257,12 @@ export const practiceApi = {
       question_id: questionId,
       answer,
       user_id: getStoredUserId() || undefined,
-    });
+    }).then((res: any) => ({
+      ...res,
+      user_stats: res.user_stats
+        ? normalizeUserStats(res.user_stats as UserStatsResponse)
+        : undefined,
+    }));
   },
 };
 

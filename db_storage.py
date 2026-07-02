@@ -18,6 +18,22 @@ except ImportError:  # pragma: no cover - dependency can be absent in local fall
 
 
 DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+GENERATED_USER_ID_PREFIX = "qc_user_"
+
+
+def generated_user_id(sequence: int) -> str:
+    return f"{GENERATED_USER_ID_PREFIX}{sequence}"
+
+
+def user_id_sequence_number(user_id: Any) -> Optional[int]:
+    text = str(user_id or "").strip()
+    if text.isdigit():
+        return int(text)
+    if text.startswith(GENERATED_USER_ID_PREFIX):
+        suffix = text[len(GENERATED_USER_ID_PREFIX):]
+        if suffix.isdigit():
+            return int(suffix)
+    return None
 
 
 def is_enabled() -> bool:
@@ -361,8 +377,12 @@ def load_runtime_state() -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], int
                 if display_name:
                     name_to_id[str(display_name)] = str(user_id)
 
-    numeric_ids = [int(uid) for uid in users if str(uid).isdigit()]
-    next_user_id = max(numeric_ids + [0]) + 1
+    sequence_ids = [
+        sequence
+        for uid in users
+        if (sequence := user_id_sequence_number(uid)) is not None
+    ]
+    next_user_id = max(sequence_ids + [0]) + 1
     return users, name_to_id, next_user_id
 
 

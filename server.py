@@ -223,6 +223,21 @@ EXPORT_DIR = os.path.join(BASE_DIR, "exports")
 RANK_FILE = os.path.join(BASE_DIR, "rankings_v2.json")
 QUESTION_STATS_FILE = os.path.join(BASE_DIR, "question_stats.json")
 FEEDBACK_FILE = os.path.join(BASE_DIR, "feedbacks.json")
+
+
+def make_generated_user_id(sequence: int) -> str:
+    return db_storage.generated_user_id(sequence)
+
+
+def allocate_generated_user_id() -> str:
+    global NEXT_USER_ID
+    while True:
+        user_id = make_generated_user_id(NEXT_USER_ID)
+        NEXT_USER_ID += 1
+        if user_id not in USER_STATS:
+            return user_id
+
+
 FOOD_WHEEL_FILE = os.path.join(BASE_DIR, "food_wheel_items.json")
 API_CONFIG_CACHE: Dict[str, Tuple[float, List["LLMConfig"]]] = {}
 API_CONFIG_CACHE_TTL = 30 * 60  # 30 分钟
@@ -725,8 +740,12 @@ def load_rankings():
         NAME_TO_ID.clear()
         NAME_TO_ID.update(name_to_id)
         if users:
-            numeric_ids = [int(uid) for uid in users.keys() if uid.isdigit()]
-            NEXT_USER_ID = max(numeric_ids + [0]) + 1
+            sequence_ids = [
+                sequence
+                for uid in users.keys()
+                if (sequence := db_storage.user_id_sequence_number(uid)) is not None
+            ]
+            NEXT_USER_ID = max(sequence_ids + [0]) + 1
     except Exception as e:
         print(f"加载排行榜失败: {e}")
 
@@ -1674,7 +1693,7 @@ async def start_practice(request: StartPracticeRequest):
         # 章节模式
         chapter_id = params.get("chapter_id")
         chapter_q = [q for q in questions if q.get("chapter_id") == chapter_id or q.get("chapter") == chapter_id]
-        selected = _sample(chapter_q)
+        selected = random.sample(chapter_q, len(chapter_q)) if chapter_q else []
     
     elif mode == "hard":
         # 难题模式
@@ -1762,6 +1781,8 @@ async def submit_answer(request: SubmitAnswerRequest):
                 "total": updated_stats["total"],
             })
             user_stats_payload = {
+                "user_id": resolved_user_id,
+                "name": resolved_name,
                 "correct": updated_stats["correct"],
                 "total": updated_stats["total"],
                 "rate": round(
@@ -1783,6 +1804,8 @@ async def submit_answer(request: SubmitAnswerRequest):
             save_rankings()
             resolved_user_stats = USER_STATS[resolved_user_id]
             user_stats_payload = {
+                "user_id": resolved_user_id,
+                "name": resolved_user_stats.get("name", resolved_user_id),
                 "correct": resolved_user_stats["correct"],
                 "total": resolved_user_stats["total"],
                 "rate": round(
@@ -1802,6 +1825,8 @@ async def submit_answer(request: SubmitAnswerRequest):
         "analysis": question.get("analysis", ""),
         "stats": question.get("stats", {}),
         "user_stats": {
+            "user_id": user_stats_payload["user_id"],
+            "name": user_stats_payload["name"],
             "correct": user_stats_payload["correct"],
             "total": user_stats_payload["total"],
             "rate": user_stats_payload["rate"],
@@ -1837,9 +1862,8 @@ async def set_user(request: UserRequest):
                 **USER_STATS[user_id]
             }
     
-    # 创建新用户
-    user_id = str(NEXT_USER_ID)
-    NEXT_USER_ID += 1
+    # 创建新用户。系统生成 ID 使用前缀，避免与学号/工号这类纯数字自定义 ID 混淆。
+    user_id = allocate_generated_user_id()
     
     USER_STATS[user_id] = {
         "name": name or user_id,

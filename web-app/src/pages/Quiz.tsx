@@ -788,6 +788,7 @@ function useQuizController() {
     finishPractice,
     toggleStar,
     starredQuestions,
+    setUser,
   } = useQuizStore();
 
   const [ui, setUi] = useReducer(mergeQuizUiState, initialQuizUiState);
@@ -1289,6 +1290,10 @@ function useQuizController() {
     void practiceApi
       .submitAnswer(activeBankKey, questionId, answer)
       .then((res) => {
+        if (res.user_stats?.userId) {
+          localStorage.setItem("user_id", res.user_stats.userId);
+          setUser(res.user_stats);
+        }
         // 以后如果后端隐藏答案或规则调整，以后端结果为准进行一次轻量校正。
         answerQuestion({
           questionId,
