@@ -9,14 +9,11 @@ import {
   Heart,
   MessageCircle,
   MessageSquare,
-  Moon,
   Smartphone,
-  Sun,
   X,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { IS_OPS_MODE } from '@/config/appMode';
-import { useThemeStore } from '@/stores/themeStore';
 import { useRef, useState } from 'react';
 
 const navItems = IS_OPS_MODE
@@ -46,7 +43,6 @@ const defaultAnnouncementQqText = 'QQ群：';
 
 export default function Layout() {
   const location = useLocation();
-  const { isDark, toggle: toggleTheme } = useThemeStore();
   const donateDialogRef = useRef<HTMLDialogElement | null>(null);
   const qqGroupDialogRef = useRef<HTMLDialogElement | null>(null);
   const downloadDialogRef = useRef<HTMLDialogElement | null>(null);
@@ -108,14 +104,6 @@ export default function Layout() {
                 <span className="hidden sm:inline">{item.label}</span>
               </Link>
             ))}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="ml-1 flex items-center rounded-lg p-2 text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
-              aria-label={isDark ? '切换到亮色模式' : '切换到暗黑模式'}
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
             {!isInApp && (
             <button
               type="button"
