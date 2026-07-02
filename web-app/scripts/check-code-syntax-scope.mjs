@@ -78,6 +78,13 @@ assert.match(nakedHtml, /qc-code-token--tag">audio/);
 const plainText = renderRichText("普通题干不应该被错误解析。");
 assert.equal(plainText, "普通题干不应该被错误解析。");
 
+const snakeCaseText = parseRichText("foo_bar_baz should stay text");
+assert.deepEqual(
+  snakeCaseText,
+  [{ kind: "text", value: "foo_bar_baz should stay text" }],
+  "snake_case identifiers should not render as italic markdown",
+);
+
 const routerPrompt = renderRichText("<MSR>display ip routing-table 6.6.6.6");
 assert.doesNotMatch(routerPrompt, /qc-inline-code/, "router prompts should not be treated as HTML tags");
 

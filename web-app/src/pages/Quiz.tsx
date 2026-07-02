@@ -39,6 +39,7 @@ import {
   getTypeColor,
   getDifficultyLabel,
 } from "@/utils/format";
+import { shouldAutoAdvanceAfterAnswer } from "@/utils/quizAutoAdvance";
 import { getQuestionOptionKey } from "./quizCardState";
 import type { PracticeState, Question, QuestionType } from "@/types";
 
@@ -153,6 +154,7 @@ const SWIPE_MAX_DRAG = 120;
 const PROGRESS_DOT_WINDOW_RADIUS = 40;
 const SLIDE_DURATION = 0.22;
 const SLIDE_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+const CORRECT_ANSWER_AUTO_ADVANCE_DELAY_MS = 450;
 
 // SWIPE_MAX_DRAG 保留常量便于参数统一管理，但默认实现不再做位移截断，避免影响拖拽跟手效果。
 
@@ -803,6 +805,7 @@ function useQuizController() {
   const prefersReducedMotion = useReducedMotion();
   const trackX = useMotionValue(0);
   const feedbackDialogRef = useRef<HTMLDialogElement | null>(null);
+  const autoAdvanceTimerRef = useRef<number | null>(null);
   const viewportWidthRef = useRef(0);
   const dragXRef = useRef(0);
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -846,6 +849,13 @@ function useQuizController() {
       navigate("/practice");
     }
   }, [hasPractice, navigate]);
+
+  useEffect(() => () => {
+    if (autoAdvanceTimerRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimerRef.current);
+      autoAdvanceTimerRef.current = null;
+    }
+  }, [activeQuestionId]);
 
   useLayoutEffect(() => {
     if (!hasPractice) return;
@@ -1087,6 +1097,49 @@ function useQuizController() {
     slideToIndex(practice.currentIndex - 1);
   };
 
+  const scheduleCorrectAnswerAutoAdvance = (
+    questionId: string,
+    isCorrect: boolean,
+  ) => {
+    const latestPractice = useQuizStore.getState().practice;
+    if (!latestPractice) return;
+
+    const latestQuestion = latestPractice.questions[latestPractice.currentIndex];
+    if (latestQuestion?.id !== questionId) return;
+    if (
+      !shouldAutoAdvanceAfterAnswer({
+        isCorrect,
+        currentIndex: latestPractice.currentIndex,
+        questionCount: latestPractice.questions.length,
+      })
+    ) {
+      return;
+    }
+
+    if (autoAdvanceTimerRef.current !== null) {
+      window.clearTimeout(autoAdvanceTimerRef.current);
+    }
+
+    autoAdvanceTimerRef.current = window.setTimeout(() => {
+      autoAdvanceTimerRef.current = null;
+      const currentPractice = useQuizStore.getState().practice;
+      if (!currentPractice) return;
+
+      const currentQuestion =
+        currentPractice.questions[currentPractice.currentIndex];
+      if (currentQuestion?.id !== questionId) return;
+      if (
+        shouldAutoAdvanceAfterAnswer({
+          isCorrect,
+          currentIndex: currentPractice.currentIndex,
+          questionCount: currentPractice.questions.length,
+        })
+      ) {
+        slideToIndex(currentPractice.currentIndex + 1);
+      }
+    }, CORRECT_ANSWER_AUTO_ADVANCE_DELAY_MS);
+  };
+
   const handleCardTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     const viewportWidth = viewportWidthRef.current;
     if (
@@ -1244,6 +1297,7 @@ function useQuizController() {
           correctAnswer: res.correct_answer,
           analysis: res.analysis,
         });
+        scheduleCorrectAnswerAutoAdvance(questionId, res.correct);
       })
       .catch((error) => {
         console.error("同步答题统计失败:", error);

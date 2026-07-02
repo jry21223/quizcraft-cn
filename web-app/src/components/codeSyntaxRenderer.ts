@@ -551,7 +551,7 @@ function parseInlineCodeInText(text: string): RichSegment[] {
 // ── Inline Markdown: bold / italic ──
 
 const BOLD_PATTERN = /\*\*(.+?)\*\*|__(.+?)__/g;
-const ITALIC_PATTERN = /\*(.+?)\*|_(.+?)_/g;
+const ITALIC_PATTERN = /\*(.+?)\*/g;
 
 function parseInlineMarkdown(segments: RichSegment[]): RichSegment[] {
   // First pass: parse inline code within text segments
@@ -608,7 +608,7 @@ function parseInlineMarkdown(segments: RichSegment[]): RichSegment[] {
         if (match.index > cursor) {
           italicParts.push({ kind: "text", value: p.value.slice(cursor, match.index) });
         }
-        italicParts.push({ kind: "italic", value: match[1] || match[2] });
+        italicParts.push({ kind: "italic", value: match[1] });
         cursor = match.index + match[0].length;
       }
       if (cursor < p.value.length) {
@@ -631,7 +631,6 @@ export function shouldRenderRichText(text: string) {
     testBareHtmlTag(text) ||
     splitLooseCode(text) !== null ||
     /\*\*/.test(text) ||
-    /_[^_]+_/.test(text) ||
     /\*[^*]+\*/.test(text) ||
     /__/.test(text)
   );

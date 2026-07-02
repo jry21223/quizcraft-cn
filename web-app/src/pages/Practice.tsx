@@ -115,6 +115,7 @@ export default function Practice() {
 
   const currentBankData = banks.find((b) => b.key === currentBank);
   const countLabel = mode === 'random' && unlimitedCount ? '不限（全部）' : `${count} 道`;
+  const showCountSetting = mode !== 'chapter';
   
   const handleStart = async () => {
     if (!currentBank) return;
@@ -144,7 +145,7 @@ export default function Practice() {
 
       let questions: any[];
       try {
-        const requestCount = mode === 'random' && unlimitedCount ? 0 : count;
+        const requestCount = mode === 'chapter' || (mode === 'random' && unlimitedCount) ? 0 : count;
         const result = await practiceApi.start(currentBank, {
           mode,
           count: requestCount,
@@ -291,37 +292,38 @@ export default function Practice() {
           设置
         </div>
         
-        {/* 题目数量 */}
-        <div className="mb-4">
-          <div className="flex justify-between text-sm mb-2">
-            <span className="text-gray-600 dark:text-slate-300">题目数量</span>
-            <span className="font-medium text-gray-800 dark:text-slate-100">{countLabel}</span>
+        {showCountSetting && (
+          <div className="mb-4">
+            <div className="flex justify-between text-sm mb-2">
+              <span className="text-gray-600 dark:text-slate-300">题目数量</span>
+              <span className="font-medium text-gray-800 dark:text-slate-100">{countLabel}</span>
+            </div>
+            {mode === 'random' && (
+              <button
+                type="button"
+                onClick={() => setUi({ unlimitedCount: !unlimitedCount })}
+                className={`mb-3 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                  unlimitedCount
+                    ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 text-primary-700 dark:text-primary-300'
+                    : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:border-gray-300 dark:hover:border-slate-500'
+                }`}
+              >
+                {unlimitedCount ? '已启用不限（抽取全部）' : '启用不限（抽取全部）'}
+              </button>
+            )}
+            <input
+              aria-label="题目数量"
+              type="range"
+              min={5}
+              max={mode === 'random' ? Math.max(5, currentBankData?.total || 100) : 50}
+              step={mode === 'random' ? 1 : 5}
+              value={count}
+              onChange={(e) => setUi({ count: Number(e.target.value) })}
+              disabled={mode === 'random' && unlimitedCount}
+              className="w-full h-2 bg-gray-200 dark:bg-slate-500 rounded-lg appearance-none cursor-pointer accent-primary-500"
+            />
           </div>
-          {mode === 'random' && (
-            <button
-              type="button"
-              onClick={() => setUi({ unlimitedCount: !unlimitedCount })}
-              className={`mb-3 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                unlimitedCount
-                  ? 'bg-primary-50 dark:bg-primary-900/20 border-primary-500 text-primary-700 dark:text-primary-300'
-                  : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:border-gray-300 dark:hover:border-slate-500'
-              }`}
-            >
-              {unlimitedCount ? '已启用不限（抽取全部）' : '启用不限（抽取全部）'}
-            </button>
-          )}
-          <input
-            aria-label="题目数量"
-            type="range"
-            min={5}
-            max={mode === 'random' ? Math.max(5, currentBankData?.total || 100) : 50}
-            step={mode === 'random' ? 1 : 5}
-            value={count}
-            onChange={(e) => setUi({ count: Number(e.target.value) })}
-            disabled={mode === 'random' && unlimitedCount}
-            className="w-full h-2 bg-gray-200 dark:bg-slate-500 rounded-lg appearance-none cursor-pointer accent-primary-500"
-          />
-        </div>
+        )}
         
         {/* 章节选择 */}
         {mode === 'chapter' && currentBankData && (

@@ -6,18 +6,26 @@ function getInitial(): boolean {
   try {
     const v = localStorage.getItem(KEY);
     if (v !== null) return v === 'dark';
-  } catch {}
+  } catch {
+    // localStorage can be unavailable in restricted browser contexts.
+  }
   return false; // default light
 }
 
 function apply(isDark: boolean) {
   document.documentElement.classList.toggle('dark', isDark);
-  try { localStorage.setItem(KEY, isDark ? 'dark' : 'light'); } catch {}
+  try {
+    localStorage.setItem(KEY, isDark ? 'dark' : 'light');
+  } catch {
+    // Keep theme toggling working even when persistence is blocked.
+  }
   // Notify Android WebView if available
   try {
     const bridge = (window as any).AndroidBridge;
     if (bridge?.setDarkMode) bridge.setDarkMode(isDark);
-  } catch {}
+  } catch {
+    // AndroidBridge is optional outside the native app shell.
+  }
 }
 
 if (typeof document !== 'undefined') {
