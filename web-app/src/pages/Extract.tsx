@@ -872,11 +872,11 @@ function ExtractView({ controller }: { controller: ExtractController }) {
   return (
     <div className="max-w-5xl mx-auto animate-fade-in space-y-6">
       <div className="mb-2">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2 flex items-center gap-2">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-slate-100 mb-2 flex items-center gap-2">
           <Zap className="w-6 h-6 text-yellow-500" />
           题库工坊
         </h1>
-        <p className="text-gray-500">
+        <p className="text-gray-500 dark:text-slate-400">
           在线新建题库、编写题目、上传导入文件，并导出或保存为标准 JSON
         </p>
       </div>
@@ -896,8 +896,8 @@ function ExtractView({ controller }: { controller: ExtractController }) {
 
 function AdminTokenCard({ controller }: { controller: ExtractController }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-4">
-      <label htmlFor="admin-token" className="block text-sm font-medium text-gray-700 mb-2">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-4">
+      <label htmlFor="admin-token" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
         后台管理 Token
       </label>
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -907,12 +907,12 @@ function AdminTokenCard({ controller }: { controller: ExtractController }) {
           value={controller.adminToken}
           onChange={(event) => controller.setAdminTokenValue(event.target.value)}
           placeholder="请输入 ADMIN_TOKEN"
-          className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm"
+          className="flex-1 px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm"
         />
         <button
           type="button"
           onClick={controller.clearAdminToken}
-          className="px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
+          className="px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:bg-slate-700"
         >
           清除
         </button>
@@ -971,13 +971,13 @@ function SelectStep({ controller }: { controller: ExtractController }) {
       <button
         type="button"
         onClick={controller.startBlankBank}
-        className="bg-white rounded-2xl border border-gray-100 p-6 text-left shadow-sm hover:shadow-md transition-all"
+        className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 text-left shadow-sm dark:shadow-slate-900/30 hover:shadow-md transition-all"
       >
         <div className="w-12 h-12 bg-primary-50 text-primary-600 rounded-xl flex items-center justify-center mb-4">
           <PackagePlus className="w-6 h-6" />
         </div>
-        <h2 className="text-lg font-semibold text-gray-800 mb-2">在线新建题库</h2>
-        <p className="text-sm text-gray-500 leading-6">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">在线新建题库</h2>
+        <p className="text-sm text-gray-500 dark:text-slate-400 leading-6">
           从空白题库开始，在线添加题目、选项、答案和解析，编辑完直接保存到系统。
         </p>
       </button>
@@ -985,7 +985,7 @@ function SelectStep({ controller }: { controller: ExtractController }) {
       <div
         onDragOver={(event) => event.preventDefault()}
         onDrop={controller.handleFileDrop}
-        className="bg-white rounded-2xl border-2 border-dashed border-gray-300 p-6 shadow-sm hover:border-primary-400 hover:bg-primary-50/30 transition-colors"
+        className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-gray-300 p-6 shadow-sm dark:shadow-slate-900/30 hover:border-primary-400 hover:bg-primary-50/30 transition-colors"
       >
         <input
           type="file"
@@ -995,14 +995,14 @@ function SelectStep({ controller }: { controller: ExtractController }) {
           id="bank-builder-file-input"
         />
         <label htmlFor="bank-builder-file-input" className="cursor-pointer block text-left">
-          <div className="w-12 h-12 bg-gray-100 text-gray-500 rounded-xl flex items-center justify-center mb-4">
+          <div className="w-12 h-12 bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400 rounded-xl flex items-center justify-center mb-4">
             <Upload className="w-6 h-6" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">上传导入题库</h2>
-          <p className="text-sm text-gray-500 leading-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100 mb-2">上传导入题库</h2>
+          <p className="text-sm text-gray-500 dark:text-slate-400 leading-6">
             支持 JSON、PDF、Word、TXT。导入后会进入在线编辑区，你可以继续修改并保存。
           </p>
-          <p className="text-xs text-gray-400 mt-3">
+          <p className="text-xs text-gray-400 dark:text-slate-500 mt-3">
             拖拽文件到这里，或点击选择文件
           </p>
         </label>
@@ -1013,10 +1013,10 @@ function SelectStep({ controller }: { controller: ExtractController }) {
 
 function ParseStep({ file }: { file: File | null }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
-      <Loader2 className="w-12 h-12 text-primary-500 mx-auto mb-4 animate-spin" />
-      <p className="text-lg font-medium text-gray-800 mb-2">正在解析文件...</p>
-      <p className="text-sm text-gray-500">{file?.name}</p>
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-8 text-center">
+      <Loader2 className="w-12 h-12 text-primary-500 dark:text-primary-400 mx-auto mb-4 animate-spin" />
+      <p className="text-lg font-medium text-gray-800 dark:text-slate-100 mb-2">正在解析文件...</p>
+      <p className="text-sm text-gray-500 dark:text-slate-400">{file?.name}</p>
     </div>
   );
 }
@@ -1028,7 +1028,7 @@ function AnalyzeStep({ controller }: { controller: ExtractController }) {
   const elapsed = `${String(Math.floor(controller.analyzeTime / 60)).padStart(2, '0')}:${String(controller.analyzeTime % 60).padStart(2, '0')}`;
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-8">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-8">
       <div className="text-center mb-6">
         <div className="relative inline-flex items-center justify-center">
           <svg className="w-20 h-20 transform -rotate-90">
@@ -1050,16 +1050,16 @@ function AnalyzeStep({ controller }: { controller: ExtractController }) {
             </span>
           </div>
         </div>
-        <h2 className="text-xl font-bold text-gray-800 mt-4">AI 正在生成解析...</h2>
-        <p className="text-gray-500 mt-1">{progress.message}</p>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-slate-100 mt-4">AI 正在生成解析...</h2>
+        <p className="text-gray-500 dark:text-slate-400 mt-1">{progress.message}</p>
       </div>
 
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600">进度</span>
+          <span className="text-gray-600 dark:text-slate-300">进度</span>
           <span className="font-medium">{progress.current} / {progress.total}</span>
         </div>
-        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-2 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
           <m.div
             className="h-full bg-primary-500"
             initial={{ width: 0 }}
@@ -1069,22 +1069,22 @@ function AnalyzeStep({ controller }: { controller: ExtractController }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-100">
+      <div className="grid grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-100 dark:border-slate-700">
         <div className="text-center">
-          <div className="flex items-center justify-center gap-1 text-gray-500 text-sm mb-1">
+          <div className="flex items-center justify-center gap-1 text-gray-500 dark:text-slate-400 text-sm mb-1">
             <Clock className="w-4 h-4" />
             <span>已用时间</span>
           </div>
           <div className="font-mono font-medium">{elapsed}</div>
         </div>
         <div className="text-center">
-          <div className="text-gray-500 text-sm mb-1">速度</div>
+          <div className="text-gray-500 dark:text-slate-400 text-sm mb-1">速度</div>
           <div className="font-medium">
             {progress.current > 0 ? (controller.analyzeTime / progress.current).toFixed(1) : '-'} 秒/题
           </div>
         </div>
         <div className="text-center">
-          <div className="text-gray-500 text-sm mb-1">预估剩余</div>
+          <div className="text-gray-500 dark:text-slate-400 text-sm mb-1">预估剩余</div>
           <div className="font-medium">~{controller.estimatedTime} 秒</div>
         </div>
       </div>
@@ -1104,14 +1104,14 @@ function ReviewStep({ controller }: { controller: ExtractController }) {
 
 function BankMetadataPanel({ controller }: { controller: ExtractController }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-primary-500" />
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-slate-100 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-primary-500 dark:text-primary-400" />
             在线题库编辑
           </h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
             题库会统一保存为标准 JSON 结构，并自动加入首页和练习页的题库列表。
           </p>
         </div>
@@ -1120,7 +1120,7 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4 mt-6">
         <div className="xl:col-span-2">
-          <label htmlFor="bank-name" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="bank-name" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
             题库名称
           </label>
           <input
@@ -1129,11 +1129,11 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
             value={controller.bankName}
             onChange={(event) => controller.handleBankNameChange(event.target.value)}
             placeholder="例如：马克思主义基本原理"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
           />
         </div>
         <div>
-          <label htmlFor="bank-key" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="bank-key" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
             题库代号
           </label>
           <input
@@ -1142,11 +1142,11 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
             value={controller.bankKey}
             onChange={(event) => controller.handleBankKeyChange(event.target.value)}
             placeholder="例如：marxism"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
           />
         </div>
         <div>
-          <label htmlFor="bank-color" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="bank-color" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
             主题颜色
           </label>
           <div className="flex items-center gap-3">
@@ -1155,9 +1155,9 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
               type="color"
               value={controller.bankColor}
               onChange={(event) => controller.setBankColor(event.target.value)}
-              className="h-10 w-14 rounded border border-gray-200 bg-white p-1"
+              className="h-10 w-14 rounded border border-gray-200 dark:border-slate-600 bg-white dark:bg-slate-800 p-1"
             />
-            <span className="text-sm text-gray-500">{controller.bankColor}</span>
+            <span className="text-sm text-gray-500 dark:text-slate-400">{controller.bankColor}</span>
           </div>
         </div>
       </div>
@@ -1174,7 +1174,7 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
         <button
           type="button"
           onClick={controller.handleExport}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:bg-slate-700"
         >
           <Download className="w-4 h-4" />
           下载标准 JSON
@@ -1191,14 +1191,14 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
         <button
           type="button"
           onClick={controller.resetWorkspace}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:bg-slate-700"
         >
           <RefreshCw className="w-4 h-4" />
           重新选择来源
         </button>
       </div>
 
-      <label className="mt-4 inline-flex items-center gap-2 text-sm text-gray-600">
+      <label className="mt-4 inline-flex items-center gap-2 text-sm text-gray-600 dark:text-slate-300">
         <input
           type="checkbox"
           checked={controller.overwriteExisting}
@@ -1214,7 +1214,7 @@ function BankMetadataPanel({ controller }: { controller: ExtractController }) {
 function BankStats({ controller }: { controller: ExtractController }) {
   return (
     <div className="flex flex-wrap gap-2">
-      <span className="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm">
+      <span className="px-3 py-1 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-200 text-sm">
         共 {controller.totalQuestions} 题
       </span>
       <span className="px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm">
@@ -1243,22 +1243,22 @@ function AiAnalysisPanel({ controller }: { controller: ExtractController }) {
         : 'SiliconFlow';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-5">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5">
       <div className="flex items-center gap-2 mb-4">
-        <Wand2 className="w-5 h-5 text-primary-500" />
+        <Wand2 className="w-5 h-5 text-primary-500 dark:text-primary-400" />
         <h3 className="font-medium">AI 解析（可选）</h3>
-        <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs">
+        <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 rounded text-xs">
           待补解析 {controller.pendingAnalysisCount} 题
         </span>
       </div>
 
       {controller.keyCount > 0 && !controller.showKeyInput && (
-        <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+        <div className="mb-4 p-3 bg-gray-50 dark:bg-slate-700 rounded-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Key className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-600">{providerName}</span>
-              <span className="text-xs text-gray-400">
+              <Key className="w-4 h-4 text-gray-400 dark:text-slate-500" />
+              <span className="text-sm text-gray-600 dark:text-slate-300">{providerName}</span>
+              <span className="text-xs text-gray-400 dark:text-slate-500">
                 {controller.keyCount} 个 API Key 已保存
               </span>
             </div>
@@ -1313,7 +1313,7 @@ function AiConfigForm({ controller }: { controller: ExtractController }) {
               provider: event.target.value as ExtractController['config']['provider'],
             })
           }
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+          className="px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm"
         >
           <option value="deepseek">DeepSeek（推荐）</option>
           <option value="openai">OpenAI</option>
@@ -1326,7 +1326,7 @@ function AiConfigForm({ controller }: { controller: ExtractController }) {
           value={config.model ?? ''}
           onChange={(event) => controller.updateConfig({ model: event.target.value })}
           placeholder="模型名称（可选）"
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm"
+          className="px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm"
         />
       </div>
 
@@ -1337,7 +1337,7 @@ function AiConfigForm({ controller }: { controller: ExtractController }) {
           value={config.apiKey}
           onChange={(event) => controller.updateConfig({ apiKey: event.target.value })}
           placeholder="输入 API Key（支持逗号/分号/换行；也支持 deepseek:sk-xxx）"
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm pr-20"
+          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm pr-20"
         />
         {config.apiKey && (
           <button
@@ -1351,7 +1351,7 @@ function AiConfigForm({ controller }: { controller: ExtractController }) {
         )}
       </div>
 
-      <p className="text-xs text-gray-400">
+      <p className="text-xs text-gray-400 dark:text-slate-500">
         支持多 API 异步：`sk1,sk2` 或 `deepseek:sk` 或 `openai|sk|url|model`
       </p>
     </div>
@@ -1386,7 +1386,7 @@ function QuestionEditorCard({
   isExpanded: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 overflow-hidden">
       <QuestionEditorHeader
         question={question}
         index={index}
@@ -1400,7 +1400,7 @@ function QuestionEditorCard({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="border-t border-gray-100"
+            className="border-t border-gray-100 dark:border-slate-700"
           >
             <QuestionExpandedEditor controller={controller} question={question} />
           </m.div>
@@ -1425,16 +1425,16 @@ function QuestionEditorHeader({
     <button
       type="button"
       onClick={onToggle}
-      className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors"
+      className="w-full flex items-center gap-3 p-4 hover:bg-gray-50 dark:bg-slate-700 transition-colors"
     >
-      <span className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center text-xs font-medium text-gray-600">
+      <span className="w-7 h-7 bg-gray-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-xs font-medium text-gray-600 dark:text-slate-300">
         {index + 1}
       </span>
       <span className={`px-2 py-0.5 rounded text-xs ${getTypeBadgeClass(question.type)}`}>
         {QUESTION_TYPE_OPTIONS.find((item) => item.value === question.type)?.label}
       </span>
-      <span className="text-xs text-gray-400 shrink-0">{question.chapter || '默认章节'}</span>
-      <span className="flex-1 text-left truncate text-gray-700">
+      <span className="text-xs text-gray-400 dark:text-slate-500 shrink-0">{question.chapter || '默认章节'}</span>
+      <span className="flex-1 text-left truncate text-gray-700 dark:text-slate-200">
         {question.content || '未填写题干'}
       </span>
       {question.analysis?.trim() && (
@@ -1442,7 +1442,7 @@ function QuestionEditorHeader({
           已解析
         </span>
       )}
-      <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+      <ChevronDown className={`w-5 h-5 text-gray-400 dark:text-slate-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
     </button>
   );
 }
@@ -1462,7 +1462,7 @@ function QuestionExpandedEditor({
         <button
           type="button"
           onClick={() => controller.duplicateQuestion(question.id)}
-          className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-primary-600"
+          className="inline-flex items-center gap-1.5 text-sm text-gray-600 dark:text-slate-300 hover:text-primary-600"
         >
           <Copy className="w-4 h-4" />
           复制题目
@@ -1505,7 +1505,7 @@ function QuestionDetailsFields({
     <>
       <div className="grid gap-4 md:grid-cols-2">
         <div>
-          <label htmlFor={`${fieldPrefix}-chapter`} className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor={`${fieldPrefix}-chapter`} className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
             章节名称
           </label>
           <input
@@ -1520,11 +1520,11 @@ function QuestionDetailsFields({
               }))
             }
             placeholder="例如：第一章 导论"
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
           />
         </div>
         <div>
-          <label htmlFor={`${fieldPrefix}-type`} className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor={`${fieldPrefix}-type`} className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
             题目类型
           </label>
           <select
@@ -1533,7 +1533,7 @@ function QuestionDetailsFields({
             onChange={(event) =>
               controller.changeQuestionType(question.id, event.target.value as QuestionType)
             }
-            className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
           >
             {QUESTION_TYPE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>
@@ -1545,7 +1545,7 @@ function QuestionDetailsFields({
       </div>
 
       <div>
-        <label htmlFor={`${fieldPrefix}-content`} className="block text-sm font-medium text-gray-700 mb-2">
+        <label htmlFor={`${fieldPrefix}-content`} className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
           题干
         </label>
         <textarea
@@ -1560,7 +1560,7 @@ function QuestionDetailsFields({
           }
           rows={3}
           placeholder="请输入题目内容"
-          className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+          className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
         />
       </div>
     </>
@@ -1604,7 +1604,7 @@ function BlankAnswerEditor({
 }) {
   return (
     <div>
-      <label htmlFor={`${fieldPrefix}-blank-answer`} className="block text-sm font-medium text-gray-700 mb-2">
+      <label htmlFor={`${fieldPrefix}-blank-answer`} className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
         正确答案
       </label>
       <input
@@ -1614,7 +1614,7 @@ function BlankAnswerEditor({
         value={String(question.answer ?? '')}
         onChange={(event) => controller.setBlankAnswer(question.id, event.target.value)}
         placeholder="请输入填空题答案"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
       />
     </div>
   );
@@ -1633,7 +1633,7 @@ function ChoiceAnswerEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <span className="block text-sm font-medium text-gray-700">
+        <span className="block text-sm font-medium text-gray-700 dark:text-slate-200">
           选项与答案
         </span>
         <button
@@ -1661,7 +1661,7 @@ function ChoiceAnswerEditor({
         />
       ))}
 
-      <div className="text-xs text-gray-400">
+      <div className="text-xs text-gray-400 dark:text-slate-500">
         当前答案：{question.answer || '未设置'}
       </div>
     </div>
@@ -1697,7 +1697,7 @@ function ChoiceOptionRow({
         }
         className="h-4 w-4"
       />
-      <span className="w-6 text-sm font-medium text-gray-500">
+      <span className="w-6 text-sm font-medium text-gray-500 dark:text-slate-400">
         {optionLetter}.
       </span>
       <input
@@ -1715,12 +1715,12 @@ function ChoiceOptionRow({
           })
         }
         placeholder={`选项 ${optionLetter}`}
-        className="flex-1 px-3 py-2 border border-gray-200 rounded-lg"
+        className="flex-1 px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
       />
       <button
         type="button"
         onClick={() => controller.removeOption(question.id, optionIndex)}
-        className="text-gray-400 hover:text-red-500 disabled:opacity-40"
+        className="text-gray-400 dark:text-slate-500 hover:text-red-500 disabled:opacity-40"
         disabled={(question.options ?? []).length <= 2}
         aria-label={`删除选项 ${optionLetter}`}
       >
@@ -1739,7 +1739,7 @@ function JudgeAnswerEditor({
 }) {
   return (
     <div>
-      <div className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
         正确答案
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -1750,8 +1750,8 @@ function JudgeAnswerEditor({
             onClick={() => controller.setJudgeAnswer(question.id, value)}
             className={`py-3 rounded-xl border-2 font-medium transition-colors ${
               question.answer === value
-                ? 'border-primary-500 bg-primary-50 text-primary-700'
-                : 'border-gray-200 text-gray-600 hover:border-primary-300'
+                ? 'border-primary-500 bg-primary-50 text-primary-700 dark:text-primary-300'
+                : 'border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 hover:border-primary-300'
             }`}
           >
             {value}
@@ -1773,7 +1773,7 @@ function QuestionAnalysisField({
 }) {
   return (
     <div>
-      <label htmlFor={`${fieldPrefix}-analysis`} className="block text-sm font-medium text-gray-700 mb-2">
+      <label htmlFor={`${fieldPrefix}-analysis`} className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
         解析（可选）
       </label>
       <textarea
@@ -1788,7 +1788,7 @@ function QuestionAnalysisField({
         }
         rows={3}
         placeholder="可以手写解析，也可以稍后用 AI 批量补齐"
-        className="w-full px-3 py-2 border border-gray-200 rounded-lg"
+        className="w-full px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg"
       />
     </div>
   );

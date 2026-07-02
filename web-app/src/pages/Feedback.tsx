@@ -82,13 +82,13 @@ export default function Feedback() {
 
   return (
     <div className="max-w-2xl mx-auto animate-fade-in">
-      <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-6">
+      <div className="rounded-2xl border border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm dark:shadow-slate-900/30 p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <MessageSquare className="w-6 h-6 text-primary-500" />
+            <MessageSquare className="w-6 h-6 text-primary-500 dark:text-primary-400" />
             <div>
-              <h1 className="text-xl font-semibold text-gray-800">题目反馈</h1>
-              <p className="mt-1 text-xs text-gray-500">
+              <h1 className="text-xl font-semibold text-gray-800 dark:text-slate-100">题目反馈</h1>
+              <p className="mt-1 text-xs text-gray-500 dark:text-slate-400 dark:text-slate-500">
                 推荐从刷题页点击“反馈本题”，可自动带上题目 ID 和题干快照。
               </p>
             </div>
@@ -96,7 +96,7 @@ export default function Feedback() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50"
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-slate-700 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700"
           >
             <ArrowLeft className="w-4 h-4" />
             返回
@@ -105,7 +105,7 @@ export default function Feedback() {
 
         <form onSubmit={submitFeedback} className="space-y-4">
           <div>
-            <label htmlFor="feedback-question-index" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="feedback-question-index" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
               题目索引
             </label>
             <input
@@ -114,13 +114,13 @@ export default function Feedback() {
               min={1}
               value={questionIndex ?? ''}
               readOnly
-              className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700"
+              className="w-full rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-700 px-3 py-2 text-sm text-gray-700 dark:text-slate-200"
               placeholder="无法获取题目索引"
             />
           </div>
 
           <div>
-            <label htmlFor="feedback-suggestion" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="feedback-suggestion" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
               建议改正内容
             </label>
             <textarea
@@ -129,10 +129,10 @@ export default function Feedback() {
               value={suggestion}
               onChange={(event) => setSuggestion(event.target.value)}
               placeholder="请输入题目纠错建议，例如：选项 B 的表述应为..."
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 min-h-[140px] resize-y"
+              className="w-full rounded-lg border border-gray-200 dark:border-slate-700 px-3 py-2 text-sm text-gray-700 dark:text-slate-200 min-h-[140px] resize-y"
               maxLength={2000}
             />
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-1">
               最多 2000 字，目前输入 {suggestion.length} 字
             </p>
           </div>
@@ -144,7 +144,7 @@ export default function Feedback() {
             <button
               type="submit"
               disabled={submitting || !questionIndex}
-              className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-4 bg-primary-500 text-white rounded-xl font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center justify-center gap-2 flex-1 py-3 px-4 bg-primary-50 dark:bg-primary-900/300 text-white rounded-xl font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Send className="w-4 h-4" />
               {submitting ? '提交中...' : '提交反馈'}
