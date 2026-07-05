@@ -236,11 +236,11 @@ const getProgressDotClass = ({
   const baseClass = "w-2 h-2 rounded-full transition-all transform-gpu";
 
   if (starred) {
-    return `${baseClass} ${current ? "scale-125 bg-yellow-50 dark:bg-yellow-900/200" : "bg-yellow-400"}`;
+    return `${baseClass} ${current ? "scale-125 bg-yellow-500 dark:bg-yellow-400" : "bg-yellow-400"}`;
   }
 
   if (current) {
-    return `${baseClass} bg-primary-50 dark:bg-primary-900/30 scale-125`;
+    return `${baseClass} bg-primary-500 dark:bg-primary-400 scale-125`;
   }
 
   if (answered) {
@@ -418,14 +418,14 @@ function OptionButton({
         className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold ${
           showResult
             ? correct && selected
-              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200"
+              ? "bg-green-500 dark:bg-green-600 text-white"
               : missed
-                ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300"
+                ? "bg-green-200 dark:bg-green-800/60 text-green-700 dark:text-green-100"
                 : selected
-                  ? "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200"
+                  ? "bg-red-500 dark:bg-red-600 text-white"
                   : "bg-gray-200 dark:bg-slate-600 text-gray-500 dark:text-slate-200"
             : selected
-              ? "bg-primary-50 dark:bg-slate-700 text-primary-700 dark:text-slate-100"
+              ? "bg-primary-500 dark:bg-primary-600 text-white"
               : "bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300"
         }`}
       >
@@ -725,7 +725,7 @@ function QuestionCard({
               type="button"
               onClick={onSubmitCurrent}
               disabled={mode.submitDisabled}
-              className="w-full py-3 bg-primary-50 hover:bg-[#3366BA] hover:text-white dark:bg-slate-500 dark:text-slate-100 dark:hover:bg-[#3366BA] dark:hover:text-white text-primary-700 font-medium rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               提交答案
             </button>
@@ -1450,7 +1450,7 @@ function QuizFeedbackDialog({ controller }: { controller: QuizController }) {
           <button
             type="submit"
             disabled={controller.feedbackSubmitting || !controller.feedbackSuggestion.trim()}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-50 dark:bg-slate-500 dark:text-slate-100 px-4 py-3 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-primary-500 text-white px-4 py-3 text-sm font-medium transition-colors hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Send className="h-4 w-4" />
             {controller.feedbackSubmitting ? "提交中..." : "提交反馈"}
@@ -1487,7 +1487,7 @@ function QuizProgressHeader({ controller }: { controller: QuizController }) {
           <button
             type="button"
             onClick={() => controller.toggleStar(controller.activeQuestion.id)}
-            className={`p-1.5 rounded-lg transition-colors ${controller.starred ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" : "text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-700 dark:bg-slate-700"}`}
+            className={`p-1.5 rounded-lg transition-colors ${controller.starred ? "text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20" : "text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700"}`}
             aria-label={controller.starred ? "取消收藏本题" : "收藏本题"}
           >
             <Flag className={`w-4 h-4 ${controller.starred ? "fill-current" : ""}`} />
@@ -1496,7 +1496,7 @@ function QuizProgressHeader({ controller }: { controller: QuizController }) {
       </div>
       <div className="h-1.5 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary-50 dark:bg-primary-900/30 transition-all duration-[120ms]"
+          className="h-full bg-primary-500 dark:bg-primary-400 transition-all duration-[120ms]"
           style={{ width: `${controller.progress}%` }}
         />
       </div>
@@ -1583,7 +1583,7 @@ function QuizFooterControls({ controller }: { controller: QuizController }) {
           type="button"
           onClick={controller.handleNext}
           disabled={controller.isSliding}
-          className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-50 hover:bg-[#3366BA] hover:text-white dark:bg-slate-500 dark:text-slate-100 dark:hover:bg-[#3366BA] dark:hover:text-white text-primary-700 rounded-lg disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
+          className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
         >
           {controller.visualIndex === controller.practice.questions.length - 1
             ? "查看结果"
