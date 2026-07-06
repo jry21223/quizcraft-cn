@@ -18,6 +18,7 @@ import psycopg
 DEFAULT_MODEL = "deepseek-chat"
 DEFAULT_BASE_URL = "https://api.deepseek.com"
 DEFAULT_ENV_FILE = "/etc/quizcraft-cn.env"
+MIN_AUTO_FIX_CONFIDENCE = 0.75
 VALID_VERDICTS = {"fix_needed", "no_change", "needs_human_review"}
 VALID_TYPES = {"single", "multi", "judge", "blank"}
 PATCH_FIELDS = {"answer", "type", "payload"}
@@ -61,6 +62,14 @@ def get_api_key(env: dict) -> str:
         print("ERROR: DEEPSEEK_API_KEY not set", file=sys.stderr)
         sys.exit(1)
     return key
+
+
+def _normalize_json(value: Any) -> Any:
+    return json.loads(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str))
+
+
+def _json_equal(left: Any, right: Any) -> bool:
+    return _normalize_json(left) == _normalize_json(right)
 
 
 def fetch_feedback(conn, feedback_id: int) -> dict:
@@ -146,11 +155,13 @@ def build_prompt(feedback: dict, question: dict) -> str:
 分析反馈是否有道理。只允许返回一个 JSON 对象，不要 Markdown，不要解释性前后缀。
 
 verdict 只能取以下三者之一：
-- "fix_needed": 反馈明确成立，且可以给出安全、确定的数据库修复 patch。
+- "fix_needed": 反馈明确成立、置信度 >= {MIN_AUTO_FIX_CONFIDENCE:.2f}，且可以给出安全、确定的数据库修复 patch。
 - "no_change": 反馈不成立或题目当前内容无须修改。
 - "needs_human_review": 信息不足、存在歧义、低置信度、涉及版权/题目重写、或无法确定正确 patch。
 
 如果 verdict 不是 "fix_needed"，db_patch 内的 answer/type/payload 必须全部为 null。
+如果 db_patch 同时给出 answer 和 payload.answer，两者必须完全一致。
+如果 db_patch 同时给出 type 和 payload.type，两者必须完全一致。
 
 必须返回以下 JSON 格式：
 {{
@@ -200,6 +211,13 @@ def validate_plan(plan: dict) -> None:
     confidence = plan.get("confidence")
     if not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1:
         raise PlanError("confidence must be a number between 0 and 1")
+    confidence = float(confidence)
+    if verdict == "fix_needed" and confidence < MIN_AUTO_FIX_CONFIDENCE:
+        raise PlanError(
+            f"fix_needed confidence {confidence:.2f} is below auto-fix threshold "
+            f"{MIN_AUTO_FIX_CONFIDENCE:.2f}; use needs_human_review instead"
+        )
+
     db_patch = plan.get("db_patch")
     if not isinstance(db_patch, dict):
         raise PlanError("db_patch must be an object")
@@ -208,8 +226,18 @@ def validate_plan(plan: dict) -> None:
         raise PlanError(f"db_patch contains unsupported fields: {sorted(unknown_fields)}")
     if db_patch.get("type") is not None and db_patch["type"] not in VALID_TYPES:
         raise PlanError(f"invalid db_patch.type: {db_patch['type']!r}")
-    if db_patch.get("payload") is not None and not isinstance(db_patch["payload"], dict):
+    payload = db_patch.get("payload")
+    if payload is not None and not isinstance(payload, dict):
         raise PlanError("db_patch.payload must be an object when provided")
+    if payload is not None:
+        if payload.get("type") is not None and payload["type"] not in VALID_TYPES:
+            raise PlanError(f"invalid db_patch.payload.type: {payload['type']!r}")
+        if db_patch.get("answer") is not None and "answer" in payload:
+            if not _json_equal(db_patch["answer"], payload["answer"]):
+                raise PlanError("db_patch.answer and db_patch.payload.answer must match")
+        if db_patch.get("type") is not None and payload.get("type") is not None:
+            if db_patch["type"] != payload["type"]:
+                raise PlanError("db_patch.type and db_patch.payload.type must match")
     if verdict != "fix_needed" and any(db_patch.get(field) is not None for field in PATCH_FIELDS):
         raise PlanError("db_patch must be null-only unless verdict is fix_needed")
 
