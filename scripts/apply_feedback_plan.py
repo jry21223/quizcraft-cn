@@ -18,6 +18,7 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 DEFAULT_ENV_FILE = "/etc/quizcraft-cn.env"
+MIN_AUTO_FIX_CONFIDENCE = 0.75
 VALID_VERDICTS = {"fix_needed", "no_change", "needs_human_review"}
 VALID_TYPES = {"single", "multi", "judge", "blank"}
 PATCH_FIELDS = {"answer", "type", "payload"}
@@ -81,6 +82,10 @@ def _normalize_json(value: Any) -> Any:
     return json.loads(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str))
 
 
+def _json_equal(left: Any, right: Any) -> bool:
+    return _normalize_json(left) == _normalize_json(right)
+
+
 def _validate_plan(plan: dict) -> dict:
     if not isinstance(plan, dict):
         raise PlanError("plan must be a JSON object")
@@ -102,6 +107,13 @@ def _validate_plan(plan: dict) -> dict:
     confidence = plan.get("confidence", 0)
     if not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1:
         raise PlanError("confidence must be a number between 0 and 1")
+    confidence = float(confidence)
+
+    if verdict == "fix_needed" and confidence < MIN_AUTO_FIX_CONFIDENCE:
+        raise PlanError(
+            f"fix_needed confidence {confidence:.2f} is below auto-fix threshold "
+            f"{MIN_AUTO_FIX_CONFIDENCE:.2f}; use needs_human_review instead"
+        )
 
     db_patch = plan.get("db_patch", {})
     if db_patch is None:
@@ -120,6 +132,16 @@ def _validate_plan(plan: dict) -> dict:
     if new_payload is not None and not isinstance(new_payload, dict):
         raise PlanError("db_patch.payload must be a full object when provided")
 
+    if new_payload is not None:
+        payload_type = new_payload.get("type")
+        if payload_type is not None and payload_type not in VALID_TYPES:
+            raise PlanError(f"invalid db_patch.payload.type: {payload_type!r}")
+        if db_patch.get("answer") is not None and "answer" in new_payload:
+            if not _json_equal(db_patch["answer"], new_payload["answer"]):
+                raise PlanError("db_patch.answer and db_patch.payload.answer must match when both are provided")
+        if new_type is not None and payload_type is not None and new_type != payload_type:
+            raise PlanError("db_patch.type and db_patch.payload.type must match when both are provided")
+
     if verdict != "fix_needed" and any(db_patch.get(field) is not None for field in PATCH_FIELDS):
         raise PlanError("db_patch may only contain changes when verdict is fix_needed")
 
@@ -129,7 +151,7 @@ def _validate_plan(plan: dict) -> dict:
         "question_id": str(question_id),
         "feedback_id": feedback_id,
         "verdict": verdict,
-        "confidence": float(confidence),
+        "confidence": confidence,
         "db_patch": db_patch,
     }
 
@@ -165,11 +187,11 @@ def _assert_verified(verify: tuple[Any, Any, Any] | None, expected: tuple[Any, A
     expected_answer, expected_type, expected_payload = expected
 
     mismatches = []
-    if _normalize_json(actual_answer) != _normalize_json(expected_answer):
+    if not _json_equal(actual_answer, expected_answer):
         mismatches.append("answer")
     if actual_type != expected_type:
         mismatches.append("type")
-    if _normalize_json(actual_payload) != _normalize_json(expected_payload):
+    if not _json_equal(actual_payload, expected_payload):
         mismatches.append("payload")
 
     if mismatches:
@@ -194,6 +216,40 @@ def _assert_feedback_matches_plan(cur, feedback_id: Any, bank_key: str, question
             "plan target does not match feedback target: "
             f"plan={bank_key}/{question_id}, feedback={feedback_bank}/{feedback_question_id}"
         )
+
+
+def _build_resolution_note(plan: dict) -> str:
+    resolution_note = plan.get("resolution_note", "")
+    if resolution_note:
+        return str(resolution_note)
+
+    changed = plan.get("changed_fields", [])
+    if changed:
+        parts = [
+            f"{c.get('path')}: {c.get('before')} -> {c.get('after')}"
+            for c in changed
+            if isinstance(c, dict)
+        ]
+        return "已修复: " + "; ".join(parts)
+    return "DeepSeek审题: 无需修改"
+
+
+def _resolve_feedback_in_transaction(cur, feedback_id: int, plan: dict, *, verdict: str, applied_patch: bool) -> None:
+    if verdict == "needs_human_review":
+        print(f"skip feedback {feedback_id}: needs_human_review cannot be auto-resolved")
+        return
+    if verdict == "fix_needed" and not applied_patch:
+        raise PlanError("cannot resolve fix_needed feedback before a verified DB patch is applied")
+    if verdict != "no_change" and not applied_patch:
+        raise PlanError(f"cannot auto-resolve feedback for verdict={verdict!r}")
+
+    cur.execute(
+        "UPDATE feedbacks SET status='resolved', resolved_at=now(), resolution_note=%s WHERE feedback_id=%s",
+        (_build_resolution_note(plan), feedback_id),
+    )
+    if cur.rowcount != 1:
+        raise PlanError(f"feedback {feedback_id} update affected {cur.rowcount} rows")
+    print(f"feedback {feedback_id} -> resolved")
 
 
 def main():
@@ -244,13 +300,12 @@ def main():
     if verdict == "fix_needed" and not (will_update_answer or will_update_type or will_update_payload):
         _fail("verdict is fix_needed but db_patch is empty")
 
-    if not (will_update_answer or will_update_type or will_update_payload):
-        print("nothing to update")
-        if args.set_feedback_status and feedback_id:
-            _update_feedback(db_url, feedback_id, plan, args.yes, verdict=verdict, applied_patch=False)
-        return
-
     if not args.yes:
+        if not (will_update_answer or will_update_type or will_update_payload):
+            print("dry-run: no PostgreSQL changes written")
+            if args.set_feedback_status and feedback_id:
+                print(f"dry-run: would set feedback {feedback_id} to resolved")
+            return
         print("dry-run: no PostgreSQL changes written; pass --yes to apply")
         return
 
@@ -266,6 +321,19 @@ def main():
         with psycopg.connect(db_url) as conn:
             with conn.cursor() as cur:
                 _assert_feedback_matches_plan(cur, feedback_id, bank_key, question_id)
+
+                if not (will_update_answer or will_update_type or will_update_payload):
+                    print("nothing to update")
+                    if args.set_feedback_status and feedback_id:
+                        _resolve_feedback_in_transaction(
+                            cur,
+                            feedback_id,
+                            plan,
+                            verdict=verdict,
+                            applied_patch=False,
+                        )
+                    conn.commit()
+                    return
 
                 cur.execute(
                     "SELECT answer, type, payload FROM bank_questions WHERE bank_key=%s AND question_id=%s",
@@ -320,48 +388,21 @@ def main():
                 verify = cur.fetchone()
                 expected = _expected_after_patch(old_answer, old_type, old_payload, db_patch)
                 _assert_verified(verify, expected)
+
+                if args.set_feedback_status and feedback_id:
+                    _resolve_feedback_in_transaction(
+                        cur,
+                        feedback_id,
+                        plan,
+                        verdict=verdict,
+                        applied_patch=True,
+                    )
+
                 conn.commit()
                 print("verified: bank_questions answer/type/payload match plan")
                 print("applied")
     except PlanError as exc:
         _fail(str(exc))
-
-    if args.set_feedback_status and feedback_id:
-        _update_feedback(db_url, feedback_id, plan, args.yes, verdict=verdict, applied_patch=True)
-
-
-def _update_feedback(db_url: str, feedback_id: int, plan: dict, yes: bool, *, verdict: str, applied_patch: bool):
-    if verdict == "needs_human_review":
-        print(f"skip feedback {feedback_id}: needs_human_review cannot be auto-resolved")
-        return
-    if verdict == "fix_needed" and not applied_patch:
-        raise PlanError("cannot resolve fix_needed feedback before a verified DB patch is applied")
-    if verdict != "no_change" and not applied_patch:
-        raise PlanError(f"cannot auto-resolve feedback for verdict={verdict!r}")
-
-    resolution_note = plan.get("resolution_note", "")
-    if not resolution_note:
-        changed = plan.get("changed_fields", [])
-        if changed:
-            parts = [f"{c.get('path')}: {c.get('before')} -> {c.get('after')}" for c in changed if isinstance(c, dict)]
-            resolution_note = "已修复: " + "; ".join(parts)
-        else:
-            resolution_note = "DeepSeek审题: 无需修改"
-
-    if not yes:
-        print(f"dry-run: would set feedback {feedback_id} to resolved")
-        return
-
-    with psycopg.connect(db_url) as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "UPDATE feedbacks SET status='resolved', resolved_at=now(), resolution_note=%s WHERE feedback_id=%s",
-                (resolution_note, feedback_id),
-            )
-            if cur.rowcount != 1:
-                raise PlanError(f"feedback {feedback_id} update affected {cur.rowcount} rows")
-            conn.commit()
-            print(f"feedback {feedback_id} -> resolved")
 
 
 if __name__ == "__main__":
