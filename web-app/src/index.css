@@ -146,64 +146,6 @@
   color: #b45309;
 }
 
-/* Quiz answer and navigation visual guardrails.
-   These target the existing Quiz.tsx class structure and keep the UI readable
-   until the page gets semantic component class names. */
-.border-primary-500.bg-primary-50 {
-  background-color: #dbeafe !important;
-  border-color: #2563eb !important;
-  color: #1d4ed8 !important;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.16);
-}
-
-.dark .border-primary-500.bg-primary-50 {
-  background-color: rgba(37, 99, 235, 0.28) !important;
-  border-color: #60a5fa !important;
-  color: #bfdbfe !important;
-  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.22);
-}
-
-button.scale-125.bg-primary-50 {
-  background-color: #2563eb !important;
-}
-
-.dark button.scale-125.bg-primary-50 {
-  background-color: #60a5fa !important;
-}
-
-button.scale-125.bg-yellow-50 {
-  background-color: #f59e0b !important;
-}
-
-.dark button.scale-125.bg-yellow-50 {
-  background-color: #fbbf24 !important;
-}
-
-.sticky.top-0 .h-full[style*="width"] {
-  background-color: #2563eb !important;
-}
-
-.dark .sticky.top-0 .h-full[style*="width"] {
-  background-color: #60a5fa !important;
-}
-
-.pt-4.border-t > .flex.items-center.gap-2 {
-  display: grid !important;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  align-items: stretch;
-  gap: 0.75rem;
-}
-
-.pt-4.border-t > .flex.items-center.gap-2 > button {
-  min-width: 0;
-  min-height: 44px;
-  white-space: nowrap;
-}
-
-.pt-4.border-t > .flex.items-center.gap-2 > button:last-child {
-  font-weight: 600;
-}
-
 /* 自定义滚动条 */
 ::-webkit-scrollbar {
   width: 6px;
