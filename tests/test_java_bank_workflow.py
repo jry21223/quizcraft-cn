@@ -254,6 +254,20 @@ def test_mcp_java_append_endpoint_reuses_http_api():
     )
 
 
+def test_mcp_java_append_base_url_reuses_admin_security_guard():
+    assert (
+        feedback_mcp_server._resolve_java_append_base_url("http://127.0.0.1:10086/api")
+        == "http://127.0.0.1:10086/api"
+    )
+
+    try:
+        feedback_mcp_server._resolve_java_append_base_url("http://8.146.200.82/api")
+    except SystemExit as exc:
+        assert "HTTPS" in str(exc)
+    else:
+        raise AssertionError("public HTTP admin API URL should be rejected")
+
+
 def test_java_incremental_upload_api_syncs_saved_bank_before_reload(monkeypatch, tmp_path):
     monkeypatch.setenv("ADMIN_TOKEN", "test-token")
     monkeypatch.setattr(server, "TIKU_DIR", str(tmp_path))
