@@ -37,6 +37,15 @@ def _java_append_endpoint(api_base_url: str) -> str:
     return api_base_url.rstrip("/") + "/banks/java/append-from-markdown"
 
 
+def _resolve_java_append_base_url(api_base_url: Optional[str] = None) -> str:
+    raw_base_url = (
+        api_base_url
+        or os.getenv("QUIZCRAFT_API_BASE_URL")
+        or DEFAULT_QUIZCRAFT_API_BASE_URL
+    )
+    return resolve_admin_api_base_url(raw_base_url)
+
+
 def _post_java_append_markdown(
     *,
     api_base_url: str,
@@ -617,12 +626,7 @@ def _build_tool_server():
         timeout: int = 1800,
     ) -> dict[str, Any]:
         """Upload Java Markdown questions through QuizCraft's existing admin API."""
-        raw_base_url = (
-            api_base_url
-            or os.getenv("QUIZCRAFT_API_BASE_URL")
-            or DEFAULT_QUIZCRAFT_API_BASE_URL
-        )
-        base_url = resolve_admin_api_base_url(raw_base_url)
+        base_url = _resolve_java_append_base_url(api_base_url)
         admin_token = (
             os.getenv("QUIZCRAFT_ADMIN_TOKEN")
             or os.getenv("ADMIN_TOKEN")

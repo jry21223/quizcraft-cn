@@ -8,7 +8,13 @@ _validate_static_deploy_dir() {
   local deploy_dir="$1"
   local resolved_dir
 
-  resolved_dir="$(realpath -m "${deploy_dir}")"
+  if [ -d "${deploy_dir}" ]; then
+    resolved_dir="$(cd "${deploy_dir}" && pwd -P)"
+  elif [ "${deploy_dir#/}" != "${deploy_dir}" ]; then
+    resolved_dir="${deploy_dir%/}"
+  else
+    resolved_dir="$(cd "$(dirname "${deploy_dir}")" 2>/dev/null && pwd -P)/${deploy_dir##*/}"
+  fi
   case "${resolved_dir}/" in
     /var/www/quizcraft-cn/*|/opt/quizcraft-cn/static/*)
       ;;
