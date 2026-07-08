@@ -209,7 +209,7 @@ def validate_plan(plan: dict) -> None:
     if verdict not in VALID_VERDICTS:
         raise PlanError(f"invalid verdict: {verdict!r}")
     confidence = plan.get("confidence")
-    if not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1:
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1:
         raise PlanError("confidence must be a number between 0 and 1")
     confidence = float(confidence)
     if verdict == "fix_needed" and confidence < MIN_AUTO_FIX_CONFIDENCE:

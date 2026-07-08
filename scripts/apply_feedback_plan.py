@@ -105,7 +105,7 @@ def _validate_plan(plan: dict) -> dict:
         raise PlanError(f"invalid verdict: {verdict!r}; expected one of {sorted(VALID_VERDICTS)}")
 
     confidence = plan.get("confidence", 0)
-    if not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1:
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= float(confidence) <= 1:
         raise PlanError("confidence must be a number between 0 and 1")
     confidence = float(confidence)
 
