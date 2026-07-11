@@ -274,10 +274,11 @@ export default function Layout() {
 
       <dialog
         ref={downloadDialogRef}
+        aria-labelledby="download-app-modal-title"
         className="w-[calc(100%-2rem)] max-w-sm rounded-2xl bg-white dark:bg-slate-800 p-5 shadow-xl backdrop:bg-black/50"
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-slate-100">下载刷题助手 App</h2>
+          <h2 id="download-app-modal-title" className="text-lg font-semibold text-gray-800 dark:text-slate-100">下载刷题助手 App</h2>
           <button type="button" onClick={() => downloadDialogRef.current?.close()} className="rounded-lg p-1.5 text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors" aria-label="关闭">
             <X className="h-5 w-5" />
           </button>

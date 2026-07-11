@@ -43,43 +43,6 @@ import { shouldAutoAdvanceAfterAnswer } from "@/utils/quizAutoAdvance";
 import { getQuestionOptionKey } from "./quizCardState";
 import type { PracticeState, Question, QuestionType } from "@/types";
 
-const isAnswerCorrect = (
-  answer: any,
-  correctAnswer: any,
-  type: QuestionType,
-) => {
-  if (type === "blank") {
-    const normalized = normalizeBlankAnswer(answer).toLocaleLowerCase();
-    const candidates = Array.isArray(correctAnswer)
-      ? correctAnswer
-      : [correctAnswer];
-    return Boolean(normalized) &&
-      candidates.some(
-        (candidate) =>
-          normalized === normalizeBlankAnswer(candidate).toLocaleLowerCase(),
-      );
-  }
-
-  if (type === "judge") {
-    return Boolean(answer) === Boolean(correctAnswer);
-  }
-
-  if (type === "multi") {
-    const selected = Array.isArray(answer)
-      ? [...answer].map(Number).sort()
-      : [];
-    const correct = Array.isArray(correctAnswer)
-      ? [...correctAnswer].map(Number).sort()
-      : [];
-    return (
-      selected.length === correct.length &&
-      selected.every((value, index) => value === correct[index])
-    );
-  }
-
-  return Number(answer) === Number(correctAnswer);
-};
-
 const normalizeBlankAnswer = (answer: unknown): string =>
   String(answer ?? "").replace(/\s+/g, " ").trim();
 
@@ -555,6 +518,7 @@ type QuestionCardProps = {
 type QuizUiState = {
   selectedAnswer: any;
   showResult: boolean;
+  answerSubmitting: boolean;
   elapsedTime: number;
   isSliding: boolean;
   visualCurrentIndex: number;
@@ -567,6 +531,7 @@ type QuizUiState = {
 const initialQuizUiState: QuizUiState = {
   selectedAnswer: null,
   showResult: false,
+  answerSubmitting: false,
   elapsedTime: 0,
   isSliding: false,
   visualCurrentIndex: 0,
@@ -795,6 +760,7 @@ function useQuizController() {
   const {
     selectedAnswer,
     showResult,
+    answerSubmitting,
     elapsedTime,
     isSliding,
     visualCurrentIndex,
@@ -1235,7 +1201,7 @@ function useQuizController() {
   };
 
   const handleOptionSelect = (index: number) => {
-    if (showResult) return;
+    if (showResult || answerSubmitting) return;
 
     if (activeQuestion.type === "multi") {
       // 多选题：切换选择
@@ -1251,7 +1217,7 @@ function useQuizController() {
   };
 
   const handleSubmitCurrent = () => {
-    if (!activeQuestion || showResult || !canSubmitCurrent || isSliding) return;
+    if (!activeQuestion || showResult || !canSubmitCurrent || isSliding || answerSubmitting) return;
 
     if (
       activeQuestion.type === "multi" &&
@@ -1271,21 +1237,7 @@ function useQuizController() {
     if (!activeBankKey || !activeQuestion) return;
 
     const questionId = activeQuestion.id;
-    const localCorrectAnswer = activeQuestion.answer;
-    const localIsCorrect = isAnswerCorrect(
-      answer,
-      localCorrectAnswer,
-      activeQuestion.type,
-    );
-
-    setUi({ showResult: true });
-    answerQuestion({
-      questionId,
-      answer,
-      isCorrect: localIsCorrect,
-      correctAnswer: localCorrectAnswer,
-      analysis: activeQuestion.analysis,
-    });
+    setUi({ answerSubmitting: true });
 
     void practiceApi
       .submitAnswer(activeBankKey, questionId, answer)
@@ -1302,15 +1254,23 @@ function useQuizController() {
           correctAnswer: res.correct_answer,
           analysis: res.analysis,
         });
+        const latestPractice = useQuizStore.getState().practice;
+        const latestQuestion =
+          latestPractice?.questions[latestPractice.currentIndex];
+        setUi({
+          answerSubmitting: false,
+          showResult: latestQuestion?.id === questionId,
+        });
         scheduleCorrectAnswerAutoAdvance(questionId, res.correct);
       })
       .catch((error) => {
         console.error("同步答题统计失败:", error);
+        setUi({ answerSubmitting: false });
       });
   };
 
   const handleJudgeSelect = (value: boolean) => {
-    if (showResult) return;
+    if (showResult || answerSubmitting) return;
     setUi({ selectedAnswer: value });
   };
 
@@ -1319,6 +1279,7 @@ function useQuizController() {
   return {
     activeBankKey,
     activeQuestion,
+    answerSubmitting,
     canSubmitCurrent,
     closeFeedbackModal,
     elapsedTime,
@@ -1347,7 +1308,10 @@ function useQuizController() {
     resetSwipeState,
     selectedAnswer,
     setFeedbackSuggestion: (value: string) => setUi({ feedbackSuggestion: value }),
-    setSelectedAnswer: (value: any) => setUi({ selectedAnswer: value }),
+    setSelectedAnswer: (value: any) => {
+      if (showResult || answerSubmitting) return;
+      setUi({ selectedAnswer: value });
+    },
     showResult,
     starred,
     starredQuestions,
@@ -1523,7 +1487,10 @@ function QuizTrack({ controller }: { controller: QuizController }) {
               ? { kind: "result" }
               : {
                   kind: "answering",
-                  submitDisabled: !controller.canSubmitCurrent || controller.isSliding,
+                  submitDisabled:
+                    !controller.canSubmitCurrent ||
+                    controller.isSliding ||
+                    controller.answerSubmitting,
                 }
           }
         />
