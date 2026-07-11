@@ -62,7 +62,7 @@ const isFileProtocol =
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
 const rawApiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
-const ADMIN_TOKEN_STORAGE_KEY = 'quiz_admin_token';
+let runtimeAdminToken = import.meta.env.VITE_ADMIN_TOKEN?.trim() || '';
 
 const defaultApiBaseURL =
   isElectron || isFileProtocol
@@ -130,23 +130,11 @@ const persistUserId = (userId: string) => {
 };
 
 export const getAdminToken = () => {
-  const envToken = import.meta.env.VITE_ADMIN_TOKEN?.trim() || '';
-  if (typeof window === 'undefined') {
-    return envToken;
-  }
-  return localStorage.getItem(ADMIN_TOKEN_STORAGE_KEY)?.trim() || envToken;
+  return runtimeAdminToken;
 };
 
 export const persistAdminToken = (token: string) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-  const normalized = token.trim();
-  if (normalized) {
-    localStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, normalized);
-  } else {
-    localStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
-  }
+  runtimeAdminToken = token.trim();
 };
 
 const adminHeaders = () => {

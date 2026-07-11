@@ -1061,9 +1061,9 @@ function AnalyzeStep({ controller }: { controller: ExtractController }) {
         </div>
         <div className="h-2 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
           <m.div
-            className="h-full bg-primary-500"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress.percentage}%` }}
+            className="h-full origin-left bg-primary-500"
+            initial={{ scaleX: 0 }}
+            animate={{ scaleX: progress.percentage / 100 }}
             transition={{ duration: 0.3 }}
           />
         </div>
@@ -1397,9 +1397,9 @@ function QuestionEditorCard({
       <AnimatePresence>
         {isExpanded && (
           <m.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
             className="border-t border-gray-100 dark:border-slate-700"
           >
             <QuestionExpandedEditor controller={controller} question={question} />
@@ -1629,6 +1629,7 @@ function ChoiceAnswerEditor({
 }) {
   const selectedSingleAnswer = extractChoiceIndexes(question.answer)[0];
   const selectedMultiAnswer = extractChoiceIndexes(question.answer);
+  const selectedMultiAnswerSet = new Set(selectedMultiAnswer);
 
   return (
     <div className="space-y-3">
@@ -1656,7 +1657,7 @@ function ChoiceAnswerEditor({
           checked={
             question.type === 'single'
               ? selectedSingleAnswer === optionIndex
-              : selectedMultiAnswer.includes(optionIndex)
+              : selectedMultiAnswerSet.has(optionIndex)
           }
         />
       ))}

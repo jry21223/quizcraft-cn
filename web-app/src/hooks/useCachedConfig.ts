@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { AnalysisConfig } from '@/types';
 
-const CACHE_KEY = 'quiz_app_llm_config';
+const LEGACY_CACHE_KEY = 'quiz_app_llm_config';
+const CACHE_KEY = 'quiz_app_llm_config:v1';
 const CACHE_EXPIRY = 30 * 24 * 60 * 60 * 1000; // 30 天过期
 
 interface CachedConfig {
@@ -22,17 +23,24 @@ const readCachedConfig = (): AnalysisConfig => {
   }
 
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cached =
+      localStorage.getItem(CACHE_KEY) ||
+      localStorage.getItem(LEGACY_CACHE_KEY);
     if (!cached) {
       return defaultConfig;
     }
 
     const data: CachedConfig = JSON.parse(cached);
     if (Date.now() - data.timestamp < CACHE_EXPIRY) {
+      if (!localStorage.getItem(CACHE_KEY)) {
+        localStorage.setItem(CACHE_KEY, cached);
+        localStorage.removeItem(LEGACY_CACHE_KEY);
+      }
       return data.config;
     }
 
     localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(LEGACY_CACHE_KEY);
   } catch (e) {
     console.error('加载缓存配置失败:', e);
   }
@@ -68,6 +76,7 @@ export function useCachedConfig() {
   const clearConfig = () => {
     setConfig(defaultConfig);
     localStorage.removeItem(CACHE_KEY);
+    localStorage.removeItem(LEGACY_CACHE_KEY);
   };
 
   // 更新单个字段
