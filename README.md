@@ -186,7 +186,9 @@ python3 scripts/upload_bank_via_api.py /tmp/my_bank.parsed.json \
 - `GET /api/wheel`
 - `POST /api/wheel`
 
-管理接口需要请求头 `X-Admin-Token`，生产环境必须配置 `ADMIN_TOKEN`：
+生产环境必须只在后端配置 `ADMIN_TOKEN`。浏览器先通过 `POST /api/admin/session`
+交换一个短期 HttpOnly Cookie，后续管理请求和分析 WebSocket 都使用该会话；脚本和
+CLI 客户端继续使用请求头 `X-Admin-Token`：
 
 - `POST /api/extract/parse`
 - `POST /api/extract/analyze`
@@ -195,7 +197,11 @@ python3 scripts/upload_bank_via_api.py /tmp/my_bank.parsed.json \
 - `POST /api/banks/java/append-from-markdown`
 - `PATCH /api/feedback/{feedback_id}/status`
 
-前端题库工坊会把管理 Token 保存在本地浏览器中；不要把生产 Token 写进仓库或聊天记录。
+管理会话默认有效 8 小时（可通过 `ADMIN_SESSION_TTL_SECONDS` 调整，范围 5 分钟到
+24 小时），刷新页面不会退出，主动退出或过期后需要重新验证。Cookie 使用
+`HttpOnly`、`SameSite=Strict`，生产域名必须启用 HTTPS。不要定义
+`VITE_ADMIN_TOKEN`：所有 `VITE_*` 变量都会进入公开的浏览器构建产物。也不要把生产
+Token 写进仓库、前端环境文件或聊天记录。
 
 ## 数据与生产边界
 
@@ -241,6 +247,7 @@ APP_PORT=10086
 CORS_ORIGINS=https://your-domain.example
 DATABASE_URL=postgresql://quizcraft:change-me@127.0.0.1:5432/quizcraft
 ADMIN_TOKEN=change-me
+ADMIN_SESSION_TTL_SECONDS=28800
 DISABLED_BANK_KEYS=
 QUIZCRAFT_SYNC_LOCAL_BANKS_TO_DB=0
 ```

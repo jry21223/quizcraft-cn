@@ -40,6 +40,10 @@ import {
   getDifficultyLabel,
 } from "@/utils/format";
 import { shouldAutoAdvanceAfterAnswer } from "@/utils/quizAutoAdvance";
+import {
+  runAnswerSubmission,
+  type AnswerSubmissionFailure,
+} from "@/utils/answerSubmission";
 import { getQuestionOptionKey } from "./quizCardState";
 import type { PracticeState, Question, QuestionType } from "@/types";
 
@@ -219,6 +223,7 @@ type ProgressDotsProps = {
   answers: Record<string, any>;
   results: Record<string, boolean>;
   starredQuestions: string[];
+  disabled: boolean;
   onJump: (index: number) => void;
 };
 
@@ -229,6 +234,7 @@ type ProgressDotButtonProps = {
   answers: Record<string, any>;
   results: Record<string, boolean>;
   starredSet: Set<string>;
+  disabled: boolean;
   onJump: (index: number) => void;
 };
 
@@ -239,6 +245,7 @@ const ProgressDotButton = memo(function ProgressDotButton({
   answers,
   results,
   starredSet,
+  disabled,
   onJump,
 }: ProgressDotButtonProps) {
   const answered = answers[question.id] !== undefined;
@@ -247,6 +254,7 @@ const ProgressDotButton = memo(function ProgressDotButton({
     <button
       type="button"
       onClick={() => onJump(index)}
+      disabled={disabled}
       aria-label={`跳到第 ${index + 1} 题`}
       className={getProgressDotClass({
         current: index === currentIndex,
@@ -264,6 +272,7 @@ const ProgressDots = memo(function ProgressDots({
   answers,
   results,
   starredQuestions,
+  disabled,
   onJump,
 }: ProgressDotsProps) {
   const starredSet = useMemo(
@@ -297,6 +306,7 @@ const ProgressDots = memo(function ProgressDots({
               answers={answers}
               results={results}
               starredSet={starredSet}
+              disabled={disabled}
               onJump={onJump}
             />
             <span className="px-1 text-xs text-gray-300">…</span>
@@ -312,6 +322,7 @@ const ProgressDots = memo(function ProgressDots({
             answers={answers}
             results={results}
             starredSet={starredSet}
+            disabled={disabled}
             onJump={onJump}
           />
         ))}
@@ -327,6 +338,7 @@ const ProgressDots = memo(function ProgressDots({
               answers={answers}
               results={results}
               starredSet={starredSet}
+              disabled={disabled}
               onJump={onJump}
             />
           </>
@@ -344,6 +356,7 @@ function OptionButton({
   correct,
   missed = false,
   showResult,
+  disabled = false,
   onClick,
 }: {
   label: string;
@@ -352,6 +365,7 @@ function OptionButton({
   correct?: boolean;
   missed?: boolean;
   showResult: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   let bgClass = "bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-600 hover:border-primary-400";
@@ -374,8 +388,8 @@ function OptionButton({
     <button
       type="button"
       onClick={onClick}
-      disabled={showResult}
-      className={`grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 w-full min-h-[72px] h-auto rounded-xl border-2 p-4 box-border overflow-hidden text-left transition-colors ${bgClass}`}
+      disabled={showResult || disabled}
+      className={`grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 w-full min-h-[72px] h-auto rounded-xl border-2 p-4 box-border overflow-hidden text-left transition-colors disabled:cursor-not-allowed ${bgClass}`}
     >
       <span
         className={`w-11 h-11 rounded-xl flex items-center justify-center text-sm font-bold ${
@@ -415,11 +429,13 @@ function JudgeButtons({
   selected,
   correct,
   showResult,
+  disabled = false,
   onSelect,
 }: {
   selected: boolean | null;
   correct?: boolean;
   showResult: boolean;
+  disabled?: boolean;
   onSelect: (value: boolean) => void;
 }) {
   return (
@@ -444,7 +460,7 @@ function JudgeButtons({
             type="button"
             key={opt.label}
             onClick={() => onSelect(opt.value)}
-            disabled={showResult}
+            disabled={showResult || disabled}
             className={`flex-1 flex items-center justify-center gap-2 py-4 rounded-xl border-2 font-medium transition-colors ${btnClass}`}
           >
             <opt.icon
@@ -462,11 +478,13 @@ function BlankAnswerInput({
   value,
   correctAnswer,
   showResult,
+  disabled = false,
   onChange,
 }: {
   value: unknown;
   correctAnswer?: unknown;
   showResult: boolean;
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   const textValue = typeof value === "string" ? value : "";
@@ -478,7 +496,7 @@ function BlankAnswerInput({
         type="text"
         value={textValue}
         onChange={(event) => onChange(event.target.value)}
-        disabled={showResult}
+        disabled={showResult || disabled}
         placeholder="请输入答案"
         className={`w-full rounded-xl border-2 px-4 py-3 text-base outline-none transition-colors ${
           showResult
@@ -502,13 +520,23 @@ function BlankAnswerInput({
 
 type QuestionCardProps = {
   question: Question | null;
-  mode: { kind: "preview" } | { kind: "answering"; submitDisabled: boolean } | { kind: "result" };
+  mode:
+    | { kind: "preview" }
+    | {
+        kind: "answering";
+        submitDisabled: boolean;
+        submitting: boolean;
+        submitError: AnswerSubmissionFailure | null;
+      }
+    | { kind: "result" };
   practice: PracticeState;
   selectedAnswer: any;
   onBlankAnswerChange: (value: string) => void;
   onJudgeSelect: (value: boolean) => void;
   onOptionSelect: (index: number) => void;
   onSubmitCurrent: () => void;
+  onRetrySubmit: () => void;
+  onCancelSubmit: () => void;
   onTouchStart: (event: TouchEvent<HTMLDivElement>) => void;
   onTouchMove: (event: TouchEvent<HTMLDivElement>) => void;
   onTouchEnd: (event: TouchEvent<HTMLDivElement>) => void;
@@ -519,6 +547,8 @@ type QuizUiState = {
   selectedAnswer: any;
   showResult: boolean;
   answerSubmitting: boolean;
+  answerSubmitError: AnswerSubmissionFailure | null;
+  pendingAnswer: { questionId: string; answer: any } | null;
   elapsedTime: number;
   isSliding: boolean;
   visualCurrentIndex: number;
@@ -532,6 +562,8 @@ const initialQuizUiState: QuizUiState = {
   selectedAnswer: null,
   showResult: false,
   answerSubmitting: false,
+  answerSubmitError: null,
+  pendingAnswer: null,
   elapsedTime: 0,
   isSliding: false,
   visualCurrentIndex: 0,
@@ -562,6 +594,8 @@ function QuestionCard({
   onJudgeSelect,
   onOptionSelect,
   onSubmitCurrent,
+  onRetrySubmit,
+  onCancelSubmit,
   onTouchStart,
   onTouchMove,
   onTouchEnd,
@@ -584,6 +618,11 @@ function QuestionCard({
       ? savedAnswer
       : null;
   const cardShowResult = isCurrent ? mode.kind === "result" : hasSavedAnswer;
+  const answerLocked = Boolean(
+    isCurrent &&
+      mode.kind === "answering" &&
+      (mode.submitting || mode.submitError),
+  );
   const result =
     hasSavedAnswer
       ? {
@@ -634,6 +673,7 @@ function QuestionCard({
               value={cardAnswer}
               correctAnswer={cardShowResult ? result?.correctAnswer : undefined}
               showResult={cardShowResult}
+              disabled={answerLocked}
               onChange={isCurrent ? onBlankAnswerChange : ignoreBlankAnswerChange}
             />
           ) : question.type === "judge" ? (
@@ -645,6 +685,7 @@ function QuestionCard({
                   : undefined
               }
               showResult={cardShowResult}
+              disabled={answerLocked}
               onSelect={isCurrent ? onJudgeSelect : ignoreJudgeSelect}
             />
           ) : (
@@ -675,6 +716,7 @@ function QuestionCard({
                   correct={isCorrect}
                   missed={isMissed}
                   showResult={cardShowResult}
+                  disabled={answerLocked}
                   onClick={
                     isCurrent ? () => onOptionSelect(index) : ignoreOptionSelect
                   }
@@ -692,8 +734,34 @@ function QuestionCard({
               disabled={mode.submitDisabled}
               className="w-full py-3 bg-primary-500 text-white font-medium rounded-xl hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              提交答案
+              {mode.submitting ? "正在提交..." : "提交答案"}
             </button>
+          </div>
+        )}
+
+        {mode.kind === "answering" && mode.submitError && (
+          <div
+            role="alert"
+            className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-100"
+          >
+            <div className="font-medium">{mode.submitError.title}</div>
+            <p className="mt-1 text-sm leading-6">{mode.submitError.message}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onRetrySubmit}
+                className="rounded-lg bg-amber-600 px-3 py-2 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                重试提交
+              </button>
+              <button
+                type="button"
+                onClick={onCancelSubmit}
+                className="rounded-lg border border-amber-300 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:hover:bg-amber-900/40"
+              >
+                修改答案
+              </button>
+            </div>
           </div>
         )}
 
@@ -761,6 +829,8 @@ function useQuizController() {
     selectedAnswer,
     showResult,
     answerSubmitting,
+    answerSubmitError,
+    pendingAnswer,
     elapsedTime,
     isSliding,
     visualCurrentIndex,
@@ -828,10 +898,22 @@ function useQuizController() {
     if (!hasPractice) return;
 
     if (activeAnswer !== undefined) {
-    setUi({ selectedAnswer: activeAnswer, showResult: true });
-  } else {
-    setUi({ selectedAnswer: null, showResult: false });
-  }
+      setUi({
+        selectedAnswer: activeAnswer,
+        showResult: true,
+        answerSubmitting: false,
+        answerSubmitError: null,
+        pendingAnswer: null,
+      });
+    } else {
+      setUi({
+        selectedAnswer: null,
+        showResult: false,
+        answerSubmitting: false,
+        answerSubmitError: null,
+        pendingAnswer: null,
+      });
+    }
   }, [hasPractice, activeQuestionId, activeAnswer]);
 
   useLayoutEffect(() => {
@@ -863,7 +945,7 @@ function useQuizController() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [startTime, isFinished]);
+  }, [startTime, isFinished, practice?.startTime, practice?.isFinished]);
 
   const practiceQuestionCount = practice?.questions.length ?? 0;
   const visualIndex = practice && practiceQuestionCount > 0
@@ -890,7 +972,12 @@ function useQuizController() {
     } catch {
       // ignore storage errors
     }
-  }, [hasPractice, practiceQuestionCount, feedbackQuestionIndex]);
+  }, [
+    hasPractice,
+    practiceQuestionCount,
+    feedbackQuestionIndex,
+    practice?.questions.length,
+  ]);
 
   if (!hasPractice || !practice || !activeQuestion) return null;
 
@@ -905,6 +992,7 @@ function useQuizController() {
   const canSubmitCurrent = Boolean(
     activeQuestion && hasSelectedAnswer(selectedAnswer, activeQuestion.type),
   );
+  const submissionLocked = answerSubmitting || pendingAnswer !== null;
 
   const openFeedbackModal = () => {
     setUi({
@@ -999,8 +1087,15 @@ function useQuizController() {
       : { selectedAnswer: null, showResult: false };
   };
 
-  const slideToIndex = (targetIndex: number) => {
-    if (!practice || isSliding) {
+  const slideToIndex = (
+    targetIndex: number,
+    allowSubmissionTransition = false,
+  ) => {
+    if (
+      !practice ||
+      isSliding ||
+      (submissionLocked && !allowSubmissionTransition)
+    ) {
       return;
     }
 
@@ -1045,7 +1140,7 @@ function useQuizController() {
   };
 
   const handleNext = () => {
-    if (!practice || isSliding) return;
+    if (!practice || isSliding || submissionLocked) return;
 
     if (practice.currentIndex < practice.questions.length - 1) {
       slideToIndex(practice.currentIndex + 1);
@@ -1056,7 +1151,7 @@ function useQuizController() {
   };
 
   const handlePrev = () => {
-    if (!practice || isSliding) return;
+    if (!practice || isSliding || submissionLocked) return;
     if (practice.currentIndex <= 0) {
       return;
     }
@@ -1102,7 +1197,7 @@ function useQuizController() {
           questionCount: currentPractice.questions.length,
         })
       ) {
-        slideToIndex(currentPractice.currentIndex + 1);
+        slideToIndex(currentPractice.currentIndex + 1, true);
       }
     }, CORRECT_ANSWER_AUTO_ADVANCE_DELAY_MS);
   };
@@ -1111,6 +1206,7 @@ function useQuizController() {
     const viewportWidth = viewportWidthRef.current;
     if (
       isSliding ||
+      submissionLocked ||
       !viewportWidth ||
       event.touches.length !== 1 ||
       shouldIgnoreSwipeTarget(event.target)
@@ -1201,7 +1297,7 @@ function useQuizController() {
   };
 
   const handleOptionSelect = (index: number) => {
-    if (showResult || answerSubmitting) return;
+    if (showResult || submissionLocked) return;
 
     if (activeQuestion.type === "multi") {
       // 多选题：切换选择
@@ -1217,7 +1313,7 @@ function useQuizController() {
   };
 
   const handleSubmitCurrent = () => {
-    if (!activeQuestion || showResult || !canSubmitCurrent || isSliding || answerSubmitting) return;
+    if (!activeQuestion || showResult || !canSubmitCurrent || isSliding || submissionLocked) return;
 
     if (
       activeQuestion.type === "multi" &&
@@ -1226,51 +1322,86 @@ function useQuizController() {
       return;
     }
 
-    submitAnswer(
+    void submitAnswer(
       activeQuestion.type === "blank"
         ? normalizeBlankAnswer(selectedAnswer)
         : selectedAnswer,
     );
   };
 
-  const submitAnswer = (answer: any) => {
-    if (!activeBankKey || !activeQuestion) return;
+  const submitAnswer = async (
+    answer: any,
+    questionId = activeQuestion.id,
+  ) => {
+    if (!activeBankKey || activeQuestion.id !== questionId) return;
 
-    const questionId = activeQuestion.id;
-    setUi({ answerSubmitting: true });
+    setUi({
+      answerSubmitting: true,
+      answerSubmitError: null,
+      pendingAnswer: { questionId, answer },
+    });
 
-    void practiceApi
-      .submitAnswer(activeBankKey, questionId, answer)
-      .then((res) => {
-        if (res.user_stats?.userId) {
-          localStorage.setItem("user_id", res.user_stats.userId);
-          setUser(res.user_stats);
-        }
-        // 以后如果后端隐藏答案或规则调整，以后端结果为准进行一次轻量校正。
-        answerQuestion({
-          questionId,
-          answer,
-          isCorrect: res.correct,
-          correctAnswer: res.correct_answer,
-          analysis: res.analysis,
-        });
-        const latestPractice = useQuizStore.getState().practice;
-        const latestQuestion =
-          latestPractice?.questions[latestPractice.currentIndex];
-        setUi({
-          answerSubmitting: false,
-          showResult: latestQuestion?.id === questionId,
-        });
-        scheduleCorrectAnswerAutoAdvance(questionId, res.correct);
-      })
-      .catch((error) => {
-        console.error("同步答题统计失败:", error);
-        setUi({ answerSubmitting: false });
-      });
+    const result = await runAnswerSubmission(() =>
+      practiceApi.submitAnswer(activeBankKey, questionId, answer),
+    );
+
+    if (!result.ok) {
+      const latestPractice = useQuizStore.getState().practice;
+      const latestQuestion =
+        latestPractice?.questions[latestPractice.currentIndex];
+      setUi(
+        latestQuestion?.id === questionId
+          ? { answerSubmitting: false, answerSubmitError: result.error }
+          : {
+              answerSubmitting: false,
+              answerSubmitError: null,
+              pendingAnswer: null,
+            },
+      );
+      return;
+    }
+
+    const res = result.response;
+    if (res.user_stats?.userId) {
+      localStorage.setItem("user_id", res.user_stats.userId);
+      setUser(res.user_stats);
+    }
+    // 以后如果后端隐藏答案或规则调整，以后端结果为准进行一次轻量校正。
+    answerQuestion({
+      questionId,
+      answer,
+      isCorrect: res.correct,
+      correctAnswer: res.correct_answer,
+      analysis: res.analysis,
+    });
+    const latestPractice = useQuizStore.getState().practice;
+    const latestQuestion =
+      latestPractice?.questions[latestPractice.currentIndex];
+    setUi({
+      answerSubmitting: false,
+      answerSubmitError: null,
+      pendingAnswer: null,
+      showResult: latestQuestion?.id === questionId,
+    });
+    scheduleCorrectAnswerAutoAdvance(questionId, res.correct);
+  };
+
+  const retryAnswerSubmission = () => {
+    if (!pendingAnswer || answerSubmitting) return;
+    if (pendingAnswer.questionId !== activeQuestion.id) {
+      setUi({ answerSubmitError: null, pendingAnswer: null });
+      return;
+    }
+    void submitAnswer(pendingAnswer.answer, pendingAnswer.questionId);
+  };
+
+  const cancelAnswerSubmission = () => {
+    if (answerSubmitting) return;
+    setUi({ answerSubmitError: null, pendingAnswer: null });
   };
 
   const handleJudgeSelect = (value: boolean) => {
-    if (showResult || answerSubmitting) return;
+    if (showResult || submissionLocked) return;
     setUi({ selectedAnswer: value });
   };
 
@@ -1280,6 +1411,8 @@ function useQuizController() {
     activeBankKey,
     activeQuestion,
     answerSubmitting,
+    answerSubmitError,
+    cancelAnswerSubmission,
     canSubmitCurrent,
     closeFeedbackModal,
     elapsedTime,
@@ -1306,13 +1439,15 @@ function useQuizController() {
     prevQuestion,
     progress,
     resetSwipeState,
+    retryAnswerSubmission,
     selectedAnswer,
     setFeedbackSuggestion: (value: string) => setUi({ feedbackSuggestion: value }),
     setSelectedAnswer: (value: any) => {
-      if (showResult || answerSubmitting) return;
+      if (showResult || submissionLocked) return;
       setUi({ selectedAnswer: value });
     },
     showResult,
+    submissionLocked,
     starred,
     starredQuestions,
     toggleStar,
@@ -1490,7 +1625,9 @@ function QuizTrack({ controller }: { controller: QuizController }) {
                   submitDisabled:
                     !controller.canSubmitCurrent ||
                     controller.isSliding ||
-                    controller.answerSubmitting,
+                    controller.submissionLocked,
+                  submitting: controller.answerSubmitting,
+                  submitError: controller.answerSubmitError,
                 }
           }
         />
@@ -1524,6 +1661,8 @@ function QuizTrackCard({
       onJudgeSelect={controller.handleJudgeSelect}
       onOptionSelect={controller.handleOptionSelect}
       onSubmitCurrent={controller.handleSubmitCurrent}
+      onRetrySubmit={controller.retryAnswerSubmission}
+      onCancelSubmit={controller.cancelAnswerSubmission}
       onTouchStart={controller.handleCardTouchStart}
       onTouchMove={controller.handleCardTouchMove}
       onTouchEnd={controller.handleCardTouchEnd}
@@ -1539,7 +1678,11 @@ function QuizFooterControls({ controller }: { controller: QuizController }) {
         <button
           type="button"
           onClick={controller.handlePrev}
-          disabled={controller.isSliding || controller.practice.currentIndex === 0}
+          disabled={
+            controller.isSliding ||
+            controller.submissionLocked ||
+            controller.practice.currentIndex === 0
+          }
           className="flex items-center justify-center gap-1 px-4 py-2 rounded-lg text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -1549,7 +1692,7 @@ function QuizFooterControls({ controller }: { controller: QuizController }) {
         <button
           type="button"
           onClick={controller.handleNext}
-          disabled={controller.isSliding}
+          disabled={controller.isSliding || controller.submissionLocked}
           className="flex items-center justify-center gap-1 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 dark:bg-primary-600 dark:hover:bg-primary-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors flex-1"
         >
           {controller.visualIndex === controller.practice.questions.length - 1
@@ -1565,6 +1708,7 @@ function QuizFooterControls({ controller }: { controller: QuizController }) {
         answers={controller.practice.answers}
         results={controller.practice.results}
         starredQuestions={controller.starredQuestions}
+        disabled={controller.submissionLocked}
         onJump={controller.handleJump}
       />
     </div>

@@ -21,14 +21,14 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import {
+  adminApi,
   analysisApi,
   bankApi,
   buildBrowserURL,
   buildWebSocketURL,
-  getAdminToken,
-  persistAdminToken,
 } from '@/api/client';
 import { useCachedConfig } from '@/hooks/useCachedConfig';
+import { useManagedWebSocket } from '@/hooks/useManagedWebSocket';
 import { useQuizStore } from '@/stores/quizStore';
 import type { ParsedQuestion, QuestionType } from '@/types';
 
@@ -69,7 +69,9 @@ type ExtractUiState = {
   error: string;
   success: string;
   analyzeTime: number;
-  adminToken: string;
+  adminTokenInput: string;
+  adminAuthenticated: boolean;
+  adminSessionLoading: boolean;
 };
 
 type ExtractUiAction =
@@ -92,7 +94,9 @@ const createInitialExtractUiState = (): ExtractUiState => ({
   error: '',
   success: '',
   analyzeTime: 0,
-  adminToken: getAdminToken(),
+  adminTokenInput: '',
+  adminAuthenticated: false,
+  adminSessionLoading: true,
 });
 
 const mergeExtractUiState = (
@@ -271,6 +275,7 @@ const getTypeBadgeClass = (type: QuestionType) => {
 
 function useExtractController() {
   const { config, updateConfig, clearConfig, keyCount } = useCachedConfig();
+  const { connect: connectWebSocket, close: closeWebSocket } = useManagedWebSocket();
   const { setBanks } = useQuizStore();
 
   const [ui, setUi] = useReducer(
@@ -294,27 +299,47 @@ function useExtractController() {
     error,
     success,
     analyzeTime,
-    adminToken,
+    adminTokenInput,
+    adminAuthenticated,
+    adminSessionLoading,
   } = ui;
 
-  const wsRef = useRef<WebSocket | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const keyTouchedRef = useRef(false);
 
   const closeAsyncResources = useCallback(() => {
-    if (wsRef.current) {
-      wsRef.current.close();
-      wsRef.current = null;
-    }
+    closeWebSocket();
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
-  }, []);
+  }, [closeWebSocket]);
 
   useEffect(() => {
     return closeAsyncResources;
   }, [closeAsyncResources]);
+
+  useEffect(() => {
+    let active = true;
+    void adminApi
+      .getSession()
+      .then((session) => {
+        if (active) {
+          setUi({
+            adminAuthenticated: session.authenticated,
+            adminSessionLoading: false,
+          });
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setUi({ adminAuthenticated: false, adminSessionLoading: false });
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const clearAsyncState = useCallback(() => {
     closeAsyncResources();
@@ -393,8 +418,8 @@ function useExtractController() {
   };
 
   const processFile = useCallback(async (selectedFile: File) => {
-    if (!adminToken.trim()) {
-      setUi({ error: '请先填写后台管理 Token' });
+    if (!adminAuthenticated) {
+      setUi({ error: '请先建立后台管理会话' });
       return;
     }
     clearAsyncState();
@@ -428,7 +453,7 @@ function useExtractController() {
         error: '文件解析失败: ' + (err as Error).message,
       });
     }
-  }, [adminToken, applyQuestions, clearAsyncState]);
+  }, [adminAuthenticated, applyQuestions, clearAsyncState]);
 
   const handleFileDrop = useCallback(async (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -630,9 +655,9 @@ function useExtractController() {
     return true;
   };
 
-  const validateAdminToken = () => {
-    if (!adminToken.trim()) {
-      setUi({ error: '请先填写后台管理 Token' });
+  const validateAdminSession = () => {
+    if (!adminAuthenticated) {
+      setUi({ error: '请先建立后台管理会话' });
       return false;
     }
     return true;
@@ -640,7 +665,7 @@ function useExtractController() {
 
   const handleExport = async () => {
     if (!validateBeforePersist()) return;
-    if (!validateAdminToken()) return;
+    if (!validateAdminSession()) return;
 
     setUi({ error: '', success: '' });
     try {
@@ -654,7 +679,7 @@ function useExtractController() {
 
   const handleSaveBank = async () => {
     if (!validateBeforePersist()) return;
-    if (!validateAdminToken()) return;
+    if (!validateAdminSession()) return;
 
     setUi({ error: '', success: '', isSaving: true });
 
@@ -680,7 +705,7 @@ function useExtractController() {
   };
 
   const handleGenerateAnalysis = async () => {
-    if (!validateAdminToken()) return;
+    if (!validateAdminSession()) return;
     if (!config.apiKey.trim()) {
       setUi({ error: '请输入 API Key' });
       return;
@@ -712,11 +737,8 @@ function useExtractController() {
     }, 1000);
 
     const clientId = `extract_${Date.now()}`;
-    const wsUrl = buildWebSocketURL(
-      `/ws/analyze/${clientId}?admin_token=${encodeURIComponent(adminToken.trim())}`
-    );
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+    const wsUrl = buildWebSocketURL(`/ws/analyze/${clientId}`);
+    const ws = connectWebSocket(wsUrl);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({
@@ -781,9 +803,45 @@ function useExtractController() {
   const blankCount = questions.filter((question) => question.type === 'blank').length;
   const estimatedTime = progress ? Math.ceil((progress.total - progress.current) * 2) : 0;
 
-  const setAdminTokenValue = (value: string) => {
-    setUi({ adminToken: value });
-    persistAdminToken(value);
+  const handleAdminLogin = async () => {
+    const token = adminTokenInput.trim();
+    if (!token) {
+      setUi({ error: '请输入后台管理 Token' });
+      return;
+    }
+
+    setUi({ adminSessionLoading: true, error: '', success: '' });
+    try {
+      await adminApi.login(token);
+      setUi({
+        adminAuthenticated: true,
+        adminTokenInput: '',
+        success: '后台管理会话已建立，刷新页面后仍可继续使用',
+      });
+    } catch (err) {
+      setUi({
+        adminAuthenticated: false,
+        error: '后台登录失败: ' + (err as Error).message,
+      });
+    } finally {
+      setUi({ adminSessionLoading: false });
+    }
+  };
+
+  const handleAdminLogout = async () => {
+    setUi({ adminSessionLoading: true, error: '', success: '' });
+    try {
+      await adminApi.logout();
+      setUi({
+        adminAuthenticated: false,
+        adminTokenInput: '',
+        success: '后台管理会话已退出',
+      });
+    } catch (err) {
+      setUi({ error: '退出后台会话失败: ' + (err as Error).message });
+    } finally {
+      setUi({ adminSessionLoading: false });
+    }
   };
 
   const handleBankKeyChange = (value: string) => {
@@ -813,7 +871,9 @@ function useExtractController() {
     error,
     success,
     analyzeTime,
-    adminToken,
+    adminTokenInput,
+    adminAuthenticated,
+    adminSessionLoading,
     config,
     keyCount,
     totalQuestions,
@@ -823,8 +883,9 @@ function useExtractController() {
     judgeCount,
     blankCount,
     estimatedTime,
-    setAdminTokenValue,
-    clearAdminToken: () => setAdminTokenValue(''),
+    setAdminTokenInput: (value: string) => setUi({ adminTokenInput: value }),
+    handleAdminLogin,
+    handleAdminLogout,
     clearError: () => setUi({ error: '' }),
     clearSuccess: () => setUi({ success: '' }),
     setBankColor: (value: string) => setUi({ bankColor: value }),
@@ -897,26 +958,60 @@ function ExtractView({ controller }: { controller: ExtractController }) {
 function AdminTokenCard({ controller }: { controller: ExtractController }) {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-4">
-      <label htmlFor="admin-token" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-2">
-        后台管理 Token
-      </label>
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <input
-          id="admin-token"
-          type="password"
-          value={controller.adminToken}
-          onChange={(event) => controller.setAdminTokenValue(event.target.value)}
-          placeholder="请输入 ADMIN_TOKEN"
-          className="flex-1 px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm"
-        />
-        <button
-          type="button"
-          onClick={controller.clearAdminToken}
-          className="px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:bg-slate-700"
-        >
-          清除
-        </button>
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <span className="text-sm font-medium text-gray-700 dark:text-slate-200">
+          后台管理会话
+        </span>
+        {controller.adminAuthenticated && (
+          <span className="text-xs font-medium text-emerald-600 dark:text-emerald-300">
+            已登录
+          </span>
+        )}
       </div>
+      {controller.adminAuthenticated ? (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
+            权限由 HttpOnly 会话 Cookie 提供，页面脚本无法读取管理密钥。
+          </p>
+          <button
+            type="button"
+            onClick={controller.handleAdminLogout}
+            disabled={controller.adminSessionLoading}
+            className="shrink-0 px-3 py-2 rounded-lg border border-gray-200 dark:border-slate-600 text-sm text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-700 disabled:opacity-50"
+          >
+            退出会话
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="admin-token" className="sr-only">
+            后台管理 Token
+          </label>
+          <input
+            id="admin-token"
+            type="password"
+            autoComplete="current-password"
+            value={controller.adminTokenInput}
+            onChange={(event) => controller.setAdminTokenInput(event.target.value)}
+            placeholder="输入 ADMIN_TOKEN 以建立会话"
+            disabled={controller.adminSessionLoading}
+            className="flex-1 px-3 py-2 border border-gray-200 dark:border-slate-600 rounded-lg text-sm disabled:opacity-50"
+          />
+          <button
+            type="button"
+            onClick={controller.handleAdminLogin}
+            disabled={controller.adminSessionLoading || !controller.adminTokenInput.trim()}
+            className="shrink-0 px-3 py-2 rounded-lg bg-primary-500 text-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50"
+          >
+            {controller.adminSessionLoading ? '验证中...' : '建立会话'}
+          </button>
+        </div>
+      )}
+      {!controller.adminAuthenticated && (
+        <p className="mt-2 text-xs text-gray-400 dark:text-slate-500">
+          Token 只用于本次登录交换，成功后不会保存在浏览器脚本或构建产物中。
+        </p>
+      )}
     </div>
   );
 }
