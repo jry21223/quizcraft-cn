@@ -12,6 +12,8 @@ import tempfile
 import shutil
 import asyncio
 import hashlib
+import hmac
+import secrets
 import time
 from typing import Dict, List, Optional, Any, Set, Tuple
 from datetime import datetime, timedelta
@@ -20,7 +22,7 @@ from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile, File, Form, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, UploadFile, File, Form, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -50,6 +52,59 @@ def get_admin_token() -> str:
     return os.getenv("ADMIN_TOKEN", "").strip()
 
 
+ADMIN_SESSION_COOKIE_NAME = "quizcraft_admin_session"
+DEFAULT_ADMIN_SESSION_TTL_SECONDS = 8 * 60 * 60
+
+
+def get_admin_session_ttl_seconds() -> int:
+    raw = os.getenv("ADMIN_SESSION_TTL_SECONDS", "").strip()
+    try:
+        ttl = int(raw) if raw else DEFAULT_ADMIN_SESSION_TTL_SECONDS
+    except ValueError:
+        ttl = DEFAULT_ADMIN_SESSION_TTL_SECONDS
+    return min(max(ttl, 5 * 60), 24 * 60 * 60)
+
+
+def _admin_session_signature(payload: str) -> str:
+    signing_key = hashlib.sha256(
+        f"quizcraft-admin-session:{get_admin_token()}".encode("utf-8")
+    ).digest()
+    return hmac.new(signing_key, payload.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def create_admin_session_token(now: Optional[int] = None) -> str:
+    if not get_admin_token():
+        raise RuntimeError("后台管理 Token 未配置")
+    issued_at = int(time.time() if now is None else now)
+    payload = f"{issued_at + get_admin_session_ttl_seconds()}.{secrets.token_urlsafe(24)}"
+    return f"{payload}.{_admin_session_signature(payload)}"
+
+
+def is_admin_session_valid(token: Optional[str], now: Optional[int] = None) -> bool:
+    if not get_admin_token() or not token:
+        return False
+    try:
+        payload, signature = token.rsplit(".", 1)
+        expires_at_text, _nonce = payload.split(".", 1)
+        expires_at = int(expires_at_text)
+    except (TypeError, ValueError):
+        return False
+
+    expected_signature = _admin_session_signature(payload)
+    if not secrets.compare_digest(signature, expected_signature):
+        return False
+    current_time = int(time.time() if now is None else now)
+    return expires_at > current_time
+
+
+def should_use_secure_admin_cookie(request: Request) -> bool:
+    forwarded_scheme = request.headers.get("x-forwarded-proto", "").split(",", 1)[0].strip()
+    scheme = forwarded_scheme or request.url.scheme
+    if scheme == "https":
+        return True
+    return request.url.hostname not in {"127.0.0.1", "localhost", "testserver"}
+
+
 def get_disabled_bank_keys() -> Set[str]:
     raw = os.getenv("DISABLED_BANK_KEYS", "").strip()
     if not raw:
@@ -77,13 +132,20 @@ def require_enabled_bank(bank_key: str):
 
 def is_admin_token_valid(token: Optional[str]) -> bool:
     expected = get_admin_token()
-    return bool(expected and token and token == expected)
+    return bool(expected and token and secrets.compare_digest(token, expected))
 
 
-async def require_admin_token(x_admin_token: Optional[str] = Header(None)):
+async def require_admin_token(
+    request: Request,
+    x_admin_token: Optional[str] = Header(None),
+):
     if not get_admin_token():
         raise HTTPException(status_code=503, detail="后台管理 Token 未配置")
-    if not is_admin_token_valid(x_admin_token):
+    session_token = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)
+    if not (
+        is_admin_session_valid(session_token)
+        or is_admin_token_valid(x_admin_token)
+    ):
         raise HTTPException(status_code=403, detail="后台管理 Token 无效")
 
 # 导入 LLM 服务
@@ -1653,6 +1715,51 @@ app.add_middleware(
 
 # ============== API 路由 ==============
 
+@app.get("/api/admin/session")
+async def get_admin_session_status(request: Request):
+    """Return browser admin-session state without exposing the session cookie."""
+    authenticated = is_admin_session_valid(
+        request.cookies.get(ADMIN_SESSION_COOKIE_NAME)
+    )
+    return {"authenticated": authenticated}
+
+
+@app.post("/api/admin/session")
+async def create_admin_session(
+    request: Request,
+    response: Response,
+    x_admin_token: Optional[str] = Header(None),
+):
+    """Exchange the server-side admin secret for a short-lived HttpOnly session."""
+    if not get_admin_token():
+        raise HTTPException(status_code=503, detail="后台管理 Token 未配置")
+    if not is_admin_token_valid(x_admin_token):
+        raise HTTPException(status_code=403, detail="后台管理 Token 无效")
+
+    ttl = get_admin_session_ttl_seconds()
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE_NAME,
+        value=create_admin_session_token(),
+        max_age=ttl,
+        httponly=True,
+        secure=should_use_secure_admin_cookie(request),
+        samesite="strict",
+        path="/",
+    )
+    return {"authenticated": True, "expires_in": ttl}
+
+
+@app.delete("/api/admin/session")
+async def delete_admin_session(request: Request, response: Response):
+    response.delete_cookie(
+        key=ADMIN_SESSION_COOKIE_NAME,
+        httponly=True,
+        secure=should_use_secure_admin_cookie(request),
+        samesite="strict",
+        path="/",
+    )
+    return {"authenticated": False}
+
 @app.get("/api/banks")
 async def get_banks():
     """获取题库列表"""
@@ -3172,10 +3279,15 @@ class WebSocketProgressConfig(BaseModel):
 
 
 @app.websocket("/ws/analyze/{client_id}")
-async def websocket_analyze(websocket: WebSocket, client_id: str, admin_token: Optional[str] = None):
+async def websocket_analyze(websocket: WebSocket, client_id: str):
     """WebSocket 实时解析进度"""
-    if not get_admin_token() or not is_admin_token_valid(admin_token):
-        await websocket.close(code=1008, reason="admin token required")
+    session_token = websocket.cookies.get(ADMIN_SESSION_COOKIE_NAME)
+    header_token = websocket.headers.get("x-admin-token")
+    if not get_admin_token() or not (
+        is_admin_session_valid(session_token)
+        or is_admin_token_valid(header_token)
+    ):
+        await websocket.close(code=1008, reason="admin session required")
         return
     await manager.connect(client_id, websocket)
     

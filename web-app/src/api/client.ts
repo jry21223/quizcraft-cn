@@ -1,4 +1,5 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { type AxiosInstance, type AxiosError } from 'axios';
+import { ApiRequestError, classifyApiErrorKind } from '@/api/errors';
 import type { 
   QuestionBank, 
   Question, 
@@ -62,7 +63,6 @@ const isFileProtocol =
 const trimTrailingSlash = (value: string) => value.replace(/\/+$/, '');
 
 const rawApiBaseURL = import.meta.env.VITE_API_BASE_URL?.trim();
-let runtimeAdminToken = import.meta.env.VITE_ADMIN_TOKEN?.trim() || '';
 
 const defaultApiBaseURL =
   isElectron || isFileProtocol
@@ -129,19 +129,6 @@ const persistUserId = (userId: string) => {
   }
 };
 
-export const getAdminToken = () => {
-  return runtimeAdminToken;
-};
-
-export const persistAdminToken = (token: string) => {
-  runtimeAdminToken = token.trim();
-};
-
-const adminHeaders = () => {
-  const token = getAdminToken();
-  return token ? { 'X-Admin-Token': token } : {};
-};
-
 const normalizeUserStats = (user: UserStatsResponse): UserStats => {
   const correct = user.correct ?? 0;
   const total = user.total ?? 0;
@@ -162,6 +149,7 @@ const normalizeUserStats = (user: UserStatsResponse): UserStats => {
 const api: AxiosInstance = axios.create({
   baseURL: apiBaseURL,
   timeout: 30000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -180,10 +168,32 @@ api.interceptors.response.use(
       responseData?.detail ||
       error.message ||
       '请求失败';
+    const kind = classifyApiErrorKind(error);
     console.error('API Error:', message);
-    return Promise.reject(new Error(message));
+    return Promise.reject(
+      new ApiRequestError(kind, message, error.response?.status),
+    );
   }
 );
+
+type AdminSessionResponse = {
+  authenticated: boolean;
+  expires_in?: number;
+};
+
+export const adminApi = {
+  getSession: (): Promise<AdminSessionResponse> => {
+    return api.get('/admin/session');
+  },
+  login: (token: string): Promise<AdminSessionResponse> => {
+    return api.post('/admin/session', undefined, {
+      headers: { 'X-Admin-Token': token.trim() },
+    });
+  },
+  logout: (): Promise<AdminSessionResponse> => {
+    return api.delete('/admin/session');
+  },
+};
 
 // 题库 API
 export const bankApi = {
@@ -204,7 +214,7 @@ export const bankApi = {
     bank: QuestionBank;
     file: string;
   }> => {
-    return api.post('/banks/save', payload, { headers: adminHeaders() });
+    return api.post('/banks/save', payload);
   },
   
   // 获取题库统计
@@ -285,9 +295,7 @@ export const feedbackApi = {
       resolution_note?: string;
     },
   ): Promise<{ ok: boolean; item: FeedbackBoardItem }> => {
-    return api.patch(`/feedback/${feedbackId}/status`, payload, {
-      headers: adminHeaders(),
-    });
+    return api.patch(`/feedback/${feedbackId}/status`, payload);
   },
 };
 
@@ -313,12 +321,7 @@ export const analysisApi = {
     const formData = new FormData();
     formData.append('file', file);
     
-    return api.post('/extract/parse', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-        ...adminHeaders(),
-      },
-    });
+    return api.post('/extract/parse', formData);
   },
   
   // 生成解析
@@ -328,8 +331,6 @@ export const analysisApi = {
     return api.post('/extract/analyze', {
       questions,
       config,
-    }, {
-      headers: adminHeaders(),
     });
   },
   
@@ -340,8 +341,6 @@ export const analysisApi = {
     return api.post('/extract/export', {
       questions,
       name,
-    }, {
-      headers: adminHeaders(),
     });
   },
 };

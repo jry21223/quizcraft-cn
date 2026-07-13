@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useReducer } from 'react';
+import { useEffect, useReducer } from 'react';
 import type { ReactNode } from 'react';
 import {
   Archive,
@@ -9,7 +9,7 @@ import {
   MessageSquare,
   RefreshCw,
 } from 'lucide-react';
-import { feedbackApi, getAdminToken } from '@/api/client';
+import { adminApi, feedbackApi } from '@/api/client';
 import type { FeedbackBoardItem, FeedbackDashboard } from '@/types';
 
 const emptyDashboard: FeedbackDashboard = {
@@ -28,6 +28,7 @@ type FeedbackBoardUiState = {
   dashboard: FeedbackDashboard;
   loading: boolean;
   error: string;
+  canManage: boolean;
   updatingId: number | null;
   notes: Record<number, string>;
 };
@@ -36,6 +37,7 @@ const initialFeedbackBoardUiState: FeedbackBoardUiState = {
   dashboard: emptyDashboard,
   loading: true,
   error: '',
+  canManage: false,
   updatingId: null,
   notes: {},
 };
@@ -121,9 +123,7 @@ export default function FeedbackBoard() {
     mergeFeedbackBoardUiState,
     initialFeedbackBoardUiState,
   );
-  const { dashboard, loading, error, updatingId, notes } = ui;
-
-  const canManage = useMemo(() => Boolean(getAdminToken()), []);
+  const { dashboard, loading, error, canManage, updatingId, notes } = ui;
 
   const loadDashboard = async () => {
     setUi({ loading: true, error: '' });
@@ -139,6 +139,10 @@ export default function FeedbackBoard() {
 
   useEffect(() => {
     loadDashboard();
+    void adminApi
+      .getSession()
+      .then((session) => setUi({ canManage: session.authenticated }))
+      .catch(() => setUi({ canManage: false }));
   }, []);
 
   const markResolved = async (item: FeedbackBoardItem) => {

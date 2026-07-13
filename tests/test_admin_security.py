@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 import db_storage
 import server
@@ -29,6 +30,112 @@ def test_feedback_status_update_requires_admin_token(monkeypatch):
     )
 
     assert response.status_code == 403
+
+
+def test_admin_session_login_sets_httponly_cookie_and_authorizes_requests(
+    tmp_path,
+    monkeypatch,
+):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-token")
+    monkeypatch.setattr(server, "EXPORT_DIR", str(tmp_path))
+
+    client = TestClient(server.app)
+
+    rejected = client.post(
+        "/api/admin/session",
+        headers={"X-Admin-Token": "wrong-token"},
+    )
+    assert rejected.status_code == 403
+
+    login = client.post(
+        "/api/admin/session",
+        headers={"X-Admin-Token": "test-token"},
+    )
+    assert login.status_code == 200
+    assert login.json()["authenticated"] is True
+    set_cookie = login.headers["set-cookie"].lower()
+    assert "httponly" in set_cookie
+    assert "samesite=strict" in set_cookie
+
+    status = client.get("/api/admin/session")
+    assert status.json() == {"authenticated": True}
+
+    protected = client.post(
+        "/api/extract/export",
+        json={
+            "name": "session-test",
+            "questions": [
+                {
+                    "id": "q1",
+                    "type": "single",
+                    "content": "1 + 1 = ?",
+                    "options": ["1", "2"],
+                    "answer": "B",
+                }
+            ],
+        },
+    )
+    assert protected.status_code == 200
+
+    logout = client.delete("/api/admin/session")
+    assert logout.status_code == 200
+    assert client.get("/api/admin/session").json() == {"authenticated": False}
+
+
+def test_admin_session_rejects_tampering_and_expiry(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-token")
+    monkeypatch.setenv("ADMIN_SESSION_TTL_SECONDS", "300")
+
+    token = server.create_admin_session_token(now=1_000)
+
+    assert server.is_admin_session_valid(token, now=1_001)
+    assert not server.is_admin_session_valid(token + "tampered", now=1_001)
+    assert not server.is_admin_session_valid(token, now=1_300)
+
+
+def test_admin_header_remains_available_for_cli_clients(tmp_path, monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-token")
+    monkeypatch.setattr(server, "EXPORT_DIR", str(tmp_path))
+
+    response = TestClient(server.app).post(
+        "/api/extract/export",
+        headers={"X-Admin-Token": "test-token"},
+        json={
+            "name": "cli-test",
+            "questions": [
+                {
+                    "id": "q1",
+                    "type": "single",
+                    "content": "1 + 1 = ?",
+                    "options": ["1", "2"],
+                    "answer": "B",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+
+
+def test_analysis_websocket_uses_admin_session_cookie(monkeypatch):
+    monkeypatch.setenv("ADMIN_TOKEN", "test-token")
+    client = TestClient(server.app)
+
+    with pytest.raises(WebSocketDisconnect) as rejected:
+        with client.websocket_connect("/ws/analyze/rejected"):
+            pass
+    assert rejected.value.code == 1008
+
+    client.post(
+        "/api/admin/session",
+        headers={"X-Admin-Token": "test-token"},
+    )
+    with client.websocket_connect("/ws/analyze/accepted") as websocket:
+        websocket.send_json({"questions": [], "config": {}})
+        assert websocket.receive_json() == {
+            "type": "error",
+            "error": "没有题目需要解析",
+        }
 
 
 def test_feedback_status_normalization_accepts_archived():
