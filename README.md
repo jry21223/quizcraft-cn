@@ -1,8 +1,11 @@
 # QuizCraft CN
 
-QuizCraft CN 是一个面向中文课程题库的刷题系统。它用 React + TypeScript 提供网页端练习体验，用 FastAPI 提供题库、答题、反馈和管理接口，生产环境以 PostgreSQL 保存题库快照、排行榜、用户统计和题目统计。
+QuizCraft CN 是一个面向中文课程题库的刷题系统。它用 React + TypeScript 提供网页端练习体验，用 FastAPI 提供题库、答题、反馈和管理接口，生产环境以 PostgreSQL 保存题库快照、排行榜、用户统计和题目统计，并暴露MCP接口供Agent处理反馈。
 
-GitHub: <https://github.com/jry21223/quizcraft-cn>
+
+目前题库为河大专供
+网站：superhuazai.me
+
 
 ## 功能概览
 
